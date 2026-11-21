@@ -1,0 +1,248 @@
+/* Проверка гидравлики (app.hydroCardHtml / syncHydroCheck, hydro_check.js).
+   Спокойная карточка в стиле калькулятора: тот же размер текста, что у панелей и сметы, без цветной шапки —
+   цвет несут только статус и галочки контуров. Цвета — из переменных темы (--surface, --text-main, --c-ok…),
+   поэтому тёмная тема подхватывается сама. */
+
+/* Схема и карточка делят строку пополам (класс .hc-split ставит syncHydroCheck, пока карточка показана);
+   на узком экране карточка уходит под схему */
+#dynamic_scheme.scheme-vector.hc-split { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+#dynamic_scheme.scheme-vector.hc-split .scheme-svg-wrap {
+    flex: 0 0 calc(50% - 7px); width: calc(50% - 7px); max-width: none;
+    height: auto; aspect-ratio: 420 / 297;
+}
+#dynamic_scheme.scheme-vector.hc-split .scheme-svg-wrap > svg { height: 100%; }
+.hc-side { flex: 1 1 calc(50% - 7px); min-width: 0; }
+@media (max-width: 900px) {
+    #dynamic_scheme.scheme-vector.hc-split .scheme-svg-wrap { flex-basis: 100%; width: 100%; }
+    .hc-side { flex-basis: 100%; }
+}
+.hc-solo { flex: none; max-width: 760px; margin-bottom: 20px; }
+
+.hc-card { background: var(--surface, #fff); color: var(--text-main, #111827); border: 1px solid var(--border, #E5E7EB);
+    border-radius: 10px; font-size: 12px; line-height: 1.35; padding: 8px 10px; }
+
+/* Шапка: заголовок и статус в одну строку, без заливки */
+.hc-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.hc-head-t { flex: 1; min-width: 0; }
+.hc-title { font-size: 12px; font-weight: 700; }
+/* Шапка — кнопка «свернуть/развернуть» всю карточку */
+.hc-head[role="button"] { cursor: pointer; user-select: none; }
+.hc-head[role="button"]:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; border-radius: 6px; }
+.hc-fold { flex: none; width: 7px; height: 7px; border-right: 1.5px solid var(--text-sec, #9CA3AF); border-bottom: 1.5px solid var(--text-sec, #9CA3AF);
+    transform: rotate(-135deg); margin: 3px 2px 0 2px; transition: transform .15s; }
+.hc-collapsed .hc-head { margin-bottom: 0; }
+.hc-collapsed .hc-fold { transform: rotate(45deg); margin-top: -3px; }
+.hc-sub { font-size: 11px; color: var(--text-sec, #6B7280); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-pill { flex: none; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+.hc-pill.hc-ok { background: rgba(34, 197, 94, .14); color: var(--c-ok, #059669); }
+.hc-pill.hc-tight { background: rgba(245, 158, 11, .16); color: var(--c-warn, #B45309); }
+.hc-pill.hc-fail { background: rgba(239, 68, 68, .14); color: var(--c-bad, #DC2626); }
+
+.hc-body { padding: 0; }
+
+/* Запас самого слабого контура: число и тонкая шкала с меткой «достаточно» */
+.hc-meter { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; margin-bottom: 6px; }
+.hc-big { font-size: 16px; font-weight: 700; line-height: 1; }
+.hc-big.hc-ok { color: var(--c-ok, #059669); }
+.hc-big.hc-tight { color: var(--c-warn, #B45309); }
+.hc-big.hc-fail { color: var(--c-bad, #DC2626); }
+.hc-bar { position: relative; height: 5px; border-radius: 999px; background: var(--surface-light, #F3F4F6); }
+.hc-bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; }
+.hc-bar > i.hc-ok { background: #22c55e; }
+.hc-bar > i.hc-tight { background: #f59e0b; }
+.hc-bar > i.hc-fail { background: #ef4444; }
+.hc-mark { position: absolute; top: -3px; bottom: -3px; width: 1.5px; background: var(--text-sec, #6B7280); border-radius: 2px; }
+.hc-cap { grid-column: 1 / -1; font-size: 11px; color: var(--text-sec, #6B7280); }
+
+.hc-msg { margin: 0 0 6px; padding: 5px 8px; border-radius: 8px; font-size: 11px; font-weight: 600; }
+.hc-msg.hc-ok { background: rgba(34, 197, 94, .12); color: var(--c-ok, #059669); }
+.hc-msg.hc-tight { background: rgba(245, 158, 11, .14); color: var(--c-warn, #B45309); }
+.hc-note { margin-top: 6px; font-size: 10.5px; color: var(--text-sec, #6B7280); }
+
+/* Переключатель автоподбора: видно, включён он или нет (зелёный бегунок справа / серый слева) */
+.hc-switch { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; padding: 5px 8px; cursor: pointer; user-select: none;
+    border: 1px solid var(--border, #E5E7EB); border-radius: 8px; background: var(--surface-light, #F9FAFB); }
+.hc-switch:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; }
+.hc-sw { flex: none; position: relative; width: 28px; height: 16px; border-radius: 999px; background: #9ca3af; transition: background .15s; }
+.hc-sw > i { position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: transform .15s; }
+.hc-switch.on .hc-sw { background: #22c55e; }
+.hc-switch.on .hc-sw > i { transform: translateX(12px); }
+.hc-sw-t { min-width: 0; line-height: 1.25; }
+.hc-sw-t > b { display: block; font-size: 12px; }
+.hc-sw-t > small { display: block; font-size: 10.5px; color: var(--text-sec, #6B7280); }
+
+/* Чек-лист контуров: строка = контур, по нажатию — цифры и совет */
+.hc-rows { display: flex; flex-direction: column; gap: 3px; }
+.hc-row { border: 1px solid var(--border, #E5E7EB); border-radius: 8px; background: var(--surface-light, #F9FAFB); }
+.hc-row > summary { display: flex; align-items: center; gap: 8px; padding: 5px 8px; cursor: pointer; list-style: none; }
+.hc-row > summary::-webkit-details-marker { display: none; }
+.hc-dot { flex: none; width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 800; color: #fff; background: #22c55e; }
+.hc-row.hc-tight .hc-dot { background: #f59e0b; }
+.hc-row.hc-fail .hc-dot { background: #ef4444; }
+.hc-row.hc-unknown .hc-dot { background: #9ca3af; }
+.hc-name { flex: 1; min-width: 0; font-weight: 600; font-size: 12px; }
+.hc-name > small { margin-left: 6px; font-weight: 400; font-size: 11px; color: var(--text-sec, #6B7280); }
+.hc-res { flex: none; font-size: 11px; font-weight: 500; text-align: right; color: var(--c-ok, #059669); }
+.hc-row.hc-tight .hc-res { color: var(--c-warn, #B45309); }
+.hc-row.hc-fail .hc-res { color: var(--c-bad, #DC2626); }
+.hc-row.hc-unknown .hc-res { color: var(--text-sec, #6B7280); }
+.hc-res > b { margin-left: 3px; font-weight: 700; }
+.hc-chev { flex: none; width: 6px; height: 6px; border-right: 1.5px solid var(--text-sec, #9CA3AF); border-bottom: 1.5px solid var(--text-sec, #9CA3AF);
+    transform: rotate(45deg); transition: transform .15s; margin: 0 2px 2px 2px; }
+.hc-row[open] .hc-chev { transform: rotate(-135deg); margin-bottom: -2px; }
+.hc-det { padding: 0 8px 7px 32px; }
+.hc-det-t { margin-top: 5px; font-size: 11px; font-weight: 600; }
+.hc-facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 4px; }
+.hc-facts > div { background: var(--surface, #fff); border: 1px solid var(--border, #E5E7EB); border-radius: 6px; padding: 3px 6px; }
+.hc-facts span { display: block; font-size: 10px; color: var(--text-sec, #6B7280); }
+.hc-facts b { font-size: 11.5px; font-weight: 600; }
+.hc-det-p { margin-top: 4px; font-size: 10.5px; color: var(--text-sec, #6B7280); }
+.hc-advice { margin-top: 4px; font-size: 11px; font-weight: 600; color: var(--c-bad, #DC2626); }
+.hc-flag { margin-top: 3px; font-size: 10.5px; color: var(--c-warn, #B45309); }
+@media (max-width: 520px) { .hc-facts { grid-template-columns: repeat(2, 1fr); } .hc-det { padding-left: 8px; } }
+
+/* Разделы подробного режима («По комнатам»): что выставить при пуске, на сколько хватит… */
+.hc-sec { margin-top: 4px; border-top: 1px solid var(--border, #E5E7EB); padding-top: 5px; }
+.hc-sec:first-of-type { margin-top: 8px; }
+.hc-sec > summary { cursor: pointer; font-weight: 600; font-size: 12px; list-style: none; display: flex; align-items: center; gap: 6px; }
+.hc-sec > summary::-webkit-details-marker { display: none; }
+.hc-sec > summary::after { content: ''; margin-left: auto; width: 6px; height: 6px; border-right: 1.5px solid var(--text-sec, #9CA3AF);
+    border-bottom: 1.5px solid var(--text-sec, #9CA3AF); transform: rotate(45deg); transition: transform .15s; }
+.hc-sec[open] > summary::after { transform: rotate(-135deg); }
+.hc-sec ul { margin: 4px 0 2px; padding-left: 16px; font-size: 11px; line-height: 1.45; }
+.hc-btn { color: var(--primary, #2563eb); border-bottom: 1px dashed currentColor; text-decoration: none; cursor: pointer; }
+
+/* Печать: живая карточка скрыта, проверка гидравлики идёт своим листом (#hydro_check_print,
+   app.prepareForPrint, шаг 3б) с раскрытыми строками и без кнопок */
+@media print {
+    .hc-side, #water_hydro_side { display: none !important; }
+    /* Без карточки схема в печати — одна во весь лист: раскладка «пополам» (aspect-ratio при
+       ширине 100 %) делала её выше альбомного листа, и хвост уходил на пустую страницу */
+    #dynamic_scheme.scheme-vector.hc-split { display: block !important; }
+    #dynamic_scheme.scheme-vector.hc-split .scheme-svg-wrap { flex: none !important; aspect-ratio: auto !important; }
+    #water_hydro_print { padding: 6mm 8mm; color: #111; }
+    #water_hydro_print .hc-print-title { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+    #water_hydro_print .hc-card { border: none; padding: 0; font-size: 12px; }
+    #water_hydro_print .hc-row > summary { cursor: default; }
+    #water_hydro_print .hc-chev { display: none; }
+    #water_hydro_print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    #hydro_check_print { padding: 6mm 8mm; color: #111; }
+    #hydro_check_print .hc-print-title { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
+    #hydro_check_print .hc-card { border: none; padding: 0; font-size: 12px; }
+    #hydro_check_print .hc-row > summary { cursor: default; }
+    #hydro_check_print .hc-chev, #hydro_check_print .hc-sec > summary::after { display: none; }
+    #hydro_check_print * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.hc-btn { display: inline-block; margin: 6px 0 0 0; padding: 5px 10px; border: 0; border-radius: 8px; background: var(--primary, #2563eb); color: #fff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+.hc-btn:hover { filter: brightness(1.08); }
+.hc-btn-ghost { margin: 0 0 0 6px; padding: 2px 8px; background: transparent; color: var(--primary, #2563eb); border: 1px solid currentColor; }
+.hc-est .hc-btn { display: block; }
+
+/* Участки кольца, форма ручной трассы и список «Что изменится» */
+.hc-parts { margin-top: 6px; font-size: 10.5px; color: var(--text-sec, #6B7280); }
+.hc-part { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
+.hc-part b { white-space: nowrap; color: var(--text-main, #111827); font-weight: 600; }
+.hc-trunk-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 10.5px; }
+.hc-trunk-form select, .hc-trunk-form input { font: inherit; font-size: 11px; padding: 2px 4px; border: 1px solid var(--border, #D1D5DB); border-radius: 6px; background: transparent; color: inherit; }
+.hc-trunk-form input { width: 56px; }
+.hc-trunk-form .hc-btn { margin: 0; }
+.hc-manual { margin-top: 6px; font-size: 10.5px; }
+.hc-manual > summary { cursor: pointer; color: var(--text-sec, #6B7280); text-decoration: underline dotted; }
+.hc-preview { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--border, #E5E7EB); border-radius: 10px; font-size: 11px; }
+.hc-preview-t { font-weight: 700; margin-bottom: 4px; }
+.hc-pv-item { padding: 5px 0; border-top: 1px solid var(--border, #E5E7EB); }
+.hc-pv-item:first-of-type { border-top: 0; }
+
+/* Гидравлика водоснабжения (app.waterHydroHtml, water_hydro.js): карточка под насосом скважины, свёрнута по умолчанию */
+.whc { text-align: left; }
+.hc-water { flex: 1 1 100%; width: 100%; }
+.whc-cbox { max-width: 560px; margin: 6px 0 10px; }
+.whc-ctitle { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.whc-chart { display: block; width: 100%; height: auto; margin: 4px 0 6px; color: var(--text-main, #111827); overflow: visible; }
+.whc-pt { cursor: pointer; outline: none; }
+.whc-pt .whc-dot { transition: r .12s; }
+.whc-pt:hover .whc-dot, .whc-pt:focus .whc-dot, .whc-pt.whc-sel .whc-dot { r: 5; fill: currentColor; }
+.whc-tip { font-size: 12px; line-height: 1.4; min-height: 2.8em; padding: 6px 9px; border-radius: 8px; background: var(--bg-soft, rgba(127,127,127,.10)); color: var(--text-sec, #6B7280); }
+.whc-tip.whc-tip-on { color: var(--text-main, #111827); }
+.whc-tip b { font-weight: 700; }
+.whc-key { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 11px; color: var(--text-sec, #6B7280); margin: 6px 0 2px; }
+.whc-key i { display: inline-block; vertical-align: middle; width: 18px; margin-right: 5px; }
+.whc-k-line { height: 3px; border-radius: 2px; }
+.whc-k-dash { height: 0; border-top: 2px dashed #DC2626; }
+.whc-how { font-size: 11px; line-height: 1.4; color: var(--text-sec, #6B7280); }
+.hc-in-table { max-width: none; margin: 10px 0 14px; }
+.hc-in-table .hc-card { max-width: 900px; }
+@media print { .whc-tip, .whc-how { display: none; } .whc-chart { max-height: 110px; } }
+.whc-t { width: 100%; border-collapse: collapse; font-size: 11px; margin: 4px 0; }
+.whc-t th { text-align: left; font-weight: 600; color: var(--text-sec, #6B7280); padding: 2px 6px 2px 0; }
+.whc-t td { padding: 2px 6px 2px 0; border-top: 1px solid var(--border, #E5E7EB); }
+.whc-t td i { font-style: normal; color: var(--text-sec, #6B7280); margin-left: 4px; }
+.whc-t tr.whc-z td { font-weight: 600; background: rgba(127, 127, 127, .08); }
+.whc-t tr.whc-tight td:last-child { color: var(--c-warn, #B45309); }
+.whc-t tr.whc-fail td:last-child { color: var(--c-bad, #DC2626); }
+.whc-t tr.whc-ok td:last-child { color: var(--c-ok, #059669); }
+
+/* «На весь экран» (app.openHydroFull): кнопка в шапке карточки и окно поверх страницы.
+   Цвета — из переменных темы, поэтому тёмная и светлая тема подхватываются сами. */
+.hc-fs-btn { flex: none; display: inline-grid; place-items: center; width: 26px; height: 22px; padding: 0;
+    border: 1px solid var(--border, #E5E7EB); border-radius: 6px; background: transparent;
+    color: var(--text-sec, #6B7280); cursor: pointer; }
+.hc-fs-btn:hover { color: var(--text-main, #111827); border-color: var(--text-sec, #9CA3AF); }
+.hc-fs-btn:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; }
+
+#hc_fs { position: fixed; inset: 0; z-index: 10050; display: flex; flex-direction: column;
+    background: var(--bg, #F3F4F6); color: var(--text-main, #111827);
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+#hc_fs .hc-fs-bar { flex: none; display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+    border-bottom: 1px solid var(--border, #E5E7EB); background: var(--surface, #fff); }
+#hc_fs .hc-fs-t { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; }
+#hc_fs .hc-fs-close { flex: none; width: 36px; height: 36px; border-radius: 10px; font-size: 18px; line-height: 1;
+    border: 1px solid var(--border, #E5E7EB); background: transparent; color: var(--text-main, #111827); cursor: pointer; }
+#hc_fs .hc-fs-close:hover { background: var(--surface-light, #F3F4F6); }
+#hc_fs .hc-fs-close:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; }
+#hc_fs .hc-fs-body { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 40px; }
+#hc_fs .hc-fs-body > .hc-card { max-width: 1600px; margin: 0 auto; font-size: 13px; }
+#hc_fs .hc-fs-empty { max-width: 1600px; margin: 40px auto; text-align: center; color: var(--text-sec, #6B7280); }
+@media (max-width: 600px) {
+    #hc_fs .hc-fs-bar { padding: 10px 14px; }
+    #hc_fs .hc-fs-body { padding: 12px 12px 32px; }
+}
+/* В окне заголовок уже есть в полосе сверху — в карточке остаётся только статус */
+#hc_fs .hc-card > .hc-head .hc-head-t { visibility: hidden; }
+
+/* Схема и общий вид котельной (модели) — в одной рамке, переключатель «Схема / Модели» над ней; проверка подбора — рядом/под */
+#dynamic_scheme.scheme-vector.rv-split { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+.rv-tabs-row { flex: 0 0 100%; margin: 0 0 -6px; }
+/* Слайдер «Схема / Модели»: ползунок едет под активную кнопку, как переключатель на айфоне, в цветах калькулятора */
+.rv-tabs { position: relative; display: inline-grid; grid-template-columns: 1fr 1fr; width: 188px; max-width: 100%;
+    padding: 3px; border-radius: 999px; background: var(--surface-light, rgba(127,127,127,.14)); border: 1px solid var(--border, #E5E7EB); }
+.rv-tabs::before { content: ''; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px); border-radius: 999px;
+    background: var(--primary, #2563eb); box-shadow: 0 1px 4px rgba(0,0,0,.25);
+    transition: transform .28s cubic-bezier(.32,.72,0,1); }
+.rv-tabs[data-tab="models"]::before { transform: translateX(100%); }
+.rv-tabs button { position: relative; z-index: 1; font: inherit; font-size: 12px; font-weight: 600; padding: 5px 0; border: 0; background: transparent;
+    border-radius: 999px; cursor: pointer; color: var(--text-sec, #6b7280); transition: color .2s; -webkit-tap-highlight-color: transparent; }
+.rv-tabs button.on { color: #fff; }
+.rv-tabs button:focus-visible { outline: 2px solid var(--primary, #2563eb); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .rv-tabs::before, .rv-tabs button { transition: none; } }
+#dynamic_scheme.scheme-vector.rv-split .scheme-svg-wrap {
+    flex: 0 0 calc(50% - 7px); width: calc(50% - 7px); max-width: none;
+    height: auto; aspect-ratio: 420 / 297;
+}
+#dynamic_scheme.scheme-vector.rv-split .scheme-svg-wrap > svg { height: 100%; }
+.rv-side { flex: 0 0 calc(50% - 7px); min-width: 0; }
+.rv-side .rv-head { display: none; }
+.rv-side .rv { padding: 0; margin: 0; max-width: none; }
+.rv-side .rv-stage.zoomable { box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 420 / 297; max-width: none;
+    margin: 0; border: 1px solid var(--border, #E5E7EB); border-radius: 8px; background: #fff; }
+body.dark-mode .rv-side .rv-stage.zoomable { border-color: #334155; }
+.rv-side .rv-stage.zoomable img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+#dynamic_scheme.scheme-vector.rv-show-models .scheme-svg-wrap { display: none; }
+#dynamic_scheme.scheme-vector.rv-show-scheme .rv-side { display: none; }
+@media (max-width: 900px) {
+    #dynamic_scheme.scheme-vector.rv-split .scheme-svg-wrap, .rv-side { flex-basis: 100%; width: 100%; }
+}
+@media screen { #room_view_scheme_row.rv-moved { display: none; } }
+@media print { .rv-side, .rv-tabs-row { display: none !important; } }

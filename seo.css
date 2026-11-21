@@ -1,0 +1,674 @@
+/* Оформление контентных страниц HeatCalc: города, смета, статьи.
+ *
+ * Один файл на все 23 страницы — правка стиля делается здесь, а не в каждой.
+ *
+ * Палитра, шрифт, радиусы и кривые анимации взяты из style.css калькулятора,
+ * чтобы статьи не выглядели чужим сайтом. Имена переменных те же намеренно:
+ * если в калькуляторе поменяют цвет, здесь будет видно, что менять.
+ *
+ * Тёмная тема — общий флаг с калькулятором: localStorage['stout_save'].darkMode.
+ * Переключил на статье — переключилось и в калькуляторе, и наоборот. Тот же
+ * приём уже используется на странице рейтинга. Класс dark-mode вешается
+ * на <html> инлайн-скриптом в <head> (в калькуляторе он на <body>, но там
+ * скрипт работает после загрузки; здесь класс нужен до первой отрисовки,
+ * иначе тёмная страница моргает белым, а <body> в этот момент ещё нет).
+ */
+
+:root {
+    --primary: #2563EB;
+    --primary-light: #EFF6FF;
+    --bg: #F3F4F6;
+    --surface: #FFFFFF;
+    --surface-light: #F9FAFB;
+    --text-main: #111827;
+    --text-sec: #6B7280;
+    --border: #E5E7EB;
+    --radius: 12px;
+
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --dur-fast: 150ms;
+    --dur-base: 250ms;
+
+    --measure: 760px;
+
+    color-scheme: light;
+}
+
+html.dark-mode {
+    --bg: #000000;
+    --surface: #121212;
+    --surface-light: #1E1E1E;
+    --text-main: #F3F4F6;
+    --text-sec: #9CA3AF;
+    --border: #1E1E1E;
+    --primary: #6366F1;
+    --primary-light: rgba(99, 102, 241, 0.15);
+
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-main);
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    transition: background var(--dur-fast) var(--ease-out),
+                color var(--dur-fast) var(--ease-out);
+}
+
+.wrap { max-width: var(--measure); margin: 0 auto; padding: 0 20px; }
+
+/* ── Шапка ───────────────────────────────────────────────────────── */
+
+header.top {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 0;
+    margin-bottom: 32px;
+}
+
+header.top .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.logo {
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text-main);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+}
+.logo span { color: var(--primary); }
+
+.head-actions { display: flex; align-items: center; gap: 8px; }
+
+.head-link {
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--primary);
+    text-decoration: none;
+    border-radius: var(--radius);
+    padding: 8px 14px;
+    white-space: nowrap;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.head-link:hover { opacity: 0.88; }
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex: none;
+    padding: 0;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-sec);
+    cursor: pointer;
+    line-height: 1;
+    transition: color var(--dur-fast) var(--ease-out),
+                border-color var(--dur-fast) var(--ease-out);
+}
+.theme-toggle:hover { color: var(--primary); border-color: var(--primary); }
+.theme-toggle .i-sun { display: none; }
+.theme-toggle .i-moon { display: block; }
+html.dark-mode .theme-toggle .i-sun { display: block; }
+html.dark-mode .theme-toggle .i-moon { display: none; }
+
+/* ── Текст ───────────────────────────────────────────────────────── */
+
+.crumbs { font-size: 13px; color: var(--text-sec); margin-bottom: 20px; }
+.crumbs a { color: var(--text-sec); text-decoration: none; }
+.crumbs a:hover { color: var(--primary); }
+
+h1 {
+    font-size: 28px;
+    line-height: 1.22;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+    margin: 0 0 18px;
+}
+
+h2 {
+    font-size: 20px;
+    line-height: 1.3;
+    font-weight: 800;
+    color: var(--text-main);
+    letter-spacing: -0.02em;
+    margin: 36px 0 14px;
+}
+
+/* Как в калькуляторе: мелкий заголовок капителью, разрядка вместо кегля */
+h3 {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 28px 0 10px;
+}
+
+p { margin: 0 0 16px; }
+
+a { color: var(--primary); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+strong, b { color: var(--text-main); font-weight: 700; }
+
+.lead { font-size: 18px; line-height: 1.55; color: var(--text-main); margin-bottom: 22px; }
+
+/* Дата под заголовком: она же уходит в микроразметку Article и в сниппет. */
+.art-meta { font-size: 13px; color: var(--text-sec); margin: -8px 0 18px; }
+
+/* Блок прямого ответа — первое, что читает и человек, и модель. Стоит выше лида:
+   ИИ-ответы Яндекса и Google цитируют фрагмент, который отвечает на запрос буквально.
+   Оформлен как выделенная врезка, но без рамки-«плашки»: это часть текста статьи,
+   а не примечание, и выглядеть должен читаемо, а не как баннер. */
+.short-answer {
+    border-left: 3px solid var(--primary);
+    padding: 2px 0 2px 16px;
+    margin: 0 0 22px;
+}
+.short-answer-q {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--text-sec);
+    margin: 0 0 6px;
+}
+.short-answer p:last-child {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--text-main);
+    margin: 0;
+}
+
+/* Оглавление. Ставится только при четырёх и более разделах — см. render_toc. */
+.toc {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px 12px;
+    margin: 0 0 24px;
+    background: var(--surface-light);
+}
+.toc-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--text-sec);
+    margin: 0 0 8px;
+}
+.toc ol { margin: 0; padding-left: 20px; }
+.toc li { margin-bottom: 4px; }
+.toc a { color: var(--text-main); text-decoration: none; border-bottom: 1px solid transparent; }
+.toc a:hover { color: var(--primary); border-bottom-color: currentColor; }
+
+/* Чтобы якорь из оглавления не уводил заголовок под шапку. */
+h2[id] { scroll-margin-top: 16px; }
+
+/* Подпись автора в конце статьи. */
+.author {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    border-top: 1px solid var(--border);
+    margin: 28px 0 24px;
+    padding-top: 16px;
+}
+.author img {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+.author p {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text-main);
+    margin: 0;
+    align-self: center;
+}
+.author b { font-weight: 700; }
+.author span { font-size: 13px; color: var(--text-sec); }
+
+ul, ol { margin: 0 0 16px; padding-left: 22px; }
+li { margin-bottom: 8px; }
+li::marker { color: var(--text-sec); }
+
+.note { font-size: 13px; line-height: 1.55; color: var(--text-sec); margin: 0 0 22px; }
+
+/* ── Таблицы ─────────────────────────────────────────────────────── */
+
+.table-scroll {
+    overflow-x: auto;
+    margin: 0 0 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    font-size: 15px;
+}
+
+th, td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+tr:last-child td { border-bottom: none; }
+
+th {
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-sec);
+    background: var(--surface-light);
+    white-space: nowrap;
+}
+
+/* Подзаголовок группы внутри длинной таблицы — прайс на монтаж разбит на
+   группы работ. Отличается от шапки цветом: иначе на середине таблицы
+   кажется, что началась новая таблица со своими колонками. */
+tr.group th {
+    background: var(--primary-light);
+    color: var(--text-main);
+    white-space: normal;
+    padding-top: 14px;
+    padding-bottom: 14px;
+}
+
+td { color: var(--text-main); }
+td.num { white-space: nowrap; font-variant-numeric: tabular-nums; }
+td.minus { color: #DC2626; font-weight: 700; }
+html.dark-mode td.minus { color: #F87171; }
+td strong { color: var(--primary); }
+
+/* ── Кнопка-призыв ───────────────────────────────────────────────── */
+
+.cta {
+    display: block;
+    background: var(--primary);
+    color: #fff;
+    text-decoration: none;
+    text-align: center;
+    font-weight: 700;
+    font-size: 16px;
+    padding: 15px 24px;
+    border-radius: var(--radius);
+    margin: 28px 0;
+    transition: opacity var(--dur-fast) var(--ease-out);
+}
+.cta:hover { opacity: 0.9; text-decoration: none; }
+.cta small { display: block; font-weight: 500; font-size: 13px; opacity: 0.85; margin-top: 3px; }
+
+/* ── Графики ─────────────────────────────────────────────────────── */
+
+/* Рисуются прямо в разметке как inline SVG: ни одного запроса к серверу,
+   цвета берутся из тех же переменных, поэтому график сам переключается
+   вместе с темой. Данные — из справочников проекта, не из головы. */
+
+.chart {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin: 0 0 12px;
+}
+.chart svg { display: block; width: 100%; height: auto; font-family: inherit; }
+.chart-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-main);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 14px;
+}
+.chart + .note { margin-top: -2px; }
+
+@media (max-width: 600px) {
+    .chart { padding: 14px; }
+    .chart-title { font-size: 12px; margin-bottom: 10px; }
+}
+
+/* ── Врезки ──────────────────────────────────────────────────────── */
+
+.callout {
+    background: var(--primary-light);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 14px 18px;
+    margin: 0 0 22px;
+    font-size: 15px;
+}
+.callout p:last-child { margin-bottom: 0; }
+
+.formula {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin: 0 0 22px;
+    font-size: 15px;
+}
+.formula p { margin: 0 0 12px; }
+.formula p:last-child { margin-bottom: 0; }
+.formula b { color: var(--primary); }
+
+/* ── Вопрос-ответ ────────────────────────────────────────────────── */
+
+details { border-bottom: 1px solid var(--border); }
+
+details summary {
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 16px;
+    color: var(--text-main);
+    padding: 15px 0;
+    list-style: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    transition: color var(--dur-fast) var(--ease-out);
+}
+
+/* Иконка слева, вопрос занимает остаток строки, плюс прижат вправо */
+.faq-icon { flex: none; margin-top: 3px; color: var(--primary); }
+.faq-q { flex: 1; }
+details summary:hover { color: var(--primary); }
+details summary::-webkit-details-marker { display: none; }
+details summary::after {
+    content: '+';
+    color: var(--primary);
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 1.3;
+    flex: none;
+}
+details[open] summary::after { content: '−'; }
+details .answer { padding: 0 0 18px; font-size: 15px; color: var(--text-main); }
+details .answer p:last-child { margin-bottom: 0; }
+
+/* ── Список городов на странице /goroda/ ─────────────────────────── */
+
+.city-list { list-style: none; padding: 0; margin: 0 0 22px; }
+.city-list li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 8px;
+    transition: border-color var(--dur-fast) var(--ease-out);
+}
+.city-list li:hover { border-color: var(--primary); }
+.city-list a { font-weight: 700; font-size: 16px; }
+.city-list .fact { font-size: 14px; color: var(--text-sec); margin-top: 3px; }
+
+/* ── Подвал ──────────────────────────────────────────────────────── */
+
+/* ---------- Подвал сайта ----------
+   Сетка из бренда и четырёх колонок ссылок. Цвета только из переменных темы,
+   поэтому тёмная тема подхватывается сама. Липкость к низу окна — правило
+   На страницах-статьях подвал обычный, без липкости. Разметка — tools/site_footer.py. */
+.site-footer {
+    margin-top: 40px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    color: var(--text-sec);
+    font-size: 13px;
+}
+.site-footer a { color: inherit; text-decoration: none; }
+.sf-wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 36px 24px 28px;
+    display: grid;
+    grid-template-columns: minmax(240px, 1.5fr) repeat(4, minmax(0, 1fr));
+    gap: 32px;
+}
+.sf-logo {
+    display: inline-block;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-main);
+}
+.sf-logo span { color: var(--primary); }
+.sf-about { margin: 10px 0 16px; line-height: 1.55; max-width: 340px; }
+.sf-social { display: flex; flex-wrap: wrap; gap: 8px; }
+.sf-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-light);
+    color: var(--text-main) !important;
+    font-weight: 600;
+    transition: border-color .15s, color .15s, background .15s;
+}
+.sf-pill .sf-ic { color: var(--primary); }
+.sf-pill:hover { border-color: var(--primary); background: var(--primary-light); }
+.sf-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    color: var(--text-main);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+.sf-ic { width: 16px; height: 16px; flex-shrink: 0; }
+.sf-title .sf-ic { color: var(--primary); }
+.sf-col ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.sf-col a { display: inline-block; line-height: 1.35; transition: color .15s, transform .15s; }
+.sf-col a:hover, .sf-legal a:hover { color: var(--primary); }
+.sf-col a:hover { transform: translateX(2px); }
+.site-footer a:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.sf-bottom { border-top: 1px solid var(--border); }
+.sf-bottom-in {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 8px 24px;
+    font-size: 12px;
+}
+.sf-legal { display: flex; flex-wrap: wrap; gap: 6px 20px; }
+@media (max-width: 1180px) {
+    .sf-wrap { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .sf-brand { grid-column: 1 / -1; }
+}
+
+/* ── Доступность ─────────────────────────────────────────────────── */
+
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+
+@media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+}
+
+/* ── Форма заявки на монтаж (/montazh-otopleniya-spb/) ───────────────
+   Страница подключает seo.css с ?v=, поэтому новые правила доходят до неё сразу,
+   а остальные страницы, где этих классов нет, кэш не перекачивают. */
+
+.lead-form {
+    display: grid;
+    gap: 18px;
+    margin: 0 0 28px;
+    padding: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+.lead-form fieldset { margin: 0; padding: 0; border: 0; min-width: 0; }
+.lead-form legend,
+.lead-form .lf-label {
+    display: block;
+    margin: 0 0 8px;
+    padding: 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-main);
+}
+.lead-form .lf-opt { font-weight: 500; color: var(--text-sec); }
+.lead-form .lf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.lead-form input[type="text"],
+.lead-form input[type="tel"],
+.lead-form input[type="number"],
+.lead-form textarea {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 11px 13px;
+    font: inherit;
+    font-size: 15px;
+    color: var(--text-main);
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color var(--dur-fast) var(--ease-out);
+}
+.lead-form textarea { min-height: 84px; resize: vertical; }
+.lead-form input:focus,
+.lead-form textarea:focus { border-color: var(--primary); }
+.lead-form [aria-invalid="true"] { border-color: #DC2626; }
+/* Блоки без своей рамки (выбор работ, согласие) при ошибке — красная обводка, чтобы на телефоне было видно, что не заполнено */
+.lead-form input[aria-invalid="true"], .lead-form textarea[aria-invalid="true"] { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.18); }
+.lead-form fieldset[aria-invalid="true"], .lead-form .lf-consent[aria-invalid="true"] { outline: 2px solid #DC2626; outline-offset: 4px; border-radius: 12px; }
+html.dark-mode .lead-form input[type="text"],
+html.dark-mode .lead-form input[type="tel"],
+html.dark-mode .lead-form input[type="number"],
+html.dark-mode .lead-form textarea { border-color: #3A3A3A; }
+
+/* Виды работ — плитки-галочки: несколько сразу */
+.lead-form .lf-works { display: flex; flex-wrap: wrap; gap: 8px; }
+.lead-form .lf-chip { position: relative; }
+.lead-form .lf-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.lead-form .lf-chip span {
+    display: inline-block;
+    padding: 9px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-main);
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    user-select: none;
+}
+html.dark-mode .lead-form .lf-chip span { border-color: #3A3A3A; }
+.lead-form .lf-chip input:checked + span {
+    color: #FFFFFF;
+    background: var(--primary);
+    border-color: var(--primary);
+}
+.lead-form .lf-chip input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+.lead-form .lf-consent {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 10px;
+    align-items: start;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-sec);
+}
+.lead-form .lf-consent input { width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--primary); }
+.lead-form .lf-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.lead-form button[type="submit"] {
+    padding: 15px 22px;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    color: #FFFFFF;
+    background: var(--primary);
+    border: 0;
+    border-radius: var(--radius);
+    cursor: pointer;
+}
+.lead-form button[type="submit"]:disabled { opacity: 0.6; cursor: default; }
+.lead-form button[type="submit"]:focus-visible { outline: 2px solid var(--text-main); outline-offset: 2px; }
+
+.lead-form .lf-status { margin: 0; font-size: 14px; line-height: 1.5; }
+/* Пустое сообщение не занимает место (в сетке формы между строками зазор 18 px) */
+.lead-form .lf-status:empty { display: none; }
+.lead-form .lf-status.is-error { color: #DC2626; }
+html.dark-mode .lead-form .lf-status.is-error { color: #F87171; }
+.lead-done {
+    margin: 0 0 28px;
+    padding: 22px 24px;
+    background: var(--primary-light);
+    border-radius: var(--radius);
+}
+.lead-done p { margin: 0 0 6px; }
+.lead-done p:last-child { margin: 0; }
+
+/* ── Узкие экраны ────────────────────────────────────────────────── */
+
+@media (max-width: 600px) {
+    .wrap { padding: 0 16px; }
+    header.top { margin-bottom: 24px; }
+    h1 { font-size: 24px; }
+    h2 { font-size: 18px; margin: 30px 0 12px; }
+    .lead { font-size: 17px; }
+    .head-link { display: none; }
+    th, td { padding: 10px 12px; }
+    table { font-size: 14px; }
+    .cta { padding: 14px 20px; font-size: 15px; }
+    .lead-form { padding: 18px; }
+    .lead-form .lf-row { grid-template-columns: 1fr; }
+}
+
+/* ── Печать ──────────────────────────────────────────────────────── */
+
+@media print {
+    body { background: #fff; color: #000; }
+    .cta, .theme-toggle, .head-link, .sf-social { display: none; }
+    a { color: #000; }
+    header.top, .site-footer { background: none; }
+}
+
+/* Графики в статьях (блок figure в build_article.py): встроенный SVG, цвета берутся
+   из переменных темы, поэтому в тёмной теме график перекрашивается без отдельных правил. */
+.chart {
+    margin: 24px 0;
+    padding: 16px 16px 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+html.dark-mode .chart { border-color: #2A2A2A; }
+.chart-svg svg { display: block; width: 100%; height: auto; max-width: 560px; margin: 0 auto; }
+.chart figcaption {
+    margin-top: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-sec);
+}

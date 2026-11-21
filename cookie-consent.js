@@ -1,0 +1,233 @@
+(function() {
+    // 0. Android-приложение: ни баннера, ни веб-аналитики.
+    //    Вопрос «принимаете ли вы cookie» — примета сайта, и в магазине именно
+    //    он первым выдаёт приложение за обёртку вокруг страницы. Согласия здесь
+    //    не спрашиваем, поэтому и счётчик не поднимаем: нет согласия — нет сбора.
+    //    Метку ставит native-ui.js, он подключён раньше и только внутри APK.
+    if (window.__HC_NATIVE__) {
+        window.initMetrika = function() {};
+        return;
+    }
+
+    // 0.1 Ответ на плашку — в свой учёт визитов (анонимно, без идентификаторов, кроме
+    //     номера визита): нужно, чтобы админка показывала, у какой доли визитов вообще
+    //     может работать Метрика. Раз на визит и ответ, свои устройства (hc_noc) не пишем.
+    function reportConsent() {
+        try {
+            var val = localStorage.getItem('cookieConsent');
+            if (val !== 'accepted' && val !== 'declined') return;
+            if (localStorage.getItem('hc_noc') === '1') return;
+            var v = JSON.parse(localStorage.getItem('hc_av') || 'null');
+            if (!v || !v.id || !v.vid) return;
+            var mark = v.id + ':' + val;
+            if (localStorage.getItem('hc_cs') === mark) return;
+            localStorage.setItem('hc_cs', mark);
+            fetch('https://ahanbwugsmcyvrwbmtlx.supabase.co/rest/v1/rpc/visit_consent', {
+                method: 'POST', keepalive: true,
+                headers: { 'apikey': 'sb_publishable_gcMJ-PvJmKavObbnePFGZQ_O-pu5O2p', 'Content-Type': 'application/json' },
+                body: JSON.stringify({ p_id: v.id, p_visitor: v.vid, p_value: val })
+            }).catch(function() {});
+        } catch (e) {}
+    }
+    // визит создаётся чуть позже загрузки страницы, поэтому пробуем дважды
+    setTimeout(reportConsent, 4000);
+    setTimeout(reportConsent, 15000);
+
+    // 1. Define Yandex.Metrika Initialization Function
+    window.initMetrika = function() {
+        if (window.ymInitialized) return;
+        window.ymInitialized = true;
+
+        (function(m,e,t,r,i,k,a){
+            m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+            m[i].l=1*new Date();
+            for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+            k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+        })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=109490947', 'ym');
+
+        // Страница счёта (invoice.html) показывает клиенту смету с названием объекта,
+        // адресом и контактами. Вебвизор записывает видимое на странице, поэтому
+        // там он выключен вместе с картой кликов: считаем только заходы и цели.
+        var isInvoicePage = window.location.pathname.indexOf('invoice.html') !== -1;
+
+        ym(109490947, 'init', {
+            ssr: true,
+            webvisor: !isInvoicePage,
+            clickmap: !isInvoicePage,
+            ecommerce: "dataLayer",
+            referrer: document.referrer,
+            url: location.href,
+            accurateTrackBounce: true,
+            trackLinks: true
+        });
+    };
+
+    // 2. Счётчик стартует только после согласия — на всех страницах, включая счёт для
+    //    клиента: политика (п. 7.4) обещает именно это, исключений в ней нет.
+    if (localStorage.getItem('cookieConsent') === 'accepted') {
+        window.initMetrika();
+        return;
+    }
+
+    // 3. If not, create and inject the Cookie Consent Banner
+    window.addEventListener('DOMContentLoaded', function() {
+        // Double-check just in case DOM loaded after storage check
+        if (localStorage.getItem('cookieConsent') === 'accepted') {
+            window.initMetrika();
+            return;
+        }
+
+        // Create style element for the banner
+        var style = document.createElement('style');
+        style.textContent = `
+            .hc-cookie-banner {
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                left: 24px;
+                max-width: 420px;
+                background: rgba(17, 24, 39, 0.95);
+                backdrop-filter: blur(12px);
+                -webkit-backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 16px;
+                padding: 20px;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+                color: #F3F4F6;
+                font-family: 'Inter', system-ui, -apple-system, sans-serif;
+                font-size: 13px;
+                line-height: 1.5;
+                /* Не максимальный z-index: при 2147483647 баннер оказывался выше всех
+                   окон приложения и на телефонах перекрывал их нижнюю часть — кнопки
+                   под ним не нажимались (диалоги подтверждения, окно входа).
+                   50000000 — выше нижней мобильной навигации (10000002), поэтому
+                   кнопки самого баннера работают, но ниже диалогов (99999999).
+                   Окно входа (2000000) прячет баннер отдельным правилом в style.css
+                   (body.auth-modal-open). */
+                z-index: 50000000 !important;
+                transform: translateY(40px) scale(0.95);
+                opacity: 0;
+                pointer-events: none;
+                transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
+            }
+            .hc-cookie-banner.show {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .hc-cookie-title {
+                font-weight: 700;
+                font-size: 15px;
+                color: #FFFFFF;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .hc-cookie-text {
+                color: #9CA3AF;
+                margin-bottom: 16px;
+            }
+            .hc-cookie-text a {
+                color: #3B82F6;
+                text-decoration: none;
+                font-weight: 500;
+                border-bottom: 1px dashed rgba(59, 130, 246, 0.4);
+                transition: border-color 0.2s, color 0.2s;
+            }
+            .hc-cookie-text a:hover {
+                color: #60A5FA;
+                border-bottom-color: #60A5FA;
+            }
+            .hc-cookie-buttons {
+                display: flex;
+                gap: 10px;
+            }
+            .hc-cookie-btn {
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: 600;
+                font-size: 13px;
+                cursor: pointer;
+                border: none;
+                transition: all 0.2s ease;
+                flex: 1;
+                text-align: center;
+            }
+            .hc-cookie-btn-accept {
+                background: #3B82F6;
+                color: #FFFFFF;
+                box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+            }
+            .hc-cookie-btn-accept:hover {
+                background: #2563EB;
+                transform: translateY(-1px);
+                box-shadow: 0 6px 8px -1px rgba(59, 130, 246, 0.3);
+            }
+            .hc-cookie-btn-accept:active {
+                transform: translateY(0);
+            }
+            .hc-cookie-btn-decline {
+                background: rgba(255, 255, 255, 0.08);
+                color: #D1D5DB;
+            }
+            .hc-cookie-btn-decline:hover {
+                background: rgba(255, 255, 255, 0.12);
+                color: #FFFFFF;
+            }
+            @media (max-width: 640px) {
+                .hc-cookie-banner {
+                    bottom: 16px;
+                    right: 16px;
+                    left: 16px;
+                    max-width: none;
+                    padding: 16px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Create banner element
+        var banner = document.createElement('div');
+        banner.className = 'hc-cookie-banner';
+        banner.innerHTML = `
+            <div class="hc-cookie-title">
+                <span>🍪</span> Использование файлов Cookie & Аналитика
+            </div>
+            <div class="hc-cookie-text">
+                Используем cookie и Яндекс.Метрику. Подробнее в <a href="/privacy-policy.html" target="_blank">Политике конфиденциальности</a>.
+            </div>
+            <div class="hc-cookie-buttons">
+                <button class="hc-cookie-btn hc-cookie-btn-accept" id="hc-cookie-accept">Принять</button>
+                <button class="hc-cookie-btn hc-cookie-btn-decline" id="hc-cookie-decline">Отклонить</button>
+            </div>
+        `;
+        document.body.appendChild(banner);
+
+        // Trigger slide-in animation
+        setTimeout(function() {
+            banner.classList.add('show');
+        }, 1000);
+
+        // Bind Accept Event
+        document.getElementById('hc-cookie-accept').addEventListener('click', function() {
+            localStorage.setItem('cookieConsent', 'accepted');
+            banner.classList.remove('show');
+            setTimeout(function() {
+                banner.remove();
+            }, 400);
+            window.initMetrika();
+            reportConsent();
+        });
+
+        // Bind Decline Event
+        document.getElementById('hc-cookie-decline').addEventListener('click', function() {
+            localStorage.setItem('cookieConsent', 'declined');
+            banner.classList.remove('show');
+            setTimeout(function() {
+                banner.remove();
+            }, 400);
+            reportConsent();
+        });
+    });
+})();

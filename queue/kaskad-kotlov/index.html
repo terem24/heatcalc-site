@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Каскад котлов в частном доме: когда нужен и во что обходится | HeatCalc.ru</title>
+    <meta name="description" content="Каскад из двух котлов против одного мощного: почему дом на 29 кВт дешевле отопить одним котлом на 32, когда каскад действительно нужен, что такое диапазон модуляции и сколько стоит вторая обвязка.">
+    <link rel="canonical" href="https://heatcalc.ru/kaskad-kotlov/">
+    <meta name="robots" content="noindex, follow">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css?v=9">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/kaskad-kotlov/">
+    <meta property="og:title" content="Каскад котлов: когда он оправдан">
+    <meta property="og:description" content="Два котла по 18 против одного на 32: два дымохода, две обвязки и вдвое дороже. Когда всё-таки нужен.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Вопросы и ответы собраны из того же источника, что и видимый текст ниже,
+         поэтому разойтись не могут. -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://heatcalc.ru/kaskad-kotlov/#webpage",
+      "url": "https://heatcalc.ru/kaskad-kotlov/",
+      "name": "Каскад котлов: когда он оправдан, а когда просто дороже",
+      "description": "Каскад из двух котлов против одного мощного: почему дом на 29 кВт дешевле отопить одним котлом на 32, когда каскад действительно нужен, что такое диапазон модуляции и сколько стоит вторая обвязка.",
+      "inLanguage": "ru-RU",
+      "isPartOf": {
+        "@id": "https://heatcalc.ru/#website"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "каскад котлов"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Калькулятор отопления",
+          "item": "https://heatcalc.ru/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Каскад котлов: когда он оправдан, а когда просто дороже",
+          "item": "https://heatcalc.ru/kaskad-kotlov/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Когда нужен каскад котлов?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "В трёх случаях. Ради резервирования — один котёл встал, дом не размёрз. При очень широком диапазоне нагрузки, когда зимой нужно 30 кВт, а в межсезонье 5, и один котёл не может опуститься так низко. И когда расчётная мощность выше самого мощного котла в линейке. Просто «большой дом» в этот список не входит."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Что дешевле — каскад из двух котлов или один мощный?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Один мощный, примерно вдвое. Дом на 29 кВт при каскаде из двух котлов по 18 получает 36 кВт, два дымохода и две обвязки: только монтаж котлов и дымоходов даёт разницу в 36 тысяч рублей, не считая второго котла и каскадной автоматики. Плюс избыточная мощность — 24 % сверх расчёта, который и так посчитан с запасом."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Что такое диапазон модуляции и при чём тут каскад?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Горелка уменьшает мощность не до нуля, а до 20 % номинала: котёл на 30 кВт опустится до 6, ниже начнёт тактовать. Если дом в октябре требует 4 кВт, один большой котёл работает рывками, а в каскаде из двух по 15 один котёл опускается до 3 кВт и работает ровно. Это и есть техническая причина для каскада — но часто её снимает котёл с глубокой модуляцией."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Поможет ли каскад обойти ограничение по фазам для электрокотла?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Нет. Ограничивает не котёл, а ввод: 12 кВт — это 55 ампер по одной фазе независимо от того, в скольких корпусах они стоят. Каскад на одной фазе собирается только если выделенной мощности хватает на оба котла сразу, то есть те же самые ампер."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Что нужно для каскада кроме самих котлов?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Каскадный контроллер, который решает, сколько котлов включить, и чередует их для равномерной наработки. Гидрострелка или коллектор — два котловых насоса на общую трассу без развязки не работают. Обратные клапаны на каждом котле, иначе через выключенный идёт паразитная циркуляция. Два отдельных дымохода: объединять выходы разных котлов в один канал нельзя."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://heatcalc.ru/kaskad-kotlov/#article",
+      "headline": "Каскад котлов: когда он оправдан, а когда просто дороже",
+      "description": "Каскад из двух котлов против одного мощного: почему дом на 29 кВт дешевле отопить одним котлом на 32, когда каскад действительно нужен, что такое диапазон модуляции и сколько стоит вторая обвязка.",
+      "mainEntityOfPage": {
+        "@id": "https://heatcalc.ru/kaskad-kotlov/#webpage"
+      },
+      "inLanguage": "ru-RU",
+      "datePublished": "2027-10-09",
+      "dateModified": "2027-10-09",
+      "author": {
+        "@type": "Person",
+        "name": "Дмитрий Ибатуллин"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "HeatCalc.ru",
+        "url": "https://heatcalc.ru/"
+      },
+      "isAccessibleForFree": true,
+      "wordCount": 697,
+      "citation": []
+    }
+  ]
+}
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Каскад котлов: когда он оправдан, а когда просто дороже</nav>
+
+        <h1>Каскад котлов: когда он оправдан, а когда просто дороже</h1>
+
+        <p class="art-meta"><time datetime="2027-10-09">9 октября 2027</time></p>
+
+        <div class="short-answer">
+            <p class="short-answer-q">Когда нужен каскад котлов?</p>
+            <p>В трёх случаях: ради резервирования, чтобы дом не размёрз при остановке одного котла; при очень широком диапазоне нагрузки, когда зимой нужно 30 кВт, а в межсезонье 5, и один котёл так низко не опускается; и когда расчётная мощность выше самого мощного котла в линейке. Просто «большой дом» в этот список не входит: один мощный котёл дешевле примерно вдвое — на доме 29 кВт только монтаж котлов и дымоходов даёт разницу в 36 тысяч рублей.</p>
+        </div>
+
+        <p class="lead">Когда расчёт выходит за пределы ходовой линейки, первое решение, которое приходит в голову, — поставить два котла поменьше. Почти всегда это дороже одного большого, причём заметно. Разбираем, во что обходится вторая машина и в каких трёх случаях она всё-таки нужна.</p>
+
+        <nav class="toc" aria-label="Содержание">
+            <p class="toc-title">В статье</p>
+            <ol>
+            <li><a href="#arifmetika-o-kotoroy-zabyvayut">Арифметика, о которой забывают</a></li>
+            <li><a href="#kogda-kaskad-deystvitelno-nuzhen">Когда каскад действительно нужен</a></li>
+            <li><a href="#chto-takoe-diapazon-modulyacii">Что такое диапазон модуляции</a></li>
+            <li><a href="#chto-nuzhno-kaskadu-krome-kotlov">Что нужно каскаду кроме котлов</a></li>
+            <li><a href="#osobyy-sluchay-odna-faza">Особый случай: одна фаза</a></li>
+            <li><a href="#chto-delat-vmesto-kaskada">Что делать вместо каскада</a></li>
+            </ol>
+        </nav>
+
+        <h2 id="arifmetika-o-kotoroy-zabyvayut">Арифметика, о которой забывают</h2>
+
+        <p>Ходовые настенные линейки заканчиваются на 24 кВт. Дом требует 29 — и подбор по привычке собирает каскад из двух котлов по 18.</p>
+
+        <div class="formula">
+            <p>Каскад: 18 + 18 = <strong>36 кВт</strong> при нужных 29</p>
+            <p>Два дымохода, две обвязки, два комплекта автоматики</p>
+            <p>Один котёл: <strong>32 кВт</strong>, одна обвязка, один дымоход</p>
+        </div>
+
+        <p>Разница в цене получается примерно двукратной, и основная её часть — не сами котлы, а всё, что к ним прилагается. Каждый котёл требует своего дымохода, своей группы безопасности, своей подводки газа с диэлектриком, своего места на стене и своих работ по монтажу и обвязке.</p>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Работа</th><th>Один котёл</th><th>Каскад из двух</th></tr>
+                <tr><td>Монтаж котла</td><td class="num">20 000 ₽</td><td class="num">40 000 ₽</td></tr>
+                <tr><td>Коаксиальный дымоход с отверстием</td><td class="num">16 000 ₽</td><td class="num">32 000 ₽</td></tr>
+                <tr><td>Гидравлика от котла</td><td class="num">9 000 ₽</td><td class="num">9 000 ₽</td></tr>
+                <tr><td>Каскадный контроллер и обвязка</td><td class="num">—</td><td class="num">требуется</td></tr>
+            </table>
+        </div>
+        <p class="note">Базовые расценки калькулятора. Только на монтаже и дымоходах разница составляет 36 тысяч рублей, не считая второго котла и каскадной автоматики.</p>
+
+        <div class="callout">
+            <p><strong>Плюс избыточная мощность.</strong> Дом на 29 кВт получает 36 — это 24 % лишнего сверх расчёта, который и так посчитан с запасом 1,15. Итого котельная мощнее теплопотерь в полтора раза, со всеми последствиями: тактование в межсезонье, работа на низком КПД, ускоренный износ горелок.</p>
+        </div>
+
+        <h2 id="kogda-kaskad-deystvitelno-nuzhen">Когда каскад действительно нужен</h2>
+
+        <ol>
+            <li><strong>Резервирование.</strong> Один котёл встал — дом не размёрз. Это единственный аргумент, который не решается более дешёвым способом, и он важен там, где хозяев зимой подолгу нет.</li>
+            <li><strong>Очень широкий диапазон нагрузки.</strong> Дом, который зимой требует 30 кВт, а в межсезонье 5, одним котлом обслуживается плохо: у горелки есть минимум, ниже которого она не модулирует. В каскаде в межсезонье работает один котёл на своей малой мощности, и тактования нет.</li>
+            <li><strong>Мощность выше линейки.</strong> Когда расчёт даёт 60 кВт и одного настенного котла такой мощности просто нет. Здесь каскад не выбор, а необходимость.</li>
+        </ol>
+
+        <p>Обратите внимание: «дом большой» само по себе в этот список не входит. Большой дом с расчётом 32 кВт отапливается одним котлом — при условии, что такой котёл в линейке есть.</p>
+
+        <h2 id="chto-takoe-diapazon-modulyacii">Что такое диапазон модуляции</h2>
+
+        <p>Горелка современного котла умеет уменьшать мощность, но не до нуля. Типовой диапазон — от 20 до 100 % номинала: котёл на 30 кВт опустится до 6, а ниже уже будет включаться и выключаться.</p>
+
+        <div class="formula">
+            <p>Котёл 30 кВт, минимум 20 % → <strong>6 кВт</strong></p>
+            <p>Дом в октябре требует 4 кВт → котёл тактует</p>
+            <p>Каскад 2 × 15 кВт: один котёл, минимум <strong>3 кВт</strong> → работает ровно</p>
+        </div>
+
+        <p>Это и есть настоящая техническая причина для каскада, а не мощность как таковая. Проверять её стоит по паспорту: у разных серий минимум отличается вдвое, и котёл с широкой модуляцией часто снимает вопрос без второй машины.</p>
+
+        <h2 id="chto-nuzhno-kaskadu-krome-kotlov">Что нужно каскаду кроме котлов</h2>
+
+        <ul>
+            <li><strong>Каскадный контроллер.</strong> Он решает, сколько котлов включить и в каком порядке, и чередует их, чтобы наработка была равномерной. Без него два котла просто мешают друг другу.</li>
+            <li><strong>Гидрострелка или коллектор.</strong> Два котловых насоса на общую трассу без развязки работать не будут.</li>
+            <li><strong>Обратные клапаны</strong> на каждом котле: иначе через выключенный котёл идёт паразитная циркуляция, и он греет улицу через свой дымоход.</li>
+            <li><strong>Место.</strong> Два котла — это не «в два раза больше стены», а ещё и проходы для обслуживания каждого.</li>
+            <li><strong>Два дымохода.</strong> Объединять выходы разных котлов в один канал нельзя.</li>
+        </ul>
+
+        <h2 id="osobyy-sluchay-odna-faza">Особый случай: одна фаза</h2>
+
+        <p>Для электрокотлов каскад иногда предлагают как обход ограничения по фазам — мол, два котла по 6 кВт вместо одного на 12. Это не работает.</p>
+
+        <p>Ограничивает не котёл, а ввод: 12 кВт — это 55 ампер по одной фазе независимо от того, в скольких корпусах они стоят. Каскад на одной фазе собирается только если выделенной мощности хватает на оба котла сразу, а это те же самые ампер.</p>
+
+        <h2 id="chto-delat-vmesto-kaskada">Что делать вместо каскада</h2>
+
+        <ul>
+            <li><strong>Взять котёл мощнее из другой линейки.</strong> За пределами ходовых 24 кВт котлы есть — они просто реже встречаются в типовых подборах.</li>
+            <li><strong>Проверить теплопотери покомнатно.</strong> Укрупнённая оценка по объёму завышает, иногда в полтора раза. Дом, которому «нужно 29 кВт», после нормального расчёта нередко требует 20.</li>
+            <li><strong>Посмотреть на диапазон модуляции.</strong> Если проблема в межсезонье, её решает котёл с глубокой модуляцией, а не второй котёл.</li>
+            <li><strong>Электрический резерв вместо второго газового.</strong> Если задача — резервирование, электрокотёл на дежурное отопление +5 °C стоит дешевле второго газового и не требует второго дымохода.</li>
+        </ul>
+
+        <p>Последний пункт закрывает самый частый мотив для каскада за куда меньшие деньги. Дом с теплопотерями 10 кВт в дежурном режиме требует 6,6 кВт — электрокотёл такой мощности недорог и ставится без согласований.</p>
+
+        <div class="callout dom-cta">
+            <p>
+                <strong>Сколько это будет стоить в вашем доме?</strong> Семь вопросов, две минуты,
+                без регистрации: получите цену отопления вилкой — оборудование и монтаж отдельно,
+                в трёх комплектациях.
+            </p>
+        </div>
+
+        <a class="cta" href="/dom/?src=kaskad-kotlov">
+            Узнать цену для своего дома
+            <small>Отопление под ключ, результат сразу на экране</small>
+        </a>
+
+        <a class="cta" href="/">
+            Подобрать котёл по расчёту
+            <small>Калькулятор сравнивает варианты вместе с обвязкой</small>
+        </a>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Когда нужен каскад котлов?</span></summary>
+            <div class="answer">
+                <p>В трёх случаях. Ради резервирования — один котёл встал, дом не размёрз. При очень широком диапазоне нагрузки, когда зимой нужно 30 кВт, а в межсезонье 5, и один котёл не может опуститься так низко. И когда расчётная мощность выше самого мощного котла в линейке. Просто «большой дом» в этот список не входит.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Что дешевле — каскад из двух котлов или один мощный?</span></summary>
+            <div class="answer">
+                <p>Один мощный, примерно вдвое. Дом на 29 кВт при каскаде из двух котлов по 18 получает 36 кВт, два дымохода и две обвязки: только монтаж котлов и дымоходов даёт разницу в 36 тысяч рублей, не считая второго котла и каскадной автоматики. Плюс избыточная мощность — 24 % сверх расчёта, который и так посчитан с запасом.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Что такое диапазон модуляции и при чём тут каскад?</span></summary>
+            <div class="answer">
+                <p>Горелка уменьшает мощность не до нуля, а до 20 % номинала: котёл на 30 кВт опустится до 6, ниже начнёт тактовать. Если дом в октябре требует 4 кВт, один большой котёл работает рывками, а в каскаде из двух по 15 один котёл опускается до 3 кВт и работает ровно. Это и есть техническая причина для каскада — но часто её снимает котёл с глубокой модуляцией.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Поможет ли каскад обойти ограничение по фазам для электрокотла?</span></summary>
+            <div class="answer">
+                <p>Нет. Ограничивает не котёл, а ввод: 12 кВт — это 55 ампер по одной фазе независимо от того, в скольких корпусах они стоят. Каскад на одной фазе собирается только если выделенной мощности хватает на оба котла сразу, то есть те же самые ампер.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Что нужно для каскада кроме самих котлов?</span></summary>
+            <div class="answer">
+                <p>Каскадный контроллер, который решает, сколько котлов включить, и чередует их для равномерной наработки. Гидрострелка или коллектор — два котловых насоса на общую трассу без развязки не работают. Обратные клапаны на каждом котле, иначе через выключенный идёт паразитная циркуляция. Два отдельных дымохода: объединять выходы разных котлов в один канал нельзя.</p>
+            </div>
+        </details>
+
+        <div class="callout">
+            <p>
+                <strong>Считайте объекты в калькуляторе.</strong> Смета по актуальным ценам,
+                коммерческое предложение клиенту ссылкой или в PDF, договор подряда и акты —
+                из одной сметы. Регистрация бесплатная, занимает минуту.
+            </p>
+        </div>
+
+        <a class="cta" href="/?utm_source=article&amp;utm_medium=seo&amp;utm_campaign=kaskad-kotlov">
+            Попробовать калькулятор бесплатно
+            <small>Смета, КП и документы для монтажника</small>
+        </a>
+
+        <div class="author">
+            <img src="/img/author_ibatullin.jpg" width="64" height="64" loading="lazy"
+                 alt="Дмитрий Ибатуллин, автор HeatCalc.ru">
+            <p><b>Дмитрий Ибатуллин</b><br><span>Инженер</span></p>
+        </div>
+
+        <h2>Читать дальше</h2>
+        <p><a href="/obvyazka-kotla/">обвязка котла: из чего состоит и сколько стоит</a> · <a href="/dymohod-koaksialnyy-ili-razdelnyy/">дымоход: коаксиальный или раздельный</a> · <a href="/dvuhkonturnyy-kotel-ili-boyler/">двухконтурный котёл или бойлер косвенного нагрева</a> · <a href="/kotel-na-szhizhennom-gaze/">котёл на сжиженном газе и газгольдер</a> · <a href="/smeta/">что входит в смету на отопление</a> · <a href="/raschet-teplopoter/">как считаются теплопотери дома</a></p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

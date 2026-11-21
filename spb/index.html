@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расчёт отопления частного дома в СПб и Ленобласти — калькулятор | HeatCalc.ru</title>
+    <meta name="description" content="Расчёт отопления частного дома в Санкт-Петербурге: расчётная температура −24 °C, газ 9,18 ₽/м³, электричество от 5,31 ₽/кВт·ч. Теплопотери, подбор котла, смета в PDF. Бесплатно.">
+    <link rel="canonical" href="https://heatcalc.ru/spb/">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <!-- Тот же шрифт, что в калькуляторе. -->
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode, поэтому тема,
+         выбранная в расчёте, действует и здесь. Если человек сюда попал
+         впервые и флага ещё нет, выбираем по часам: с 7 до 19 светлая. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <!-- Яндекс.Метрика + баннер согласия на cookie. Путь от корня, а не
+         относительный: страница лежит в подпапке /spb/. -->
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/spb/">
+    <meta property="og:title" content="Расчёт отопления частного дома в Санкт-Петербурге и Ленобласти">
+    <meta property="og:description" content="Расчётная температура −24 °C, газ 9,18 ₽/м³, электричество от 5,31 ₽/кВт·ч. Теплопотери, подбор котла и оборудования, смета в PDF.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="HeatCalc.ru — калькулятор отопления частного дома">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Микроразметка: карточка страницы, хлебные крошки и блок вопрос-ответ.
+         Вопросы и ответы здесь обязаны дословно совпадать с видимым текстом
+         внизу страницы — за расхождение Яндекс и Google снимают разметку. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": "https://heatcalc.ru/spb/#webpage",
+          "url": "https://heatcalc.ru/spb/",
+          "name": "Расчёт отопления частного дома в Санкт-Петербурге и Ленинградской области",
+          "description": "Расчёт отопления частного дома в Санкт-Петербурге и Ленобласти: расчётная зимняя температура −24 °C, действующие тарифы на газ и электроэнергию, подбор котла и оборудования, смета.",
+          "inLanguage": "ru-RU",
+          "isPartOf": { "@id": "https://heatcalc.ru/#website" },
+          "about": { "@type": "Thing", "name": "Отопление частного дома в Санкт-Петербурге" },
+          "spatialCoverage": [
+            { "@type": "City", "name": "Санкт-Петербург" },
+            { "@type": "AdministrativeArea", "name": "Ленинградская область" }
+          ]
+        },
+        {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Калькулятор отопления", "item": "https://heatcalc.ru/" },
+            { "@type": "ListItem", "position": 2, "name": "Санкт-Петербург", "item": "https://heatcalc.ru/spb/" }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Какая расчётная зимняя температура для Санкт-Петербурга?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Минус 24 °C — температура наиболее холодной пятидневки обеспеченностью 0,92. Это на два градуса мягче Москвы, поэтому на мощность котла город влияет мало. Куда сильнее на итоговый счёт влияет разница в тарифах."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Какой тариф на газ в Санкт-Петербурге в 2026 году?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "9,18 ₽ за кубометр по категории «отопление». В Ленинградской области дороже, чем в самом городе — 9,32 ₽ за кубометр. Это обратная Москве картина: там в области газ дешевле городского."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Имеет ли смысл электрокотёл в Санкт-Петербурге?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "В Петербурге электрокотёл рассматривать стоит серьёзнее, чем в большинстве регионов. Тариф для домов с электроотоплением здесь 5,31 ₽ за кВт·ч в первом периоде 2026 года против 7,28 ₽ в Москве, а газ, наоборот, дороже московского. Для небольшого хорошо утеплённого дома разрыв в эксплуатационных расходах может не окупить подключение к газу."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Нужен ли в Петербурге больший запас мощности из-за влажности?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Запас мощности котла влажность не увеличивает — теплопотери считаются по разнице температур и сопротивлению конструкций. Но на выбор оборудования и материалов она влияет: в котельной и санузлах имеет смысл предусмотреть вентиляцию, а группу безопасности и расширительный бак не размещать в неотапливаемых помещениях."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Можно ли посчитать дом в Ленинградской области, а не в самом городе?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Да. В базе калькулятора около 900 населённых пунктов, включая города Ленобласти со своей расчётной температурой. Выбирайте конкретный посёлок или город, а не «Санкт-Петербург» — тогда и температура, и тариф на газ подставятся областные."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Санкт-Петербург</nav>
+
+        <h1>Расчёт отопления частного дома в Санкт-Петербурге и Ленинградской области</h1>
+
+        <p class="lead">
+            Онлайн-калькулятор считает теплопотери дома по петербургской расчётной температуре,
+            подбирает котёл, радиаторы, насосы и трубы по каталогам STOUT, ROMMER и Haier
+            и собирает готовую смету с коммерческим предложением в PDF. Регистрация не нужна,
+            расчёт бесплатный.
+        </p>
+
+        <div class="chart">
+            <p class="chart-title">Зима в городе Санкт-Петербург: где она на шкале страны</p>
+            <svg viewBox="0 0 640 108" role="img" aria-label="Расчётная зимняя температура Санкт-Петербург: -24 °C на шкале от −15 до −40 °C" xmlns="http://www.w3.org/2000/svg">
+                <title>Расчётная зимняя температура Санкт-Петербург: -24 °C на шкале от −15 до −40 °C</title>
+                <rect x="24" y="57" width="592" height="10" rx="5" fill="var(--border)"/>
+                <rect x="24" y="57" width="213.1" height="10" rx="5" fill="var(--primary)"/>
+                <line x1="24.0" y1="71" x2="24.0" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="24.0" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−15</text>
+                <line x1="142.4" y1="71" x2="142.4" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="142.4" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−20</text>
+                <line x1="260.8" y1="71" x2="260.8" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="260.8" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−25</text>
+                <line x1="379.2" y1="71" x2="379.2" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="379.2" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−30</text>
+                <line x1="497.6" y1="71" x2="497.6" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="497.6" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−35</text>
+                <line x1="616.0" y1="71" x2="616.0" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="616.0" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−40</text>
+                <circle cx="237.1" cy="62" r="9" fill="var(--primary)" stroke="var(--surface)" stroke-width="3"/>
+                <text x="237.12" y="42" font-size="14" fill="var(--text-main)" font-weight="700" text-anchor="middle">Санкт-Петербург  −24 °C</text>
+                <text x="24" y="20" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="start">мягче</text>
+                <text x="616" y="20" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="end">суровее</text>
+            </svg>
+        </div>
+
+        <p class="note">Расчётная температура наиболее холодной пятидневки: именно на неё подбирают котёл и радиаторы. Для сравнения показаны крайние значения по стране — от Краснодара до Красноярска.</p>
+
+        <a class="cta" href="/">
+            Рассчитать отопление для дома в Санкт-Петербурге
+            <small>Бесплатно, без регистрации, результат сразу на экране</small>
+        </a>
+
+        <h2>Исходные данные для Санкт-Петербурга</h2>
+
+        <p>
+            Расчёт отопления держится на двух цифрах: расчётной зимней температуре
+            и стоимости энергоносителя. Для Петербурга и Ленобласти они такие.
+        </p>
+
+        <div class="table-scroll">
+            <table>
+                <tr>
+                    <th>Параметр</th>
+                    <th>Санкт-Петербург</th>
+                    <th>Ленинградская область</th>
+                </tr>
+                <tr>
+                    <td>Расчётная зимняя температура</td>
+                    <td class="num">−24 °C</td>
+                    <td class="num">−23…−29 °C</td>
+                </tr>
+                <tr>
+                    <td>Природный газ, отопление</td>
+                    <td class="num">9,18 ₽/м³</td>
+                    <td class="num">9,32 ₽/м³</td>
+                </tr>
+                <tr>
+                    <td>Электроэнергия, дом с электроотоплением</td>
+                    <td class="num">5,31 → 5,90 ₽/кВт·ч</td>
+                    <td class="num">5,12 → 5,70 ₽/кВт·ч</td>
+                </tr>
+                <tr>
+                    <td>Электроэнергия, ночная ставка</td>
+                    <td class="num">3,31 → 3,69 ₽/кВт·ч</td>
+                    <td class="num">3,07 → 3,41 ₽/кВт·ч</td>
+                </tr>
+            </table>
+        </div>
+
+        <p class="note">
+            Две цифры через стрелку — это два периода 2026 года: с 1 января по 30 сентября
+            и с 1 октября. Тарифы в калькуляторе обновляются автоматически раз в месяц.
+            По области расчётная температура зависит от конкретного населённого пункта:
+            на востоке Ленобласти зимы холоднее, чем на побережье Финского залива.
+            Для сравнения: Кингисепп — −23 °C, Сосновый Бор — −24 °C, Выборг и Лодейное
+            Поле — −26 °C, Подпорожье — −27 °C, Бокситогорск — −29 °C.
+        </p>
+
+        <div class="callout">
+            <p>
+                <strong>В Ленобласти газ дороже, чем в городе.</strong> Это обратная Москве
+                картина: в Подмосковье газ дешевле московского, а в Ленобласти — дороже
+                петербургского. Разница невелика, но если объект за городом, выбирайте
+                в калькуляторе конкретный населённый пункт, а не «Санкт-Петербург»:
+                подставятся и областной тариф, и своя расчётная температура.
+            </p>
+        </div>
+
+        <h2>Главная особенность Петербурга: дешёвое электричество</h2>
+
+        <p>
+            По расчётной температуре Петербург почти не отличается от Москвы — −24 °C
+            против −26 °C. Два градуса на мощность котла влияют слабо, и котёл на один
+            и тот же дом в обоих городах выйдет практически одинаковый. А вот
+            эксплуатационные расходы различаются сильно, причём в обе стороны.
+        </p>
+
+        <div class="table-scroll">
+            <table>
+                <tr>
+                    <th>Энергоноситель</th>
+                    <th>Санкт-Петербург</th>
+                    <th>Москва</th>
+                </tr>
+                <tr>
+                    <td>Природный газ</td>
+                    <td class="num">9,18 ₽/м³</td>
+                    <td class="num">8,68 ₽/м³</td>
+                </tr>
+                <tr>
+                    <td>Электричество с электроотоплением</td>
+                    <td class="num">5,31 ₽/кВт·ч</td>
+                    <td class="num">7,28 ₽/кВт·ч</td>
+                </tr>
+            </table>
+        </div>
+
+        <p>
+            Итог: в Петербурге газ дороже московского, а электричество почти на треть дешевле.
+            В большинстве регионов ответ на вопрос «газ или электрокотёл» очевиден заранее,
+            а в Петербурге его действительно стоит посчитать. Для небольшого хорошо
+            утеплённого дома разрыв в счетах может не окупить стоимость подключения к газу,
+            особенно если участок далеко от магистрали.
+        </p>
+
+        <p>
+            Отдельно стоит посмотреть на ночную ставку — 3,31 ₽ за кВт·ч. В связке
+            с теплоаккумулятором она позволяет греть воду ночью и расходовать тепло днём,
+            но объём бака нужно считать: недостаточный бак не дотянет до следующей ночи,
+            избыточный займёт полкотельной и не окупится.
+        </p>
+
+        <h2>Влажность и котельная</h2>
+
+        <p>
+            Петербургский климат влажный, и это не меняет расчёт теплопотерь — он ведётся
+            по разнице температур и сопротивлению конструкций, влажность воздуха в него
+            не входит. Но на решения по оборудованию она влияет:
+        </p>
+
+        <ul>
+            <li>котельную и санузлы имеет смысл обеспечить приточно-вытяжной вентиляцией,
+                иначе конденсат осядет на холодных поверхностях;</li>
+            <li>расширительный бак и группу безопасности не размещают в неотапливаемых
+                помещениях — там они собирают конденсат и корродируют;</li>
+            <li>при подключении по улице трубопровод утепляют с расчётом на длительные
+                околонулевые температуры, а не только на короткие морозы.</li>
+        </ul>
+
+        <h2>Как посчитать</h2>
+
+        <ol>
+            <li><strong>Укажите город и площадь.</strong> Санкт-Петербург подставит расчётную
+                температуру −24 °C автоматически. Для объекта в области выберите нужный
+                населённый пункт — у него будет своё значение.</li>
+            <li><strong>Опишите дом.</strong> Материал и толщину стен послойно, тип крыши, пол,
+                остекление. Чем честнее описание, тем ближе расчёт к реальному расходу.</li>
+            <li><strong>Выберите тип системы.</strong> Радиаторы, тёплый пол или их комбинация,
+                нужно ли горячее водоснабжение, сколько точек разбора.</li>
+            <li><strong>Получите смету.</strong> Калькулятор подберёт котёл, радиаторы, насосы,
+                трубы, коллекторы и арматуру по действующим ценам STOUT и ROMMER, покажет
+                наличие на складе и добавит монтажные работы.</li>
+        </ol>
+
+        <a class="cta" href="/">
+            Открыть калькулятор
+            <small>Расчёт занимает около пяти минут</small>
+        </a>
+
+        <h2>Что попадает в смету</h2>
+
+        <p>
+            Смета собирается разделами, как её привык видеть заказчик: котельная, разводка,
+            радиаторы, тёплый пол, водоснабжение, монтажные работы. По каждой позиции —
+            артикул, цена и наличие. Цены в системе — официальные рекомендованные розничные
+            STOUT и ROMMER, они обновляются автоматически, поэтому смету не приходится
+            пересобирать вручную после каждого пересмотра прайса.
+        </p>
+
+        <p>
+            Готовый документ выгружается в PDF. На платном тарифе в него подставляется
+            логотип и реквизиты вашей монтажной организации, а расценки на работы берутся
+            из вашего собственного прайс-листа.
+        </p>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg><span class="faq-q">Какая расчётная зимняя температура для Санкт-Петербурга?</span></summary>
+            <div class="answer">
+                <p>Минус 24 °C — температура наиболее холодной пятидневки обеспеченностью 0,92.
+                    Это на два градуса мягче Москвы, поэтому на мощность котла город влияет мало.
+                    Куда сильнее на итоговый счёт влияет разница в тарифах.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-6.5 0-4.5-4-6-4-9.5-2 1-3 3-3 5-1-1-2-2.5-2-4C7.5 9 5 11.5 5 15.5 5 19.3 8 22 12 22z"/></svg><span class="faq-q">Какой тариф на газ в Санкт-Петербурге в 2026 году?</span></summary>
+            <div class="answer">
+                <p>9,18 ₽ за кубометр по категории «отопление». В Ленинградской области дороже,
+                    чем в самом городе — 9,32 ₽ за кубометр. Это обратная Москве картина: там
+                    в области газ дешевле городского.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-6.5 0-4.5-4-6-4-9.5-2 1-3 3-3 5-1-1-2-2.5-2-4C7.5 9 5 11.5 5 15.5 5 19.3 8 22 12 22z"/></svg><span class="faq-q">Имеет ли смысл электрокотёл в Санкт-Петербурге?</span></summary>
+            <div class="answer">
+                <p>В Петербурге электрокотёл рассматривать стоит серьёзнее, чем в большинстве
+                    регионов. Тариф для домов с электроотоплением здесь 5,31 ₽ за кВт·ч в первом
+                    периоде 2026 года против 7,28 ₽ в Москве, а газ, наоборот, дороже московского.
+                    Для небольшого хорошо утеплённого дома разрыв в эксплуатационных расходах
+                    может не окупить подключение к газу.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21a9 9 0 1 0-9-9"/><path d="M3 12h2m14 0h2M12 3v2"/><path d="m12 12 4-3"/></svg><span class="faq-q">Нужен ли в Петербурге больший запас мощности из-за влажности?</span></summary>
+            <div class="answer">
+                <p>Запас мощности котла влажность не увеличивает — теплопотери считаются
+                    по разнице температур и сопротивлению конструкций. Но на выбор оборудования
+                    и материалов она влияет: в котельной и санузлах имеет смысл предусмотреть
+                    вентиляцию, а группу безопасности и расширительный бак не размещать
+                    в неотапливаемых помещениях.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg><span class="faq-q">Можно ли посчитать дом в Ленинградской области, а не в самом городе?</span></summary>
+            <div class="answer">
+                <p>Да. В базе калькулятора около 900 населённых пунктов, включая города
+                    Ленобласти со своей расчётной температурой. Выбирайте конкретный посёлок
+                    или город, а не «Санкт-Петербург» — тогда и температура, и тариф на газ
+                    подставятся областные.</p>
+            </div>
+        </details>
+
+        <h2>Расчёт для других городов</h2>
+        <p>
+            Работаете не только по Петербургу? В базе калькулятора около 900 населённых
+            пунктов России, Казахстана и Беларуси со своей расчётной температурой и тарифами.
+            Отдельная страница есть для <a href="/moskva/">Москвы и Московской области</a> —
+            там расклад по энергоносителям заметно другой, — а также для
+            <a href="/novosibirsk/">Новосибирска</a>, <a href="/ekaterinburg/">Екатеринбурга</a>,
+            <a href="/nizhniy-novgorod/">Нижнего Новгорода</a> и <a href="/krasnodar/">Краснодара</a>.
+            Соседям по Северо-Западу посвящены свои страницы:
+            <a href="/velikiy-novgorod/">Великий Новгород</a>, <a href="/pskov/">Псков</a>,
+            <a href="/petrozavodsk/">Петрозаводск</a>, <a href="/vologda/">Вологда</a>,
+            <a href="/murmansk/">Мурманск</a>, <a href="/arkhangelsk/">Архангельск</a>,
+            <a href="/syktyvkar/">Сыктывкар</a> и <a href="/kaliningrad/">Калининград</a>.
+            Полный список — на странице <a href="/goroda/">городов</a>.
+        </p>
+
+        <h2>Нужен мастер для монтажа</h2>
+        <p>
+            Если хотите не только посчитать, но и смонтировать — оставьте заявку. Мастер
+            из Петербурга позвонит, уточнит задачу и договорится о выезде. Номер расчёта
+            из калькулятора можно приложить к заявке.
+        </p>
+        <a class="cta" href="/montazh-otopleniya-spb/#zayavka">
+            Оставить заявку на монтаж
+            <small>Отопление, тёплый пол, котельная, водоснабжение</small>
+        </a>
+
+        <h2>Если вы монтажник, а не заказчик</h2>
+        <p>
+            Эта страница отвечает на вопрос «сколько будет стоить». Если объекты вы
+            считаете сами, дальше начинается работа с документами:
+            <a href="/raschet-teplopoter/">расчёт теплопотерь по ограждениям</a> вместо
+            прикидки по площади, <a href="/smeta/">смета</a> с оборудованием и работами,
+            <a href="/rascenki-na-montazh-otopleniya/">прайс на 97 видов монтажных
+            работ</a>, <a href="/kommercheskoe-predlozhenie/">коммерческое предложение
+            заказчику по ссылке</a> и <a href="/dogovor-na-montazh-otopleniya/">договор
+            с актами</a> из готового расчёта.
+        </p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

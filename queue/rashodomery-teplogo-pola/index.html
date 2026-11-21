@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройка расходомеров тёплого пола: расчёт уставок | HeatCalc.ru</title>
+    <meta name="description" content="Как настроить расходомеры на коллекторе тёплого пола: откуда берётся расход в литрах в минуту, таблица уставок по помещениям, порядок балансировки и почему «все на 2 литра» — это не настройка.">
+    <link rel="canonical" href="https://heatcalc.ru/rashodomery-teplogo-pola/">
+    <meta name="robots" content="noindex, follow">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css?v=9">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/rashodomery-teplogo-pola/">
+    <meta property="og:title" content="Настройка расходомеров тёплого пола">
+    <meta property="og:description" content="Откуда берётся уставка в л/мин, таблица по помещениям и порядок балансировки коллектора.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Вопросы и ответы собраны из того же источника, что и видимый текст ниже,
+         поэтому разойтись не могут. -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://heatcalc.ru/rashodomery-teplogo-pola/#webpage",
+      "url": "https://heatcalc.ru/rashodomery-teplogo-pola/",
+      "name": "Настройка расходомеров тёплого пола: какие цифры выставлять",
+      "description": "Как настроить расходомеры на коллекторе тёплого пола: откуда берётся расход в литрах в минуту, таблица уставок по помещениям, порядок балансировки и почему «все на 2 литра» — это не настройка.",
+      "inLanguage": "ru-RU",
+      "isPartOf": {
+        "@id": "https://heatcalc.ru/#website"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "настройка расходомеров теплого пола"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Калькулятор отопления",
+          "item": "https://heatcalc.ru/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Настройка расходомеров тёплого пола: какие цифры выставлять",
+          "item": "https://heatcalc.ru/rashodomery-teplogo-pola/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Какой расход выставлять на расходомерах тёплого пола?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Расход считается по мощности петли: литры в час равны мощности в ваттах, делённой на 1,163 и на перепад температур. При штатном перепаде 5 К петля 87 метров в жилой комнате требует около 1,4 л/мин, петля на кухне — 2,0, в коридоре — 1,9, короткая петля в санузле — 0,8. Верхняя граница на петлю — около 2,4 л/мин."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Можно ли выставить на всех расходомерах одинаковое значение?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Нет, это означает отсутствие балансировки. Разным помещениям нужен разный расход, отличающийся в разы: санузел при 79 Вт/м² и жилая комната при 41 Вт/м² с разными площадями петель требуют совершенно разных уставок. При одинаковых цифрах одни комнаты недополучат тепла, а из других вода вернётся в котёл горячей."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "В каком порядке настраивать расходомеры?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Промыть каждую петлю, открыть все расходомеры полностью, снять сервоприводы, вывести систему на рабочую температуру и потом душить контуры по очереди, начиная с самого «жадного». Пройти круг нужно дважды: прикрытие одной петли поднимает расход у остальных, и за один проход попасть невозможно."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Почему расходомер показывает не то, что выставили?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Чаще всего причин три: воздух в петле, шлам в поплавковой камере или настройка на холодной воде — у неё другая вязкость. Ещё расходомеры поплавкового типа работают только в проектном положении, и перевёрнутая гребёнка даёт произвольные показания."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Как понять, что тёплый пол сбалансирован правильно?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "По термометрам коллектора: разница между подачей и обраткой около 5 градусов. Ноль означает, что воды слишком много и она проскакивает петли не остывая. Разница 12–15 градусов говорит о нехватке расхода — дальний конец петли остаётся холодным. Второй признак: одинаково тёплый пол во всех помещениях при одинаковых настройках термостатов."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://heatcalc.ru/rashodomery-teplogo-pola/#article",
+      "headline": "Настройка расходомеров тёплого пола: какие цифры выставлять",
+      "description": "Как настроить расходомеры на коллекторе тёплого пола: откуда берётся расход в литрах в минуту, таблица уставок по помещениям, порядок балансировки и почему «все на 2 литра» — это не настройка.",
+      "mainEntityOfPage": {
+        "@id": "https://heatcalc.ru/rashodomery-teplogo-pola/#webpage"
+      },
+      "inLanguage": "ru-RU",
+      "datePublished": "2027-10-12",
+      "dateModified": "2027-10-12",
+      "author": {
+        "@type": "Person",
+        "name": "Дмитрий Ибатуллин"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "HeatCalc.ru",
+        "url": "https://heatcalc.ru/"
+      },
+      "isAccessibleForFree": true,
+      "wordCount": 560,
+      "citation": []
+    }
+  ]
+}
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Настройка расходомеров тёплого пола: какие цифры выставлять</nav>
+
+        <h1>Настройка расходомеров тёплого пола: какие цифры выставлять</h1>
+
+        <p class="art-meta"><time datetime="2027-10-12">12 октября 2027</time></p>
+
+        <div class="short-answer">
+            <p class="short-answer-q">Какой расход выставлять на расходомерах тёплого пола?</p>
+            <p>Расход петли в литрах в час равен её мощности в ваттах ÷ 1,163 ÷ перепад температур. При штатном перепаде 5 К петля 87 метров в жилой комнате требует около 1,4 л/мин, на кухне 2,0, в коридоре 1,9, короткая петля в санузле 0,8; верхняя граница на петлю — около 2,4 л/мин. Одинаковые цифры на всех расходомерах означают отсутствие балансировки: одни комнаты недополучат тепла, а из других вода вернётся в котёл горячей.</p>
+        </div>
+
+        <p class="lead">Расходомер на коллекторе — единственная возможность распределить воду между петлями осознанно. Но выставлять на нём надо не «примерно поровну», а конкретное число литров в минуту, посчитанное для каждого помещения. Показываем, откуда это число берётся и как настраивать по порядку.</p>
+
+        <nav class="toc" aria-label="Содержание">
+            <p class="toc-title">В статье</p>
+            <ol>
+            <li><a href="#otkuda-beretsya-ustavka">Откуда берётся уставка</a></li>
+            <li><a href="#tipovye-ustavki">Типовые уставки</a></li>
+            <li><a href="#poryadok-nastroyki">Порядок настройки</a></li>
+            <li><a href="#chto-meshaet-nastroit">Что мешает настроить</a></li>
+            <li><a href="#kak-proverit-chto-poluchilos">Как проверить, что получилось</a></li>
+            </ol>
+        </nav>
+
+        <h2 id="otkuda-beretsya-ustavka">Откуда берётся уставка</h2>
+
+        <p>Расход петли определяется не её длиной, а тем, сколько тепла она должна отдать. Формула одна и та же для любого контура:</p>
+
+        <div class="formula">
+            <p><strong>Расход, л/ч</strong> = мощность петли, Вт ÷ (1,163 × перепад, К)</p>
+            <p>Петля 87 м в жилой комнате: 11,9 м² × 41 Вт/м² = 488 Вт</p>
+            <p>488 ÷ (1,163 × 5) = 84 л/ч = <strong>1,4 л/мин</strong></p>
+        </div>
+
+        <p>Перепад 5 К — штатный режим тёплого пола при графике 40/35. Если система настроена на перепад 7 К, расходы во всех петлях пропорционально меньше.</p>
+
+        <h2 id="tipovye-ustavki">Типовые уставки</h2>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Помещение</th><th>Шаг</th><th>Длина петли</th><th>Площадь</th><th>Теплосъём</th><th>Уставка</th></tr>
+                <tr><td>Жилая комната</td><td>150 мм</td><td class="num">87 м</td><td class="num">11,9 м²</td><td class="num">41 Вт/м²</td><td class="num">1,4 л/мин</td></tr>
+                <tr><td>Кухня</td><td>150 мм</td><td class="num">80 м</td><td class="num">10,9 м²</td><td class="num">64 Вт/м²</td><td class="num">2,0 л/мин</td></tr>
+                <tr><td>Коридор</td><td>150 мм</td><td class="num">60 м</td><td class="num">8,2 м²</td><td class="num">79 Вт/м²</td><td class="num">1,9 л/мин</td></tr>
+                <tr><td>Санузел</td><td>100 мм</td><td class="num">40 м</td><td class="num">3,6 м²</td><td class="num">79 Вт/м²</td><td class="num">0,8 л/мин</td></tr>
+            </table>
+        </div>
+        <p class="note">Перепад 5 К. Обратите внимание: самая длинная петля получает самую маленькую уставку — потому что в жилой комнате пол ограничен нормой по температуре поверхности и отдаёт всего 41 Вт с квадрата.</p>
+
+        <div class="callout">
+            <p><strong>Отсюда главное правило.</strong> Одинаковые цифры на всех расходомерах — это не балансировка, а её отсутствие. Санузлу и спальне нужен разный расход, причём различающийся в разы. «Выставили всем по два литра» означает, что санузел недополучит тепла, а жилая комната будет получать втрое больше, чем может отдать, — и вся лишняя вода вернётся в котёл горячей, испортив работу конденсационного режима.</p>
+        </div>
+
+        <p>Верхняя граница — около 2,4 л/мин на петлю. Это тот расход, при котором предельная по длине петля упирается в скорость 0,5 м/с и потери 20 кПа. Если по расчёту выходит больше, петлю надо делить, а не выкручивать расходомер.</p>
+
+        <h2 id="poryadok-nastroyki">Порядок настройки</h2>
+
+        <ol>
+            <li><strong>Заполнить и промыть.</strong> Каждую петлю пролить отдельно, пока не пойдёт вода без воздуха. Воздух в петле делает показания расходомера бессмысленными.</li>
+            <li><strong>Открыть все расходомеры полностью.</strong> Стартовая точка — не «как было», а заведомо открытые контуры.</li>
+            <li><strong>Включить насос и выйти на режим.</strong> Настраивать надо при той температуре подачи, при которой система будет работать, — на холодной воде вязкость другая.</li>
+            <li><strong>Снять сервоприводы.</strong> Пока идёт балансировка, все контуры должны быть открыты; закрытый сервоприводом контур перераспределит воду и собьёт настройку соседей.</li>
+            <li><strong>Придушить самую «жадную» петлю.</strong> Начинают с той, где расход сильно выше уставки, и идут по убыванию.</li>
+            <li><strong>Пройти круг дважды.</strong> Прикрытие одной петли поднимает расход у остальных, поэтому за один проход попасть невозможно. Второй круг обычно уже точный.</li>
+            <li><strong>Записать уставки.</strong> Лист с расходами по контурам вешают на дверцу шкафа. Через год никто не вспомнит, какой цифре соответствовала какая комната.</li>
+        </ol>
+
+        <h2 id="chto-meshaet-nastroit">Что мешает настроить</h2>
+
+        <ul>
+            <li><strong>Петли сильно разной длины.</strong> Короткая имеет малое сопротивление и забирает воду себе. Чтобы уравнять, её придётся придушить почти до упора, а длинную открыть полностью — система окажется на грани, и любое изменение температуры подачи собьёт баланс.</li>
+            <li><strong>Насос без запаса.</strong> Сам коллектор с расходомерами, кранами и сервоприводами даёт около 10 кПа сопротивления, и это до петель. Если насос подобран впритык, на балансировку запаса не остаётся.</li>
+            <li><strong>Грязь в контуре.</strong> Шлам оседает в расходомере и занижает показания. Отсюда требование к трубе с кислородным барьером — без него коррозия в системе неизбежна.</li>
+            <li><strong>Расходомер вверх ногами.</strong> Поплавковые расходомеры работают в одном положении; перевёрнутая гребёнка показывает что угодно.</li>
+        </ul>
+
+        <h2 id="kak-proverit-chto-poluchilos">Как проверить, что получилось</h2>
+
+        <p>Через сутки после настройки посмотрите на термометры коллектора: разница между подачей и обраткой должна быть около 5 градусов. Нулевая разница означает, что воды идёт слишком много и она проскакивает петли не остывая. Разница в 12–15 градусов — наоборот, расхода не хватает, и дальний конец петли остаётся холодным.</p>
+
+        <p>Второй способ — просто пройтись по дому босиком. Если в одной комнате пол заметно холоднее при одинаковых настройках термостатов, дело почти всегда в расходе, а не в трубе.</p>
+
+        <div class="callout dom-cta">
+            <p>
+                <strong>Сколько это будет стоить в вашем доме?</strong> Семь вопросов, две минуты,
+                без регистрации: получите цену отопления вилкой — оборудование и монтаж отдельно,
+                в трёх комплектациях.
+            </p>
+        </div>
+
+        <a class="cta" href="/dom/?src=rashodomery-teplogo-pola">
+            Узнать цену для своего дома
+            <small>Отопление под ключ, результат сразу на экране</small>
+        </a>
+
+        <a class="cta" href="/">
+            Получить расходы по петлям
+            <small>Калькулятор считает уставку для каждого контура</small>
+        </a>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Какой расход выставлять на расходомерах тёплого пола?</span></summary>
+            <div class="answer">
+                <p>Расход считается по мощности петли: литры в час равны мощности в ваттах, делённой на 1,163 и на перепад температур. При штатном перепаде 5 К петля 87 метров в жилой комнате требует около 1,4 л/мин, петля на кухне — 2,0, в коридоре — 1,9, короткая петля в санузле — 0,8. Верхняя граница на петлю — около 2,4 л/мин.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Можно ли выставить на всех расходомерах одинаковое значение?</span></summary>
+            <div class="answer">
+                <p>Нет, это означает отсутствие балансировки. Разным помещениям нужен разный расход, отличающийся в разы: санузел при 79 Вт/м² и жилая комната при 41 Вт/м² с разными площадями петель требуют совершенно разных уставок. При одинаковых цифрах одни комнаты недополучат тепла, а из других вода вернётся в котёл горячей.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">В каком порядке настраивать расходомеры?</span></summary>
+            <div class="answer">
+                <p>Промыть каждую петлю, открыть все расходомеры полностью, снять сервоприводы, вывести систему на рабочую температуру и потом душить контуры по очереди, начиная с самого «жадного». Пройти круг нужно дважды: прикрытие одной петли поднимает расход у остальных, и за один проход попасть невозможно.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Почему расходомер показывает не то, что выставили?</span></summary>
+            <div class="answer">
+                <p>Чаще всего причин три: воздух в петле, шлам в поплавковой камере или настройка на холодной воде — у неё другая вязкость. Ещё расходомеры поплавкового типа работают только в проектном положении, и перевёрнутая гребёнка даёт произвольные показания.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Как понять, что тёплый пол сбалансирован правильно?</span></summary>
+            <div class="answer">
+                <p>По термометрам коллектора: разница между подачей и обраткой около 5 градусов. Ноль означает, что воды слишком много и она проскакивает петли не остывая. Разница 12–15 градусов говорит о нехватке расхода — дальний конец петли остаётся холодным. Второй признак: одинаково тёплый пол во всех помещениях при одинаковых настройках термостатов.</p>
+            </div>
+        </details>
+
+        <div class="callout">
+            <p>
+                <strong>Считайте объекты в калькуляторе.</strong> Смета по актуальным ценам,
+                коммерческое предложение клиенту ссылкой или в PDF, договор подряда и акты —
+                из одной сметы. Регистрация бесплатная, занимает минуту.
+            </p>
+        </div>
+
+        <a class="cta" href="/?utm_source=article&amp;utm_medium=seo&amp;utm_campaign=rashodomery-teplogo-pola">
+            Попробовать калькулятор бесплатно
+            <small>Смета, КП и документы для монтажника</small>
+        </a>
+
+        <div class="author">
+            <img src="/img/author_ibatullin.jpg" width="64" height="64" loading="lazy"
+                 alt="Дмитрий Ибатуллин, автор HeatCalc.ru">
+            <p><b>Дмитрий Ибатуллин</b><br><span>Инженер</span></p>
+        </div>
+
+        <h2>Читать дальше</h2>
+        <p><a href="/uzel-podmesa-teplogo-pola/">узел подмеса тёплого пола: когда нужен</a> · <a href="/dlina-petli-teplogo-pola/">длина петли тёплого пола: предел и как делить</a> · <a href="/kollektor-teplogo-pola/">коллектор тёплого пола: на сколько выходов</a> · <a href="/teplyy-pol-na-vtorom-etazhe/">тёплый пол на втором этаже по деревянным перекрытиям</a> · <a href="/smeta/">что входит в смету на отопление</a> · <a href="/raschet-teplopoter/">как считаются теплопотери дома</a></p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

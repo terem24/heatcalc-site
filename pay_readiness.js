@@ -1,0 +1,722 @@
+/**
+ * pay_readiness.js — вкладка «Готовность платить» в панели управления (только владелец).
+ *
+ * Зачем. Цены на подписку нельзя выбрать из головы: платящих пока нет, и единственное,
+ * что можно измерить заранее, — кто уже делает то, за что платят. Вкладка собирает из базы
+ * воронку «пришёл → работает → отправляет КП → просит оплату → оплатил», режет её по роли
+ * (продавец / монтажник), региону и дистрибьютору, ставит каждому человеку балл «жара» и
+ * считает потенциальную выручку при ценах, которые владелец вводит тут же.
+ *
+ * Ничего не пишет в базу: только чтение users, estimates, shared_invoices,
+ * subscription_payments, distributors. Загружается лениво (HC_LAZY.pay_readiness).
+ *
+ * Связи таблиц (проверено по базе): estimates.user_id = users.id, а
+ * shared_invoices.user_id = users.auth_user_id — это разные ключи.
+ *
+ * Расчёт вынесен в analyze(): чистая функция от выгрузки, её гоняет
+ * scratch/smoke_pay_readiness.js без браузера и базы.
+ */
+const PayReadiness = {
+    DAY: 86400000,
+    // Свои цены для калькулятора выручки; только в этом браузере, в базу не пишутся
+    LS_KEY: 'pay_readiness_inputs',
+    DEFAULTS: { proPrice: 1290, shopPrice: 5900, conv: 20 },
+
+    _data: null,
+    _loading: false,
+    _error: null,
+    _view: null,
+    _heatFilter: 'hot',
+
+    // ── баллы «жара» ──────────────────────────────────────────────────
+    // Правило нарочно простое, чтобы владелец мог его пересказать:
+    //   смета за 30 дней: 1+ → 2 балла, 3+ → 3;  КП или счёт отправлен → 3;
+    //   зашёл в 3+ разных дня → 2;  был за последние 7 дней → 1;  смета от 500 тыс. ₽ → 1.
+    HOT_FROM: 6,
+    WARM_FROM: 3,
+
+    heatOf: function (p) {
+        let s = 0;
+        if (p.est30 >= 3) s += 3; else if (p.est30 >= 1) s += 2;
+        if (p.invoices > 0) s += 3;
+        if (p.days >= 3) s += 2;
+        if (p.active7) s += 1;
+        if (p.maxEst >= 500000) s += 1;
+        return s;
+    },
+    levelOf: function (score) { return score >= this.HOT_FROM ? 'hot' : (score >= this.WARM_FROM ? 'warm' : 'cold'); },
+
+    regionGroup: function (r) {
+        const s = String(r || '').toLowerCase();
+        if (!s.trim()) return 'Не указан';
+        if (s.indexOf('москв') >= 0) return 'Москва и область';
+        if (s.indexOf('санкт') >= 0 || s.indexOf('ленинград') >= 0) return 'Санкт-Петербург и область';
+        if (s.indexOf('калинин') >= 0) return 'Калининградская область';
+        return 'Другие регионы';
+    },
+
+    roleOf: function (types) {
+        const a = Array.isArray(types) ? types : [];
+        const sell = a.indexOf('Продавец') >= 0, inst = a.indexOf('Монтажник') >= 0;
+        if (sell && inst) return 'both';
+        if (sell) return 'seller';
+        if (inst) return 'installer';
+        return 'unknown';
+    },
+    ROLE_LABEL: { seller: 'Продавец', installer: 'Монтажник', both: 'Продавец и монтажник', unknown: 'Не указано' },
+    // Кому что предлагать: магазину — тариф магазина, монтажнику — «Профи»
+    OFFER: { seller: 'shop', both: 'shop', installer: 'pro', unknown: 'pro' },
+
+    median: function (arr) {
+        const a = arr.filter(x => isFinite(x)).sort((x, y) => x - y);
+        if (!a.length) return null;
+        const m = a.length >> 1;
+        return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
+    },
+
+    /**
+     * Из сырой выгрузки — всё, что рисует вкладка.
+     * raw = { users, estimates, invoices, payments, distributors, now }
+     */
+    analyze: function (raw) {
+        const now = raw.now || Date.now();
+        const t = x => { const v = x ? new Date(x).getTime() : NaN; return isFinite(v) ? v : null; };
+        const people = (raw.users || [])
+            .filter(u => u.account_type !== 'admin' && u.account_type !== 'viewer' && !u.is_blocked)
+            .map(u => ({
+                id: u.id, auth: u.auth_user_id,
+                name: [u.last_name, u.first_name].filter(Boolean).join(' ') || u.username || u.email || '—',
+                email: u.email || '',
+                first: u.first_name || '',
+                rawRegion: u.region || '',
+                type: u.account_type || '',
+                role: this.roleOf(u.activity_types),
+                region: this.regionGroup(u.region),
+                city: u.city || u.region || '',
+                dist: u.distributor_id || null,
+                reg: t(u.registered_at) || t(u.created_at),
+                last: t(u.last_visited),
+                days: +u.sess_days || 0,
+                est: 0, est30: 0, maxEst: 0, estSum: 0, invoices: 0, payReq: 0, paid: 0
+            }));
+        const byId = {}, byAuth = {};
+        people.forEach(p => { byId[p.id] = p; if (p.auth) byAuth[p.auth] = p; });
+
+        const estSums = [], workSums = [];
+        (raw.estimates || []).forEach(e => {
+            const p = byId[e.user_id];
+            if (!p) return;
+            p.est++;
+            const sum = +e.total_sum || 0;
+            if (t(e.created_at) > now - 30 * this.DAY) p.est30++;
+            if (sum > p.maxEst) p.maxEst = sum;
+            p.estSum += sum;
+            if (sum > 0) estSums.push(sum);
+            if (+e.works_sum > 0) workSums.push(+e.works_sum);
+        });
+        (raw.invoices || []).forEach(i => { const p = byAuth[i.user_id]; if (p) p.invoices++; });
+        (raw.payments || []).forEach(x => {
+            const p = byId[x.user_id] || byAuth[x.user_id];
+            if (!p) return;
+            if (x.status === 'paid') p.paid++; else if (x.status === 'requested') p.payReq++;
+        });
+
+        people.forEach(p => {
+            p.active30 = !!(p.last && p.last > now - 30 * this.DAY);
+            p.active7 = !!(p.last && p.last > now - 7 * this.DAY);
+            p.score = this.heatOf(p);
+            p.level = this.levelOf(p.score);
+            p.offer = this.OFFER[p.role];
+        });
+
+        const cnt = f => people.filter(f).length;
+        const funnel = [
+            { id: 'reg', label: 'Зарегистрировались', n: people.length },
+            { id: 'act', label: 'Заходили за 30 дней', n: cnt(p => p.active30) },
+            { id: 'est', label: 'Сохранили смету', n: cnt(p => p.est > 0) },
+            { id: 'est30', label: 'Смета за последние 30 дней', n: cnt(p => p.est30 > 0) },
+            { id: 'inv', label: 'Отправили КП или счёт', n: cnt(p => p.invoices > 0) },
+            { id: 'req', label: 'Нажали «Я оплатил»', n: cnt(p => p.payReq > 0 || p.paid > 0) },
+            { id: 'paid', label: 'Оплатили', n: cnt(p => p.paid > 0) }
+        ];
+
+        const group = (keyFn, labelFn) => {
+            const m = {};
+            people.forEach(p => {
+                const k = keyFn(p);
+                const g = m[k] || (m[k] = { key: k, label: labelFn(k), n: 0, hot: 0, warm: 0, est: 0, inv: 0 });
+                g.n++; if (p.level === 'hot') g.hot++; if (p.level === 'warm') g.warm++;
+                g.est += p.est; g.inv += p.invoices;
+            });
+            return Object.keys(m).map(k => m[k]).sort((a, b) => (b.hot * 3 + b.warm) - (a.hot * 3 + a.warm) || b.n - a.n);
+        };
+        const distName = {};
+        (raw.distributors || []).forEach(d => { distName[d.id] = d.company_name || 'Без названия'; });
+
+        return {
+            now, people, funnel,
+            byRole: group(p => p.role, k => this.ROLE_LABEL[k]),
+            byRegion: group(p => p.region, k => k),
+            byDist: group(p => p.dist || 'none', k => k === 'none' ? 'Без дистрибьютора' : (distName[k] || 'Дистрибьютор')),
+            medianEst: this.median(estSums),
+            medianWorks: this.median(workSums),
+            estCount: estSums.length,
+            payments: raw.payments || null,
+            path: this.pathOf(raw.events, people)
+        };
+    },
+
+    /**
+     * Путь к оплате по журналу paywall_events: сколько РАЗНЫХ людей на каждом шаге и из каких
+     * мест они пришли. null — журнала нет (миграция 20261025_paywall_events.sql не выполнена).
+     * «Я оплатил» и «Оплатили» берём из тех же оплат, что и воронка выше, — но только среди тех,
+     * кто вообще попал в журнал, иначе проценты шага к шагу не сойдутся.
+     */
+    pathOf: function (events, people) {
+        if (!events) return null;
+        const byId = {};
+        people.forEach(p => { byId[p.id] = p; });
+        const STEPS = [['seen', 'Увидели закрытое (замок, проба)'], ['tariff_open', 'Открыли окно тарифа'], ['pay_open', 'Открыли окно оплаты']];
+        const who = {}, bySrc = {};
+        STEPS.forEach(s => { who[s[0]] = new Set(); });
+        events.forEach(e => {
+            if (!who[e.kind]) return;
+            who[e.kind].add(e.user_id);
+            const key = e.kind + '|' + (e.src || '—');
+            (bySrc[key] || (bySrc[key] = { kind: e.kind, src: e.src || '—', users: new Set() })).users.add(e.user_id);
+        });
+        const inLog = new Set(); STEPS.forEach(s => who[s[0]].forEach(u => inLog.add(u)));
+        const ppl = Array.from(inLog).map(id => byId[id]).filter(Boolean);
+        const steps = STEPS.map(s => ({ id: s[0], label: s[1], n: who[s[0]].size }));
+        steps.push({ id: 'req', label: 'Нажали «Я оплатил»', n: ppl.filter(p => p.payReq > 0 || p.paid > 0).length });
+        steps.push({ id: 'paid', label: 'Оплатили', n: ppl.filter(p => p.paid > 0).length });
+        const srcs = Object.keys(bySrc).map(k => ({ kind: bySrc[k].kind, src: bySrc[k].src, n: bySrc[k].users.size }))
+            .sort((a, b) => b.n - a.n).slice(0, 25);
+        const first = events.reduce((m, e) => { const t = new Date(e.created_at).getTime(); return t && (m === null || t < m) ? t : m; }, null);
+        return { steps, srcs, first, total: events.length };
+    },
+
+    /**
+     * Потенциальная выручка в месяц.
+     * Профи платят монтажники (и все без роли) из горячих и тёплых × конверсия;
+     * тариф магазина — по дистрибьюторам, где есть хотя бы двое горячих/тёплых продавцов.
+     */
+    forecast: function (a, inp) {
+        const conv = Math.max(0, Math.min(100, +inp.conv || 0)) / 100;
+        const live = p => p.level !== 'cold';
+        const proPool = a.people.filter(p => live(p) && p.offer === 'pro').length;
+        const shopDist = {};
+        a.people.forEach(p => { if (live(p) && p.offer === 'shop' && p.dist) shopDist[p.dist] = (shopDist[p.dist] || 0) + 1; });
+        const shopPool = Object.keys(shopDist).filter(k => shopDist[k] >= 2).length;
+        const proN = Math.round(proPool * conv), shopN = Math.round(shopPool * conv);
+        const pro = proN * (+inp.proPrice || 0), shop = shopN * (+inp.shopPrice || 0);
+        return { proPool, shopPool, proN, shopN, pro, shop, total: pro + shop };
+    },
+
+    // ── загрузка ──────────────────────────────────────────────────────
+    load: async function (force) {
+        if (this._data && !force) return this._data;
+        if (this._loading) return this._loading;
+        this._error = null;
+        this._loading = (async () => {
+            try {
+                if (typeof supabaseClient === 'undefined' || !supabaseClient) throw new Error('нет связи с базой');
+                const q = (table, cols, order) => {
+                    let r = supabaseClient.from(table).select(cols).limit(5000);
+                    if (order) r = r.order(order, { ascending: false });
+                    return r;
+                };
+                const [u, e, i, p, d, ev] = await Promise.all([
+                    q('users', 'id, auth_user_id, account_type, is_blocked, created_at, registered_at, last_visited, activity_types, region, city, distributor_id, sess_days, first_name, last_name, username, email'),
+                    q('estimates', 'user_id, total_sum, works_sum, created_at'),
+                    q('shared_invoices', 'user_id, created_at'),
+                    q('subscription_payments', 'user_id, status, paid_rub, created_at'),
+                    q('distributors', 'id, company_name'),
+                    q('paywall_events', 'user_id, kind, src, created_at')
+                ]);
+                // Экономия «Бюджетнее» по последней смете (таблица offer_savings, пишет bench/cheaper_offer.js).
+                // Нет таблицы или цифр — предложение уходит без строки про экономию.
+                const sv = await q('offer_savings', 'user_id, base_sum, cheap_sum, save_rub, save_pct');
+                this._savings = {};
+                if (!sv.error) (sv.data || []).forEach(x => { this._savings[x.user_id] = x; });
+                if (u.error) throw u.error;
+                if (e.error) throw e.error;
+                if (i.error) throw i.error;
+                if (d.error) throw d.error;
+                // Таблицы оплат может не быть (миграция subscription_payments) — это не ошибка вкладки
+                this._data = this.analyze({
+                    users: u.data, estimates: e.data, invoices: i.data,
+                    payments: p.error ? null : p.data, distributors: d.data,
+                    events: ev.error ? null : ev.data
+                });
+            } catch (err) {
+                this._error = (err && err.message) || String(err);
+                this._data = null;
+            } finally {
+                this._loading = false;
+            }
+            return this._data;
+        })();
+        return this._loading;
+    },
+
+    // ── отрисовка ─────────────────────────────────────────────────────
+    // Оформление — общее для админки: .ad-card, .admin-stat-grid, .ad-chip, .admin-btn;
+    // своё только для таблиц и воронки (.pr-* в style.css).
+    _groupBy: 'role',
+
+    esc: function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); },
+    rub: function (n) { return n == null ? '—' : Math.round(n).toLocaleString('ru-RU') + ' ₽'; },
+    pct: function (a, b) { return b ? Math.round(a * 100 / b) + ' %' : '—'; },
+
+    inputs: function () {
+        let saved = {};
+        try { saved = JSON.parse(localStorage.getItem(this.LS_KEY) || '{}') || {}; } catch (e) { }
+        const inp = Object.assign({}, this.DEFAULTS, saved);
+        // Цена Профи — всегда из «Оплаты подписки» (месячный тариф, без региона и акций),
+        // чтобы расчёт не расходился с тем, что видят люди. Руками её тут не правят
+        const mp = this.proMonthPrice();
+        if (mp > 0) { inp.proPrice = mp; inp.proFromSettings = true; }
+        return inp;
+    },
+    proMonthPrice: function () {
+        try {
+            if (typeof Subscription === 'undefined') return 0;
+            const plan = Subscription.planList(false).find(p => Math.round(Subscription.num(p.months)) === 1);
+            return plan ? Math.round(Subscription.num(plan.rub)) : 0;
+        } catch (e) { return 0; }
+    },
+    setInput: function (key, val) {
+        const inp = this.inputs();
+        inp[key] = parseFloat(val) || 0;
+        try { localStorage.setItem(this.LS_KEY, JSON.stringify(inp)); } catch (e) { }
+        this.renderForecast();
+    },
+
+    render: function () {
+        const box = document.getElementById('admin_payready_box');
+        if (!box) return;
+        box.innerHTML = '<div class="ad-card-note">Считаю по базе…</div>';
+        this.load().then(() => this.renderAll());
+    },
+    reload: function () {
+        this._data = null;
+        const box = document.getElementById('admin_payready_box');
+        if (box) box.innerHTML = '<div class="ad-card-note">Перечитываю базу…</div>';
+        this.load(true).then(() => this.renderAll());
+    },
+
+    card: function (title, note, body) {
+        return `<div class="ad-card" style="margin-bottom:14px;">
+            <div class="ad-card-h"><span class="ad-card-title">${title}</span></div>
+            ${note ? `<div class="ad-card-note" style="padding:0;">${note}</div>` : ''}
+            ${body}</div>`;
+    },
+
+    renderAll: function () {
+        const box = document.getElementById('admin_payready_box');
+        if (!box) return;
+        if (this._error || !this._data) {
+            box.innerHTML = `<div class="ad-card-note ad-warn">Отчёт не загрузился: ${this.esc(this._error || 'нет данных')}</div>
+                <button type="button" class="admin-btn" style="margin-top:8px;" onclick="PayReadiness.reload()">Повторить</button>`;
+            return;
+        }
+        const a = this._data;
+        const tile = (label, value, sub) => `<div class="control-card"><span class="lbl">${label}</span><span>${value}</span><span>${sub}</span></div>`;
+        const hot = a.people.filter(p => p.level === 'hot').length, warm = a.people.filter(p => p.level === 'warm').length;
+        const paid = a.funnel[a.funnel.length - 1].n;
+        const noPay = a.payments === null
+            ? '<div class="ad-card-note ad-warn" style="margin-bottom:12px;">Таблицы оплат (subscription_payments) в базе нет — шаги «Я оплатил» и «Оплатили» считать нечем.</div>' : '';
+
+        box.innerHTML = `
+            <div class="ad-page-h">
+                <div class="ad-sub" style="max-width:640px; line-height:1.5;">Кто уже делает то, за что платят: смету, КП, счёт. Помогает выбрать цены на подписку по фактам. Данные читаются из базы, ничего не меняется.</div>
+                <button type="button" class="admin-btn" onclick="PayReadiness.reload()" title="Перечитать базу">Обновить</button>
+            </div>
+            ${noPay}
+            <div class="admin-stat-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                ${tile('Человек в расчёте', a.people.length, 'без админов и наблюдателей')}
+                ${tile('Горячих', hot, 'тёплых: ' + warm)}
+                ${tile('Медианная смета', this.rub(a.medianEst), 'работ в ней: ' + this.rub(a.medianWorks) + ' · смет: ' + a.estCount)}
+                ${tile('Оплатили', paid, 'подписок оплачено')}
+            </div>
+            ${this.card('Воронка', 'Где люди отваливаются на пути к оплате. Процент — от зарегистрировавшихся.', this.funnelHtml(a))}
+            ${this.pathCard(a)}
+            ${this.card('Выручка при ваших ценах', 'Ориентир, а не прогноз: сколько вышло бы, если бы часть горячих и тёплых оплатила. Цены и процент хранятся только в этом браузере.', '<div id="pr_forecast"></div>')}
+            ${this.card('Кто готов платить', 'Срезы по роли в анкете, региону и дистрибьютору. Строки отсортированы по числу горячих.', '<div id="pr_groups"></div>')}
+            ${this.card('Люди', 'Балл: смета за 30 дней 2–3, отправленный КП или счёт 3, заходы в 3+ разных дня 2, визит за неделю 1, смета от 500 тыс. ₽ 1. Горячий — ' + this.HOT_FROM + '+, тёплый — ' + this.WARM_FROM + '–' + (this.HOT_FROM - 1) + '.', '<div id="pr_people"></div>')}`;
+        this.renderForecast();
+        this.renderGroups();
+        this.renderPeople();
+    },
+
+    pathCard: function (a) {
+        const note = 'Что люди видят и нажимают на пути к оплате. Считаются разные люди, не нажатия. Шаги отсюда не обязаны идти по порядку: окно тарифа открывают и из кабинета.';
+        if (!a.path) {
+            return this.card('Путь к окну оплаты', note, '<div class="ad-card-note ad-warn" style="padding:0;">Журнала paywall_events в базе нет — выполните supabase/migrations/20261025_paywall_events.sql в SQL Editor, и данные начнут копиться.</div>');
+        }
+        const p = a.path, top = Math.max(1, ...p.steps.map(s => s.n));
+        const since = p.first ? 'Журнал ведётся с ' + new Date(p.first).toLocaleDateString('ru-RU') + '. ' : 'Пока в журнале пусто. ';
+        const KIND = { seen: 'увидели', tariff_open: 'окно тарифа', pay_open: 'окно оплаты' };
+        const rows = p.srcs.map(s => `<tr><td>${this.esc(s.src)}</td><td>${KIND[s.kind] || s.kind}</td><td class="n">${s.n}</td></tr>`).join('');
+        return this.card('Путь к окну оплаты', since + note,
+            this.funnelHtml({ funnel: p.steps }, top) +
+            (rows ? `<div class="pr-wrap" style="margin-top:12px;"><table class="pr-table"><thead><tr><th>Откуда</th><th>Шаг</th><th class="n">Людей</th></tr></thead><tbody>${rows}</tbody></table></div>` : ''));
+    },
+
+    funnelHtml: function (a, topOverride) {
+        const top = topOverride || a.funnel[0].n || 1;
+        return '<div class="pr-funnel">' + a.funnel.map(s => {
+            const w = s.n ? Math.max(2, Math.round(s.n * 100 / top)) : 0;
+            return `<div class="pr-fun-row"><div class="pr-fun-label">${this.esc(s.label)}</div>
+                <div class="pr-fun-track"><div class="pr-fun-bar" style="width:${w}%;"></div></div>
+                <div class="pr-fun-n"><b>${s.n}</b><span>${this.pct(s.n, top)}</span></div></div>`;
+        }).join('') + '</div>';
+    },
+
+    setGroupBy: function (g) { this._groupBy = g; this.renderGroups(); },
+
+    renderGroups: function () {
+        const el = document.getElementById('pr_groups');
+        if (!el || !this._data) return;
+        const a = this._data;
+        const SETS = [['role', 'По роли', a.byRole], ['region', 'По региону', a.byRegion], ['dist', 'По дистрибьютору', a.byDist]];
+        const cur = SETS.find(s => s[0] === this._groupBy) || SETS[0];
+        const chips = SETS.map(s => `<button type="button" class="ad-chip${s[0] === cur[0] ? ' active' : ''}" onclick="PayReadiness.setGroupBy('${s[0]}')">${s[1]}</button>`).join('');
+        const rows = cur[2].map(g => `<tr><td>${this.esc(g.label)}</td><td class="n">${g.n}</td><td class="n pr-strong">${g.hot}</td><td class="n">${g.warm}</td><td class="n">${g.est}</td><td class="n">${g.inv}</td></tr>`).join('');
+        el.innerHTML = `<div class="ad-chips" style="margin:0 0 4px;">${chips}</div>
+            <div class="pr-wrap"><table class="pr-table"><thead><tr><th>Группа</th><th class="n">Людей</th><th class="n">Горячих</th><th class="n">Тёплых</th><th class="n">Смет</th><th class="n">КП и счетов</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    },
+
+    renderForecast: function () {
+        const el = document.getElementById('pr_forecast');
+        if (!el || !this._data) return;
+        const a = this._data, inp = this.inputs(), f = this.forecast(a, inp);
+        const field = (key, label, suffix) => key === 'proPrice' && inp.proFromSettings
+            ? `<div class="pr-field">${label}<span><b>${Math.round(inp.proPrice).toLocaleString('ru-RU')}</b> ${suffix} <span class="ad-card-note" style="padding:0;">из «Оплаты подписки»</span></span></div>`
+            : `<label class="pr-field">${label}
+            <span><input type="number" min="0" step="${key === 'conv' ? 5 : 100}" value="${inp[key]}" onchange="PayReadiness.setInput('${key}', this.value)" class="pr-input"> ${suffix}</span></label>`;
+        let cur = '';
+        try {
+            if (typeof Subscription !== 'undefined') {
+                const p = Subscription.settings().plans;
+                if (p.month && p.year) cur = `<div class="ad-card-note" style="padding:0;">Сейчас в «Оплате подписки»: месяц ${this.rub(p.month.rub)}, год ${this.rub(p.year.rub)}.${a.medianEst ? ' Год «Профи» — ' + (Math.round(p.year.rub * 1000 / a.medianEst) / 10) + ' % от медианной сметы.' : ''}</div>`;
+            }
+        } catch (e) { }
+        const res = (label, value) => `<div class="pr-res"><div class="pr-res-l">${label}</div><div class="pr-res-v">${value}</div></div>`;
+        el.innerHTML = `<div class="pr-fields">
+                ${field('proPrice', 'Профи (монтажник), в месяц', '₽')}
+                ${field('shopPrice', 'Магазин, за точку в месяц', '₽')}
+                ${field('conv', 'Сколько горячих и тёплых оплатят', '%')}
+            </div>
+            <div class="pr-results">
+                ${res('Профи: из ' + f.proPool + ' человек оплатят ' + f.proN, this.rub(f.pro) + '/мес')}
+                ${res('Магазин: из ' + f.shopPool + ' точек оплатят ' + f.shopN, this.rub(f.shop) + '/мес')}
+                ${res('Итого в месяц / в год', this.rub(f.total) + ' / ' + this.rub(f.total * 12))}
+            </div>
+            <div class="ad-card-note" style="padding:0;">Магазин считается по дистрибьюторам, у которых не меньше двух горячих или тёплых продавцов; Профи — по остальным горячим и тёплым.</div>
+            ${cur}`;
+    },
+
+    // ── «Предложить»: готовое сообщение с преимуществами и ссылками на оплату ──
+    // Цены и ссылки — те же, что видит сам человек в окне тарифа: Subscription.resolve
+    // с его регионом (региональная цена и действующая акция учитываются).
+    // Магазинного тарифа в «Оплате подписки» пока нет, поэтому продавцу тоже уходит «Профи»,
+    // но с перечнем преимуществ именно для продавца.
+    LS_SENT: 'pay_readiness_offers',
+
+    sentMap: function () {
+        try { return JSON.parse(localStorage.getItem(this.LS_SENT) || '{}') || {}; } catch (e) { return {}; }
+    },
+
+    offerCell: function (p) {
+        if (p.type === 'pro') return '<span class="pr-sent">уже Профи</span>';
+        const sent = this.sentMap()[p.id];
+        const mark = sent ? `<span class="pr-sent" title="Предложение уже отправляли">отправлено ${new Date(sent).toLocaleDateString('ru-RU')}</span>` : '';
+        return `<button type="button" class="admin-btn" onclick="PayReadiness.openOffer('${this.esc(p.id)}')">Предложить</button>${mark}`;
+    },
+
+    // Ссылка, по которой сайт сам открывает окно оплаты выбранного тарифа (app.openPayFromUrl)
+    PAY_LINK: 'https://heatcalc.ru/?pay=',
+
+    // Что даёт каждая функция — для человека, а не для таблицы тарифов. Ключи — id функций.
+    OFFER_PERKS: {
+        rommer: 'ROMMER и аналоги: смету можно сделать дешевле или дороже в один клик',
+        terem: 'Поиск по всему прайсу: нашли позицию и сразу добавили в смету',
+        works: 'КП с работами: клиент сразу видит полную сумму, без доплат потом',
+        analog: 'Смета «Бюджетнее»: покажите клиенту, на чём сэкономили',
+        recognize: 'Смета из проекта: кидаете PDF, Excel или фото, калькулятор разбирает сам',
+        design: 'Листы проекта и план этажей: чертежи прямо к смете',
+        money: 'Маржа по каждому разделу: видно, сколько вы зарабатываете',
+        docs: 'Договор, акты и гарантийный талон: одним нажатием',
+        disc1c: 'Скидка клиенту прямо в КП: без ручных пересчётов'
+    },
+
+    // В сообщении — не больше трёх выгод, каждая отдельной строкой
+    OFFER_PERKS_MAX: 3,
+
+    plural: function (n, one, few, many) {
+        const a = Math.abs(n) % 100, b = a % 10;
+        if (a > 10 && a < 20) return many;
+        if (b > 1 && b < 5) return few;
+        return b === 1 ? one : many;
+    },
+
+    // Текст для человека p. Возвращает { text, missing } — missing: тарифы без ссылки на оплату
+    offerText: function (p) {
+        const S = (typeof Subscription !== 'undefined') ? Subscription : null;
+        const account = (p.role === 'seller' || p.role === 'both') ? 'seller' : 'installer';
+        const lines = [];
+        // Структура: зачем это человеку → что меняется для его работы → цена со ссылкой → одно действие.
+        // Цифры из его истории (сметы, КП) не пишем: клиенту это не интересно, он хочет выгоду.
+        lines.push(p.first ? 'Здравствуйте, ' + p.first + '!' : 'Здравствуйте!');
+        lines.push('');
+        const used = p.est30 > 0 || p.invoices > 0;
+        lines.push(used
+            ? 'Вы уже считаете в HeatCalc — значит, инструмент вам подходит. «Профи» добавляет то, что экономит время на каждом объекте:'
+            : 'HeatCalc уже считает теплопотери и подбирает оборудование. «Профи» добавляет то, что экономит время на каждом объекте:');
+        // Личная цифра: сколько стоила бы последняя смета в «Бюджетнее». Только если она посчитана и больше нуля
+        const sv = this._savings && this._savings[p.id];
+        if (sv && +sv.save_rub > 0) {
+            const rub = Math.round(+sv.save_rub).toLocaleString('ru-RU');
+            lines.push('');
+            lines.push('Ваша последняя смета могла бы стоить дешевле на ' + rub + ' ₽ (' + (+sv.save_pct).toLocaleString('ru-RU') + ' %) в режиме «Бюджетнее». Это в «Профи».');
+        }
+        lines.push('');
+        const perks = S ? S.benefitRows(account)
+            .filter(r => r.pro !== 'off' && r.base === 'off' && this.OFFER_PERKS[r.f.id])
+            .map(r => this.OFFER_PERKS[r.f.id]) : [];
+        (perks.length ? perks : ['смета быстрее и без ручных пересчётов'])
+            .slice(0, this.OFFER_PERKS_MAX).forEach(t => lines.push('✔ ' + t));
+        const missing = [];
+        if (S) {
+            const plans = S.planList(false).map(pl => S.resolve(pl.id, { region: p.rawRegion })).filter(Boolean);
+            if (plans.length) {
+                lines.push('');
+                lines.push('Цена:');
+                plans.forEach(r => {
+                    let row = r.label + ' — ' + S.fmtRub(r.rub);
+                    const pct = r.promo ? r.promoPct : r.termPct;
+                    if (r.months > 1) row += ' (' + S.fmtRub(r.perMonth) + ' в месяц)';
+                    if (pct > 0) row += ', скидка ' + pct + ' %';
+                    if (r.promo && r.promo.title) row += ' · акция «' + r.promo.title + '»';
+                    lines.push(row + ': ' + this.PAY_LINK + encodeURIComponent(r.id));
+                    if (!r.url) missing.push(r.label);
+                });
+                lines.push('');
+                lines.push('После оплаты нажмите «Я оплатил» — подключим доступ.');
+            }
+        }
+        lines.push('Вопросы? Просто ответьте на это сообщение.');
+        return { text: lines.join('\n'), missing: missing };
+    },
+
+    _offerFor: null,
+
+    openOffer: function (id) {
+        const p = this._data && this._data.people.find(x => x.id === id);
+        if (!p) return;
+        this._offerFor = p;
+        const o = this.offerText(p);
+        let el = document.getElementById('pr_offer_overlay');
+        if (el) el.remove();
+        el = document.createElement('div');
+        el.id = 'pr_offer_overlay';
+        el.style.cssText = 'position:fixed; inset:0; z-index:2147483000; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; padding:16px;';
+        el.addEventListener('mousedown', e => { if (e.target === el) this.closeOffer(); });
+        const warn = o.missing.length ? `<div class="ad-card-note ad-warn" style="padding:0;">У тарифа без ссылки на оплату: ${this.esc(o.missing.join(', '))}. Добавьте её в «Оплате подписки» или впишите в текст вручную.</div>` : '';
+        el.innerHTML = `<div class="pr-offer">
+            <div class="pr-offer-h"><b>Предложение: ${this.esc(p.name)}</b><button type="button" class="admin-btn" onclick="PayReadiness.closeOffer()">✕</button></div>
+            <div class="ad-card-note" style="padding:0;">Текст собран автоматически: преимущества для роли «${this.ROLE_LABEL[p.role]}», цены и ссылки с учётом региона${p.rawRegion ? ' (' + this.esc(p.rawRegion) + ')' : ''}. Можно поправить перед отправкой.</div>
+            <textarea id="pr_offer_text" class="pr-offer-text" rows="14" oninput="this.dataset.edited='1'">${this.esc(o.text)}</textarea>
+            ${warn}
+            <div class="pr-offer-btns">
+                <button type="button" class="admin-btn" onclick="PayReadiness.copyOffer()">Скопировать</button>
+                <button type="button" class="admin-btn pr-offer-send" onclick="PayReadiness.sendOffer()">Отправить в сообщения</button>
+                <span id="pr_offer_status" class="ad-card-note" style="padding:0;"></span>
+            </div></div>`;
+        document.body.appendChild(el);
+        // Экономия считается сейчас, по последней смете этого пользователя. Текст обновляется, если
+        // владелец ещё не правил его руками.
+        this.offerStatus('Считаю экономию по смете…');
+        this.probeSaving(p).then(r => {
+            if (this._offerFor !== p) return;
+            const ta = document.getElementById('pr_offer_text');
+            if (ta && !ta.dataset.edited) ta.value = this.offerText(p).text;
+            if (!r) this.offerStatus('У пользователя нет сметы — строки про экономию не будет.');
+            else if (r.error) this.offerStatus('Экономию не посчитали: ' + r.error);
+            else if (!(r.save_rub > 0)) this.offerStatus('В «Бюджетнее» смета не дешевле — строки про экономию не будет.');
+            else this.offerStatus('Экономия посчитана: ' + Math.round(r.save_rub).toLocaleString('ru-RU') + ' ₽ (' + r.save_pct + ' %).');
+        });
+    },
+
+    // Последняя смета пользователя → скрытый расчёт в песочнице (probe.js) → таблица offer_savings.
+    // Возвращает строку экономии, null — если сметы нет, { error } — если не получилось.
+    probeSaving: async function (p) {
+        try {
+            const { data: est, error } = await supabaseClient.from('estimates')
+                .select('id, calc_data').eq('user_id', p.id)
+                .order('created_at', { ascending: false }).limit(1).maybeSingle();
+            if (error) throw error;
+            if (!est || !est.calc_data) return null;
+            const res = await this.runProbe(est.calc_data);
+            if (res.error) return { error: res.error };
+            const save = res.base - res.cheap;
+            const row = {
+                user_id: p.id, estimate_id: est.id, base_sum: res.base, cheap_sum: res.cheap,
+                save_rub: save, save_pct: Math.round(save / res.base * 1000) / 10,
+                computed_at: new Date().toISOString()
+            };
+            const { error: wErr } = await supabaseClient.from('offer_savings').upsert(row, { onConflict: 'user_id' });
+            if (wErr) throw wErr;
+            this._savings = this._savings || {};
+            this._savings[p.id] = row;
+            return row;
+        } catch (e) {
+            return { error: (e && e.message) || String(e) };
+        }
+    },
+
+    // Скрытый iframe с index.html?probe=1: отдаёт ему смету, получает base и cheap. Сохранённую смету
+    // калькулятора он не трогает (см. probe.js и скрипт в <head> index.html).
+    runProbe: function (state) {
+        return new Promise((resolve) => {
+            const id = Math.random().toString(36).slice(2);
+            const frame = document.createElement('iframe');
+            frame.setAttribute('aria-hidden', 'true');
+            frame.style.cssText = 'position:fixed; width:1px; height:1px; left:-9999px; top:0; opacity:0; border:0; pointer-events:none;';
+            frame.src = new URL('index.html?probe=1', location.href).href;
+            let sent = false;
+            const finish = (r) => {
+                window.removeEventListener('message', onMsg);
+                clearTimeout(timer);
+                frame.remove();
+                resolve(r);
+            };
+            const onMsg = (e) => {
+                if (e.source !== frame.contentWindow || e.origin !== location.origin || !e.data) return;
+                if (e.data.type === 'probe-ready' && !sent) {
+                    sent = true;
+                    frame.contentWindow.postMessage({ type: 'probe', id: id, state: state }, location.origin);
+                } else if (e.data.type === 'probe-result' && (e.data.id === id || (!e.data.id && e.data.error))) {
+                    finish(e.data);
+                }
+            };
+            const timer = setTimeout(() => finish({ error: 'расчёт не ответил за 90 секунд' }), 90000);
+            window.addEventListener('message', onMsg);
+            document.body.appendChild(frame);
+        });
+    },
+
+    closeOffer: function () {
+        const el = document.getElementById('pr_offer_overlay');
+        if (el) el.remove();
+        this._offerFor = null;
+    },
+
+    offerStatus: function (msg) {
+        const s = document.getElementById('pr_offer_status');
+        if (s) s.textContent = msg;
+    },
+
+    copyOffer: async function () {
+        const ta = document.getElementById('pr_offer_text');
+        if (!ta) return;
+        try {
+            await navigator.clipboard.writeText(ta.value);
+            this.offerStatus('Скопировано');
+        } catch (e) {
+            ta.select();
+            this.offerStatus('Выделено — нажмите Ctrl+C');
+        }
+    },
+
+    // Личное сообщение в «Сообщения» человека; дальше как у sendAdminMessage: пуш получателю
+    sendOffer: async function () {
+        const p = this._offerFor, ta = document.getElementById('pr_offer_text');
+        if (!p || !ta || !ta.value.trim()) return;
+        // _currentUserRow заполняется только при загрузке своих смет — берём строку так же, как переписка
+        const me = (typeof app !== 'undefined') && (app._meRow || app._currentUserRow || await app.resolveMeRow());
+        if (!me || !me.id) { this.offerStatus('Не нашёл вашу учётную запись — скопируйте текст и отправьте вручную.'); return; }
+        this.offerStatus('Отправляю…');
+        try {
+            const { data: inserted, error } = await supabaseClient.from('messages')
+                .insert({ sender_id: me.id, recipient_id: p.id, text: ta.value.trim(), type: 'private' })
+                .select('id').maybeSingle();
+            if (error) throw error;
+            if (inserted && inserted.id && typeof appPush !== 'undefined') appPush.notify('broadcast', inserted.id);
+            const m = this.sentMap(); m[p.id] = Date.now();
+            try { localStorage.setItem(this.LS_SENT, JSON.stringify(m)); } catch (e) { }
+            this.closeOffer();
+            this.renderPeople();
+        } catch (e) {
+            this.offerStatus('Не отправилось: ' + ((e && e.message) || e));
+        }
+    },
+
+    // Горячие, которым ещё не предлагали и у кого ещё нет Профи
+    bulkTargets: function () {
+        if (!this._data) return [];
+        const sent = this.sentMap();
+        return this._data.people.filter(p => p.level === 'hot' && p.type !== 'pro' && !sent[p.id]);
+    },
+
+    // Каждому — своё сообщение (имя, их сметы и КП, цена с учётом региона), как из окна «Предложить»,
+    // только разом. Спрашиваем подтверждение с числом получателей; повторно тем же людям не уходит.
+    bulkOffer: async function () {
+        const list = this.bulkTargets();
+        if (!list.length) return;
+        const ok = await app.confirmChoice(
+            'Каждому из ' + list.length + ' горячих без Профи уйдёт личное сообщение в «Сообщения» с их цифрами, преимуществами и ссылками на оплату. Тем, кому уже предлагали, повторно не отправится. Текст можно посмотреть заранее в окне «Предложить» у любого из них.',
+            'Предложить всем горячим', 'Отправить ' + list.length, 'Отмена');
+        if (!ok) return;
+        const me = (app._meRow || app._currentUserRow || await app.resolveMeRow());
+        if (!me || !me.id) { app.alert('Не нашёл вашу учётную запись — отправьте по одному через «Предложить».'); return; }
+        const rows = list.map(p => ({ sender_id: me.id, recipient_id: p.id, text: this.offerText(p).text, type: 'private' }));
+        try {
+            const { data, error } = await supabaseClient.from('messages').insert(rows).select('id, recipient_id');
+            if (error) throw error;
+            const m = this.sentMap(), now = Date.now();
+            list.forEach(p => { m[p.id] = now; });
+            try { localStorage.setItem(this.LS_SENT, JSON.stringify(m)); } catch (e) { }
+            if (typeof appPush !== 'undefined') (data || []).forEach(r => { try { appPush.notify('broadcast', r.id); } catch (e) { } });
+            this.renderPeople();
+            app.alert('Отправлено: ' + list.length + '.');
+        } catch (e) {
+            app.alert('Не отправилось: ' + ((e && e.message) || e));
+        }
+    },
+
+    setHeat: function (f) { this._heatFilter = f; this.renderPeople(); },
+
+    renderPeople: function () {
+        const el = document.getElementById('pr_people');
+        if (!el || !this._data) return;
+        const a = this._data;
+        const counts = { hot: 0, warm: 0, cold: 0 };
+        a.people.forEach(p => counts[p.level]++);
+        const chips = [['hot', 'Горячие'], ['warm', 'Тёплые'], ['cold', 'Холодные']].map(([id, label]) =>
+            `<button type="button" class="ad-chip${this._heatFilter === id ? ' active' : ''}" onclick="PayReadiness.setHeat('${id}')">${label} <span class="ad-chip-n">${counts[id]}</span></button>`).join('');
+        const list = a.people.filter(p => p.level === this._heatFilter).sort((x, y) => y.score - x.score || y.estSum - x.estSum).slice(0, 200);
+        const dn = {}; a.byDist.forEach(g => { dn[g.key] = g.label; });
+        const rows = list.map(p => `<tr>
+            <td class="pr-who"><b>${this.esc(p.name)}</b><span>${this.esc(p.email)}</span></td>
+            <td>${this.ROLE_LABEL[p.role]}</td>
+            <td>${this.esc(p.city || '—')}</td>
+            <td>${this.esc(p.dist ? (dn[p.dist] || '') : '—')}</td>
+            <td class="n">${p.est30} / ${p.est}</td>
+            <td class="n">${p.invoices}</td>
+            <td class="n">${p.days}</td>
+            <td class="n"><span class="pr-score pr-${p.level}">${p.score}</span></td>
+            <td>${p.offer === 'shop' ? 'Магазин' : 'Профи'}</td>
+            <td class="pr-act">${this.offerCell(p)}</td></tr>`).join('');
+        const bulk = this.bulkTargets().length;
+        const bulkBtn = this._heatFilter === 'hot' && bulk
+            ? `<button type="button" class="admin-btn pr-offer-send" style="margin:8px 0;" onclick="PayReadiness.bulkOffer()">Предложить всем горячим (${bulk})</button>` : '';
+        el.innerHTML = `<div class="ad-chips" style="margin:0 0 4px;">${chips}</div>` + bulkBtn + (list.length
+            ? `<div class="pr-wrap"><table class="pr-table pr-people"><thead><tr><th>Кто</th><th>Роль</th><th>Город</th><th>Дистрибьютор</th><th class="n">Смет 30д / всего</th><th class="n">КП, счетов</th><th class="n">Дней</th><th class="n">Балл</th><th>Что предлагать</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`
+            : '<div class="ad-card-note">В этой группе никого нет.</div>');
+    }
+};
+
+if (typeof module !== 'undefined' && module.exports) module.exports = PayReadiness;

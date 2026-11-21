@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электрокотёл для частного дома: подбор мощности и стоимость сезона | HeatCalc.ru</title>
+    <meta name="description" content="Как подобрать электрический котёл для частного дома: расчёт мощности с запасом 1,15, ограничение однофазной сети, ток и сечение кабеля, стоимость отопительного сезона по тарифам и когда электрокотёл ставят резервом.">
+    <link rel="canonical" href="https://heatcalc.ru/elektrokotel-dlya-doma/">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css?v=9">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/elektrokotel-dlya-doma/">
+    <meta property="og:title" content="Электрокотёл для дома: мощность, фазы и цена сезона">
+    <meta property="og:description" content="139 000 ₽ за сезон против 26 500 на газе. Подбор мощности, ограничение по фазам, резервная схема.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Вопросы и ответы собраны из того же источника, что и видимый текст ниже,
+         поэтому разойтись не могут. -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://heatcalc.ru/elektrokotel-dlya-doma/#webpage",
+      "url": "https://heatcalc.ru/elektrokotel-dlya-doma/",
+      "name": "Электрокотёл для дома: мощность, фазы и цена сезона",
+      "description": "Как подобрать электрический котёл для частного дома: расчёт мощности с запасом 1,15, ограничение однофазной сети, ток и сечение кабеля, стоимость отопительного сезона по тарифам и когда электрокотёл ставят резервом.",
+      "inLanguage": "ru-RU",
+      "isPartOf": {
+        "@id": "https://heatcalc.ru/#website"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "электрокотел для дома"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Калькулятор отопления",
+          "item": "https://heatcalc.ru/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Электрокотёл для дома: мощность, фазы и цена сезона",
+          "item": "https://heatcalc.ru/elektrokotel-dlya-doma/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Какой мощности нужен электрокотёл для дома?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Теплопотери дома, умноженные на 1,15 — этот запас покрывает разброс расчёта и морозы холоднее расчётной пятидневки. Дом 150 м² в Петербурге с теплопотерями 10 кВт требует 11,5 кВт, то есть типоразмер 12. Если в доме бойлер косвенного нагрева, проверяют второе условие — хватит ли мощности прогреть бак за час — и берут большее из двух значений, а не сумму."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Можно ли поставить электрокотёл на одну фазу?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "До 9–12 кВт — да, но 12 кВт это уже 55 ампер по одной фазе, что за пределами обычного ввода. Котлы мощнее выпускают только трёхфазными. Если расчёт даёт больше, а на участке одна фаза, остаётся завести три фазы, добавить второй источник тепла или собрать каскад — но каскад на одной фазе требует выделенной мощности сразу на оба котла."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Сколько стоит отопление электрокотлом за сезон?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Дом 150 м² в Петербурге с теплопотерями 10 кВт расходует за отопительный сезон около 24 400 кВт·ч. По тарифу для дома с электроотоплением это 139 000 ₽, по городскому — 192 000 ₽, по ночной ставке — 83 000 ₽. Тот же дом на газовом котле обходится примерно в 26 500 ₽."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Какой мощности брать электрокотёл как резерв к газовому?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Не на комфортные +20, а на дежурное отопление +5 °C — по СП 60.13330.2020 в отсутствие людей допускается пониженная температура, но не ниже пяти градусов. Дом с теплопотерями 10 кВт в этом режиме требует 6,6 кВт вместо 11,5, то есть типоразмер 7,5 или 9 кВт. Это и дешевле, и укладывается в однофазную сеть."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Что нужно докупить к электрокотлу?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Зависит от серии. У бюджетных встроены группа безопасности, манометр и реле давления, но нет насоса и расширительного бака — их и обвязку котлового контура добавляют отдельно. Котлы с электронным управлением идут с насосом и баком внутри. В любом случае нужны отдельная линия от щита с автоматом и УЗО, стабилизатор или ИБП и комнатный термостат."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://heatcalc.ru/elektrokotel-dlya-doma/#article",
+      "headline": "Электрокотёл для дома: мощность, фазы и цена сезона",
+      "description": "Как подобрать электрический котёл для частного дома: расчёт мощности с запасом 1,15, ограничение однофазной сети, ток и сечение кабеля, стоимость отопительного сезона по тарифам и когда электрокотёл ставят резервом.",
+      "mainEntityOfPage": {
+        "@id": "https://heatcalc.ru/elektrokotel-dlya-doma/#webpage"
+      },
+      "inLanguage": "ru-RU",
+      "datePublished": "2026-10-03",
+      "dateModified": "2026-10-03",
+      "author": {
+        "@type": "Person",
+        "name": "Дмитрий Ибатуллин"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "HeatCalc.ru",
+        "url": "https://heatcalc.ru/"
+      },
+      "isAccessibleForFree": true,
+      "image": "https://heatcalc.ru/img/og_cover.png",
+      "wordCount": 703,
+      "citation": [
+        {
+          "@type": "CreativeWork",
+          "name": "ГОСТ 5542-2014"
+        },
+        {
+          "@type": "CreativeWork",
+          "name": "СП 131.13330.2020"
+        },
+        {
+          "@type": "CreativeWork",
+          "name": "СП 60.13330.2020"
+        }
+      ]
+    }
+  ]
+}
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/?ref=SITE&amp;utm_source=article&amp;utm_medium=seo&amp;utm_campaign=elektrokotel-dlya-doma">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Электрокотёл для дома: мощность, фазы и цена сезона</nav>
+
+        <h1>Электрокотёл для дома: мощность, фазы и цена сезона</h1>
+
+        <p class="art-meta"><time datetime="2026-10-03">3 октября 2026</time></p>
+
+        <div class="short-answer">
+            <p class="short-answer-q">Какой электрокотёл нужен для частного дома?</p>
+            <p>Мощность — это теплопотери с запасом 1,15: дому 150 м² в Петербурге с потерями 10 кВт нужен котёл на 12 кВт. Дальше всё решают два числа: ток при такой мощности (18 А на фазу при 380 В, но уже 55 А при 220 В) и тариф, потому что за сезон такой дом расходует около 24 400 кВт·ч.</p>
+        </div>
+
+        <p class="lead">Электрокотёл проще всех остальных: не нужен дымоход, не нужно согласование, монтаж занимает день. Вся сложность — в двух числах: сколько ампер даёт ввод и сколько стоит киловатт-час. Считаем мощность, ток и цену сезона по действующим тарифам.</p>
+
+        <nav class="toc" aria-label="Содержание">
+            <p class="toc-title">В статье</p>
+            <ol>
+            <li><a href="#skolko-kilovatt-nuzhno">Сколько киловатт нужно</a></li>
+            <li><a href="#tok-i-fazy-gde-ostanavlivaetsya-podbor">Ток и фазы — где останавливается подбор</a></li>
+            <li><a href="#chto-stoit-sezon">Что стоит сезон</a></li>
+            <li><a href="#dve-lineyki-i-chto-v-nih-vhodit">Две линейки и что в них входит</a></li>
+            <li><a href="#elektrokotel-kak-rezerv">Электрокотёл как резерв</a></li>
+            <li><a href="#chto-esche-v-smete-krome-kotla">Что ещё в смете кроме котла</a></li>
+            </ol>
+        </nav>
+
+        <h2 id="skolko-kilovatt-nuzhno">Сколько киловатт нужно</h2>
+
+        <p>Мощность котла — это теплопотери дома плюс запас. Запас берём 1,15 — это инженерная практика, а не норма: он покрывает разброс расчёта, загрязнение теплообменника и морозы холоднее расчётной пятидневки.</p>
+
+        <div class="formula">
+            <p><strong>Мощность котла</strong> = теплопотери × 1,15</p>
+            <p>Дом 150 м² в Петербурге, теплопотери 10 кВт</p>
+            <p>10 × 1,15 = <strong>11,5 кВт</strong> → ближайший типоразмер 12 кВт</p>
+        </div>
+
+        <p>Если в доме бойлер косвенного нагрева, проверяют второе условие: хватит ли мощности прогреть бак за час. Берут не сумму двух нагрузок, а <strong>большее из двух</strong> — котёл работает с приоритетом горячей воды, и на время нагрева бака отопление отключается. Складывать их значило бы заложить вдвое лишнего.</p>
+
+        <h2 id="tok-i-fazy-gde-ostanavlivaetsya-podbor">Ток и фазы — где останавливается подбор</h2>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Мощность</th><th>Ток при 220 В</th><th>Ток при 380 В</th><th>Реально</th></tr>
+                <tr><td>6 кВт</td><td class="num">27 А</td><td class="num">9 А</td><td>однофазный ввод тянет</td></tr>
+                <tr><td>9 кВт</td><td class="num">41 А</td><td class="num">14 А</td><td>на пределе однофазного ввода</td></tr>
+                <tr><td>12 кВт</td><td class="num">55 А</td><td class="num">18 А</td><td>только три фазы</td></tr>
+                <tr><td>18 кВт</td><td class="num">82 А</td><td class="num">27 А</td><td>только три фазы</td></tr>
+                <tr><td>24 кВт</td><td class="num">109 А</td><td class="num">36 А</td><td>только три фазы</td></tr>
+            </table>
+        </div>
+        <p class="note">Котлы мощнее 9–12 кВт выпускают только в трёхфазном исполнении. Это не ограничение производителя, а арифметика: сотня ампер по одной фазе не идёт.</p>
+
+        <figure class="chart">
+            <div class="chart-svg" role="img" aria-label="Ток электрокотла по мощности: при 220 В от 27 А (6 кВт) до 109 А (24 кВт), при 380 В от 9 до 36 А"><svg viewBox="0 0 480 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><title>Ток электрокотла по мощности: при 220 В от 27 А (6 кВт) до 109 А (24 кВт), при 380 В от 9 до 36 А</title><line x1="150.0" y1="24" x2="150.0" y2="276" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="150.0" y="296.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">0</text><line x1="236.0" y1="24" x2="236.0" y2="276" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="236.0" y="296.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">50</text><line x1="322.0" y1="24" x2="322.0" y2="276" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="322.0" y="296.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">100</text><line x1="408.0" y1="24" x2="408.0" y2="276" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="408.0" y="296.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">150</text><text x="140.0" y="59.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">6 кВт</text><rect x="150.0" y="37.0" width="46.4" height="15" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="203.4" y="49.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">27 А</text><rect x="150.0" y="55.0" width="15.5" height="15" rx="4" style="fill:var(--text-sec,#6B7280);fill-opacity:0.80"/><text x="172.5" y="67.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">9 А</text><text x="140.0" y="109.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">9 кВт</text><rect x="150.0" y="87.0" width="70.5" height="15" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="227.5" y="99.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">41 А</text><rect x="150.0" y="105.0" width="24.1" height="15" rx="4" style="fill:var(--text-sec,#6B7280);fill-opacity:0.80"/><text x="181.1" y="117.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">14 А</text><text x="140.0" y="159.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">12 кВт</text><rect x="150.0" y="137.0" width="94.6" height="15" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="251.6" y="149.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">55 А</text><rect x="150.0" y="155.0" width="31.0" height="15" rx="4" style="fill:var(--text-sec,#6B7280);fill-opacity:0.80"/><text x="188.0" y="167.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">18 А</text><text x="140.0" y="209.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">18 кВт</text><rect x="150.0" y="187.0" width="141.0" height="15" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="298.0" y="199.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">82 А</text><rect x="150.0" y="205.0" width="46.4" height="15" rx="4" style="fill:var(--text-sec,#6B7280);fill-opacity:0.80"/><text x="203.4" y="217.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">27 А</text><text x="140.0" y="259.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">24 кВт</text><rect x="150.0" y="237.0" width="187.5" height="15" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="344.5" y="249.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">109 А</text><rect x="150.0" y="255.0" width="61.9" height="15" rx="4" style="fill:var(--text-sec,#6B7280);fill-opacity:0.80"/><text x="218.9" y="267.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">36 А</text><text x="279.0" y="314.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">ток, А</text><rect x="150" y="8" width="12" height="12" rx="3" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="168.0" y="19.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="start">220 В</text><rect x="209" y="8" width="12" height="12" rx="3" style="fill:var(--text-sec,#6B7280);fill-opacity:0.80"/><text x="227.0" y="19.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="start">380 В</text></svg></div>
+            <figcaption>Ток электрокотла по мощности: при 220 В он втрое больше, чем при 380 В.</figcaption>
+        </figure>
+
+        <div class="callout">
+            <p><strong>Отсюда типичный тупик.</strong> Расчёт даёт 11,5 кВт, а на участке одна фаза. Вариантов три: завести три фазы (отдельная процедура с сетевой организацией, со сроками и деньгами), добавить второй источник тепла — газ или твёрдое топливо, — или поставить каскад. Но каскад на одной фазе собирается только если выделенной мощности хватает на оба котла сразу, а это те же сто ампер.</p>
+        </div>
+
+        <h2 id="chto-stoit-sezon">Что стоит сезон</h2>
+
+        <p>Считаем для Петербурга: расчётная зимняя температура −24 °C, средняя за отопительный период −1,2 °C, длительность 211 суток (СП 131.13330.2020).</p>
+
+        <div class="formula">
+            <p>10 кВт × 211 сут × 24 ч × (20 + 1,2) ÷ (20 + 24) = <strong>24 400 кВт·ч</strong></p>
+        </div>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Источник</th><th>Цена тепла</th><th>Сезон 24 400 кВт·ч</th></tr>
+                <tr><td>Газовый котёл</td><td class="num">1,09 ₽/кВт·ч</td><td class="num">26 500 ₽</td></tr>
+                <tr><td>Электрокотёл, тариф с электроотоплением</td><td class="num">5,70 ₽/кВт·ч</td><td class="num">139 000 ₽</td></tr>
+                <tr><td>Электрокотёл, ночная ставка</td><td class="num">3,41 ₽/кВт·ч</td><td class="num">83 000 ₽</td></tr>
+                <tr><td>Электрокотёл, городской тариф</td><td class="num">7,88 ₽/кВт·ч</td><td class="num">192 000 ₽</td></tr>
+            </table>
+        </div>
+        <p class="note">Тарифы Ленинградской области и Санкт-Петербурга на конец 2026 года. Газ — 9,32 ₽/м³ при теплоте сгорания 9,31 кВт·ч/м³ (ГОСТ 5542-2014) и КПД котла 92 %.</p>
+
+        <figure class="chart">
+            <div class="chart-svg" role="img" aria-label="Стоимость отопительного сезона (24 400 кВт·ч) по источнику тепла: газовый котёл 26 500 ₽, электрокотёл по городскому тарифу 192 000 ₽"><svg viewBox="0 0 480 228" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><title>Стоимость отопительного сезона (24 400 кВт·ч) по источнику тепла: газовый котёл 26 500 ₽, электрокотёл по городскому тарифу 192 000 ₽</title><line x1="150.0" y1="8" x2="150.0" y2="184" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="150.0" y="204.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">0</text><line x1="214.5" y1="8" x2="214.5" y2="184" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="214.5" y="204.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">50 000</text><line x1="279.0" y1="8" x2="279.0" y2="184" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="279.0" y="204.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">100 000</text><line x1="343.5" y1="8" x2="343.5" y2="184" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="343.5" y="204.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">150 000</text><line x1="408.0" y1="8" x2="408.0" y2="184" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="408.0" y="204.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">200 000</text><text x="140.0" y="34.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Газовый котёл</text><rect x="150.0" y="21.0" width="34.2" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="191.2" y="34.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">26 500 ₽</text><text x="140.0" y="64.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Электрокотёл,</text><text x="140.0" y="79.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">тариф с</text><text x="140.0" y="94.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">электроотоплением</text><rect x="150.0" y="66.0" width="179.3" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="336.3" y="79.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">139 000 ₽</text><text x="140.0" y="121.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Электрокотёл,</text><text x="140.0" y="136.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">ночная ставка</text><rect x="150.0" y="115.5" width="107.1" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="264.1" y="128.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">83 000 ₽</text><text x="140.0" y="163.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Электрокотёл,</text><text x="140.0" y="178.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">городской тариф</text><rect x="150.0" y="157.5" width="247.7" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="404.7" y="170.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">192 000 ₽</text><text x="279.0" y="222.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">стоимость сезона, ₽</text></svg></div>
+            <figcaption>Стоимость отопительного сезона 24 400 кВт·ч по источнику тепла, ₽.</figcaption>
+        </figure>
+
+        <p>Вторая строка — это законный тариф для дома с электроотоплением, и оформить его стоит: разница с городским больше пятидесяти тысяч за сезон. Ночная ставка приведена для полноты — круглосуточно платить по ней нельзя, но в паре с теплоаккумулятором часть нагрузки действительно уходит в ночь.</p>
+
+        <h2 id="dve-lineyki-i-chto-v-nih-vhodit">Две линейки и что в них входит</h2>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Серия</th><th>Потолок</th><th>Что встроено</th><th>Что докупать</th></tr>
+                <tr><td>Бюджетная</td><td>15 кВт</td><td>группа безопасности, манометр, реле давления</td><td>насос, расширительный бак, обвязка</td></tr>
+                <tr><td>С электронным управлением</td><td>27 кВт</td><td>насос, расширительный бак, автоматика</td><td>—</td></tr>
+            </table>
+        </div>
+        <p class="note">Разница в цене между сериями меньше, чем стоимость отдельного насоса, бака и обвязки котлового контура.</p>
+
+        <p>Бюджетный котёл — это, по сути, нагреватель с защитой: предохранительный клапан на 3 бара и автовоздухоотводчик внутри есть, а насоса и бака нет. В смете к нему сразу добавляются обвязка котлового контура с насосом и мембранный бак по объёму системы. Котёл с электронным управлением — это готовая мини-котельная на стене.</p>
+
+        <h2 id="elektrokotel-kak-rezerv">Электрокотёл как резерв</h2>
+
+        <p>Самая частая схема в газифицированном доме: основной котёл газовый, электрический стоит рядом на случай аварии, отключения или планового ремонта газа. И здесь мощность считают иначе.</p>
+
+        <ul>
+            <li><strong>Не на комфорт, а на дежурное отопление.</strong> По СП 60.13330.2020 в отсутствие людей допускается пониженная температура, но не ниже +5 °C. Резерву достаточно удержать этот режим.</li>
+            <li><strong>Дом 150 м² с теплопотерями 10 кВт</strong> в режиме +5 °C теряет 6,6 кВт — вместо 11,5 расчётных. Это уже 7,5 или 9 кВт по типоразмеру, то есть в пределах однофазной сети.</li>
+            <li><strong>Разница в деньгах</strong> — и на самом котле, и на вводе: 9 кВт это 41 ампер, а 12 кВт уже 55 и три фазы.</li>
+        </ul>
+
+        <p>Резерв на полную мощность имеет смысл только там, где отключения газа долгие и регулярные, и дом на это время должен жить обычной жизнью.</p>
+
+        <h2 id="chto-esche-v-smete-krome-kotla">Что ещё в смете кроме котла</h2>
+
+        <ul>
+            <li><strong>Отдельная линия от щита</strong> с автоматом и УЗО. Сечение кабеля производители указывают в паспорте с запасом относительно расчёта по ПУЭ — берут паспортное.</li>
+            <li><strong>Расширительный бак</strong>, если его нет внутри котла. Объём — 12 % от объёма системы, для незамерзающего теплоносителя на 10 % больше.</li>
+            <li><strong>Стабилизатор или ИБП.</strong> Электроника котла чувствительна к качеству сети, а при пропадании света электрокотёл встаёт целиком, в отличие от самотёчной системы.</li>
+            <li><strong>Комнатный термостат.</strong> На электричестве он окупается быстрее всего: каждый лишний градус в доме — это 5–6 % расхода.</li>
+        </ul>
+
+        <p>Последний пункт недооценивают. При сезонных 139 тысячах пять процентов — это семь тысяч рублей, и термостат окупается за первую зиму.</p>
+
+        <div class="callout dom-cta">
+            <p>
+                <strong>Сколько это будет стоить в вашем доме?</strong> Семь вопросов, две минуты,
+                без регистрации: получите цену отопления вилкой — оборудование и монтаж отдельно,
+                в трёх комплектациях.
+            </p>
+        </div>
+
+        <a class="cta" href="/dom/?src=elektrokotel-dlya-doma">
+            Узнать цену для своего дома
+            <small>Отопление под ключ, результат сразу на экране</small>
+        </a>
+
+        <a class="cta" href="/?ref=SITE&amp;utm_source=article&amp;utm_medium=seo&amp;utm_campaign=elektrokotel-dlya-doma">
+            Подобрать электрокотёл
+            <small>Калькулятор считает мощность и собирает обвязку</small>
+        </a>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Какой мощности нужен электрокотёл для дома?</span></summary>
+            <div class="answer">
+                <p>Теплопотери дома, умноженные на 1,15 — этот запас покрывает разброс расчёта и морозы холоднее расчётной пятидневки. Дом 150 м² в Петербурге с теплопотерями 10 кВт требует 11,5 кВт, то есть типоразмер 12. Если в доме бойлер косвенного нагрева, проверяют второе условие — хватит ли мощности прогреть бак за час — и берут большее из двух значений, а не сумму.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Можно ли поставить электрокотёл на одну фазу?</span></summary>
+            <div class="answer">
+                <p>До 9–12 кВт — да, но 12 кВт это уже 55 ампер по одной фазе, что за пределами обычного ввода. Котлы мощнее выпускают только трёхфазными. Если расчёт даёт больше, а на участке одна фаза, остаётся завести три фазы, добавить второй источник тепла или собрать каскад — но каскад на одной фазе требует выделенной мощности сразу на оба котла.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Сколько стоит отопление электрокотлом за сезон?</span></summary>
+            <div class="answer">
+                <p>Дом 150 м² в Петербурге с теплопотерями 10 кВт расходует за отопительный сезон около 24 400 кВт·ч. По тарифу для дома с электроотоплением это 139 000 ₽, по городскому — 192 000 ₽, по ночной ставке — 83 000 ₽. Тот же дом на газовом котле обходится примерно в 26 500 ₽.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Какой мощности брать электрокотёл как резерв к газовому?</span></summary>
+            <div class="answer">
+                <p>Не на комфортные +20, а на дежурное отопление +5 °C — по СП 60.13330.2020 в отсутствие людей допускается пониженная температура, но не ниже пяти градусов. Дом с теплопотерями 10 кВт в этом режиме требует 6,6 кВт вместо 11,5, то есть типоразмер 7,5 или 9 кВт. Это и дешевле, и укладывается в однофазную сеть.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Что нужно докупить к электрокотлу?</span></summary>
+            <div class="answer">
+                <p>Зависит от серии. У бюджетных встроены группа безопасности, манометр и реле давления, но нет насоса и расширительного бака — их и обвязку котлового контура добавляют отдельно. Котлы с электронным управлением идут с насосом и баком внутри. В любом случае нужны отдельная линия от щита с автоматом и УЗО, стабилизатор или ИБП и комнатный термостат.</p>
+            </div>
+        </details>
+
+        <div class="callout">
+            <p>
+                <strong>Нужен мастер, а не только расчёт?</strong> Монтаж отопления, тёплого пола,
+                котельной и водоснабжения — Санкт-Петербург и Ленинградская область. Оставьте
+                заявку: мастер позвонит, уточнит задачу и договорится о выезде. Расчёт
+                из калькулятора можно приложить — тогда разговор будет короче.
+            </p>
+        </div>
+
+        <a class="cta" href="/montazh-otopleniya-spb/?src=elektrokotel-dlya-doma#zayavka">
+            Заказать монтаж в СПб и области
+            <small>Отопление, тёплый пол, котельная, водоснабжение</small>
+        </a>
+
+        <div class="author">
+            <img src="/img/author_ibatullin.jpg" width="64" height="64" loading="lazy"
+                 alt="Дмитрий Ибатуллин, автор HeatCalc.ru">
+            <p><b>Дмитрий Ибатуллин</b><br><span>Инженер</span></p>
+        </div>
+
+        <h2>Читать дальше</h2>
+        <p><a href="/kollektor-teplogo-pola/">коллектор тёплого пола: на сколько выходов</a> · <a href="/raschet-moshchnosti-kotla/">расчёт мощности котла: почему не 1 квт на 10 м²</a> · <a href="/zamena-kotla-v-dome/">замена котла: что менять вместе с ним</a> · <a href="/smeta/">что входит в смету на отопление</a> · <a href="/raschet-teplopoter/">как считаются теплопотери дома</a></p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

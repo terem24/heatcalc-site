@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Коллектор тёплого пола: сколько выходов нужно | HeatCalc.ru</title>
+    <meta name="description" content="Как подобрать коллектор тёплого пола: число выходов по петлям, предел 12 контуров на гребёнку, размер шкафа, узел подмеса и расходомеры. Расчёт петель и коллектора — бесплатно в калькуляторе.">
+    <link rel="canonical" href="https://heatcalc.ru/kollektor-teplogo-pola/">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css?v=9">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/kollektor-teplogo-pola/">
+    <meta property="og:title" content="Коллектор тёплого пола: на сколько выходов">
+    <meta property="og:description" content="Число выходов считается по петлям, а не по комнатам. Предел 12 контуров, подбор шкафа и узла подмеса.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Вопросы и ответы собраны из того же источника, что и видимый текст ниже,
+         поэтому разойтись не могут. -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://heatcalc.ru/kollektor-teplogo-pola/#webpage",
+      "url": "https://heatcalc.ru/kollektor-teplogo-pola/",
+      "name": "Коллектор тёплого пола: на сколько выходов и какой шкаф",
+      "description": "Как подобрать коллектор тёплого пола: число выходов по петлям, предел 12 контуров на гребёнку, размер шкафа, узел подмеса и расходомеры. Расчёт петель и коллектора — бесплатно в калькуляторе.",
+      "inLanguage": "ru-RU",
+      "isPartOf": {
+        "@id": "https://heatcalc.ru/#website"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "коллектор теплого пола"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Калькулятор отопления",
+          "item": "https://heatcalc.ru/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Коллектор тёплого пола: на сколько выходов и какой шкаф",
+          "item": "https://heatcalc.ru/kollektor-teplogo-pola/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Сколько выходов должно быть у коллектора тёплого пола?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Столько же, сколько петель. Петли считаются от метража трубы: площадь, делённая на шаг, умноженная на 1,1, и затем поделённая на предельную длину петли. При шаге 150 мм один выход закрывает около 12 м² пола, то есть на 100 м² нужен коллектор примерно на 9 выходов."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Можно ли поставить больше 12 контуров на один коллектор?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Практический предел — двенадцать. Дальше через гребёнку идёт слишком большой суммарный расход, появляется гул, и петли становится трудно сбалансировать между собой: крайние оказываются в заведомо худших условиях. Если петель больше, ставят второй коллектор ближе к своей группе помещений — это заодно сокращает транзитные трассы."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Какой шкаф выбрать под коллектор?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "На типоразмер больше, чем следует из числа выходов. Паспортные «8–10 выходов» относятся к голой гребёнке, а в шкаф встают ещё запорные краны, концевая группа с воздухоотводчиком и сливом, а часто и насосно-смесительный узел. Коллектор на 9 петель в шкаф «до 10 выходов» формально влезает, но узел подмеса туда уже не помещается."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Сколько площади тянет один узел подмеса?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Примерно до 100 м² тёплого пола. Считать надо по самому нагруженному этажу, а не делить общую площадь на число коллекторов: при 200 м² на первом этаже и 50 на втором среднее даёт 83 м², хотя тяжёлый узел держит все 100 и работает на пределе."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Где лучше разместить коллектор?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "В котельной или на равном удалении от своих контуров. Транзит от котельной до коллектора считается отдельно — 450 ₽ за погонный метр работ, — поэтому на длинном доме второй коллектор поближе обходится дешевле, чем длинная трасса к одному дальнему. Коллектор второго этажа обычно делают отдельным."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://heatcalc.ru/kollektor-teplogo-pola/#article",
+      "headline": "Коллектор тёплого пола: на сколько выходов и какой шкаф",
+      "description": "Как подобрать коллектор тёплого пола: число выходов по петлям, предел 12 контуров на гребёнку, размер шкафа, узел подмеса и расходомеры. Расчёт петель и коллектора — бесплатно в калькуляторе.",
+      "mainEntityOfPage": {
+        "@id": "https://heatcalc.ru/kollektor-teplogo-pola/#webpage"
+      },
+      "inLanguage": "ru-RU",
+      "datePublished": "2026-09-27",
+      "dateModified": "2026-09-27",
+      "author": {
+        "@type": "Person",
+        "name": "Дмитрий Ибатуллин"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "HeatCalc.ru",
+        "url": "https://heatcalc.ru/"
+      },
+      "isAccessibleForFree": true,
+      "image": "https://heatcalc.ru/img/og_cover.png",
+      "wordCount": 663,
+      "citation": []
+    }
+  ]
+}
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/?ref=SITE&amp;utm_source=article&amp;utm_medium=seo&amp;utm_campaign=kollektor-teplogo-pola">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Коллектор тёплого пола: на сколько выходов и какой шкаф</nav>
+
+        <h1>Коллектор тёплого пола: на сколько выходов и какой шкаф</h1>
+
+        <p class="art-meta"><time datetime="2026-09-27">27 сентября 2026</time></p>
+
+        <div class="short-answer">
+            <p class="short-answer-q">На сколько выходов нужен коллектор тёплого пола?</p>
+            <p>По числу петель, а не по числу комнат. При шаге укладки 150 мм один выход закрывает около 12 м² пола, поэтому на 100 м² нужна гребёнка примерно на девять выходов. Больше двенадцати выходов на одну гребёнку не ставят: растёт разбаланс между петлями, и систему делят на два коллектора.</p>
+        </div>
+
+        <p class="lead">Число выходов коллектора определяется не количеством комнат, а количеством петель — а петли считаются по гидравлике. Разбираем, откуда берётся число контуров, почему на одну гребёнку не ставят больше двенадцати и почему шкаф почти всегда нужен на типоразмер больше, чем кажется по паспорту.</p>
+
+        <nav class="toc" aria-label="Содержание">
+            <p class="toc-title">В статье</p>
+            <ol>
+            <li><a href="#skolko-vyhodov-nuzhno">Сколько выходов нужно</a></li>
+            <li><a href="#pochemu-ne-bolshe-dvenadcati-konturov">Почему не больше двенадцати контуров</a></li>
+            <li><a href="#kakoy-nuzhen-shkaf">Какой нужен шкаф</a></li>
+            <li><a href="#chto-stoit-na-kollektore">Что стоит на коллекторе</a></li>
+            <li><a href="#gde-stavit-kollektor">Где ставить коллектор</a></li>
+            <li><a href="#skolko-eto-stoit">Сколько это стоит</a></li>
+            <li><a href="#kak-ne-pereplatit-i-ne-promahnutsya">Как не переплатить и не промахнуться</a></li>
+            </ol>
+        </nav>
+
+        <h2 id="skolko-vyhodov-nuzhno">Сколько выходов нужно</h2>
+
+        <p>Один выход коллектора — это одна петля, а не одна комната. В большой гостиной петель может быть три, а маленькие санузел и коридор иногда объединяют в одну. Поэтому считать надо так: сначала метраж трубы, потом деление на петли, и только потом — выходы.</p>
+
+        <div class="formula">
+            <p><strong>Метраж</strong> = площадь ÷ шаг × 1,1</p>
+            <p><strong>Петель</strong> = метраж ÷ предельная длина петли</p>
+            <p><strong>Выходов коллектора</strong> = число петель</p>
+        </div>
+
+        <p>Предельная длина петли — не круглые «100 метров», а результат расчёта: в контуре нельзя превышать скорость 0,5 м/с и потери 20 кПа, иначе появляется шум и насос не продавливает контур.</p>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Шаг укладки</th><th>Трубы на 1 м²</th><th>Предел петли</th><th>Площадь под петлёй</th></tr>
+                <tr><td>100 мм</td><td class="num">11,0 м</td><td class="num">96 м</td><td class="num">9 м²</td></tr>
+                <tr><td>150 мм</td><td class="num">7,3 м</td><td class="num">87 м</td><td class="num">12 м²</td></tr>
+                <tr><td>200 мм</td><td class="num">5,5 м</td><td class="num">90 м</td><td class="num">16 м²</td></tr>
+            </table>
+        </div>
+        <p class="note">Труба PE-Xa 16×2,0. У стабильной трубы 16,2×2,6 внутренний диаметр 11 мм вместо 12, и пределы падают до 83, 75 и 77 м соответственно.</p>
+
+        <figure class="chart">
+            <div class="chart-svg" role="img" aria-label="Расход трубы тёплого пола на 1 м² по шагу укладки: 11,0 м при шаге 100 мм, 7,3 при 150, 5,5 при 200"><svg viewBox="0 0 480 153" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><title>Расход трубы тёплого пола на 1 м² по шагу укладки: 11,0 м при шаге 100 мм, 7,3 при 150, 5,5 при 200</title><line x1="150.0" y1="8" x2="150.0" y2="109" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="150.0" y="129.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">0</text><line x1="236.0" y1="8" x2="236.0" y2="109" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="236.0" y="129.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">5</text><line x1="322.0" y1="8" x2="322.0" y2="109" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="322.0" y="129.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">10</text><line x1="408.0" y1="8" x2="408.0" y2="109" style="stroke:var(--text-sec,#6B7280);stroke-opacity:.22;stroke-width:1"/><text x="408.0" y="129.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">15</text><text x="140.0" y="34.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Шаг 100 мм</text><rect x="150.0" y="21.0" width="189.2" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="346.2" y="34.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">11,0 м</text><text x="140.0" y="67.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Шаг 150 мм</text><rect x="150.0" y="54.0" width="125.6" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="282.6" y="67.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">7,3 м</text><text x="140.0" y="100.5" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:400;fill:var(--text-main,#111827)" text-anchor="end">Шаг 200 мм</text><rect x="150.0" y="87.0" width="94.6" height="16" rx="4" style="fill:var(--primary,#2563EB);fill-opacity:0.95"/><text x="251.6" y="100.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:13px;font-weight:600;fill:var(--text-main,#111827)" text-anchor="start">5,5 м</text><text x="279.0" y="147.0" style="font-family:Inter,system-ui,'Segoe UI',Arial,sans-serif;font-size:12px;font-weight:400;fill:var(--text-sec,#6B7280)" text-anchor="middle">труба на 1 м² пола, м</text></svg></div>
+            <figcaption>Расход трубы на 1 м² пола по шагу укладки, м.</figcaption>
+        </figure>
+
+        <p>Отсюда простая прикидка: при шаге 150 мм один выход коллектора закрывает около 12 м² пола. Сто квадратов тёплого пола — это примерно 8–9 петель, то есть коллектор на 9 выходов.</p>
+
+        <h2 id="pochemu-ne-bolshe-dvenadcati-konturov">Почему не больше двенадцати контуров</h2>
+
+        <p>Двенадцать — практический предел на одну гребёнку. Дальше начинаются две проблемы сразу. Первая: через коллектор идёт суммарный расход всех петель, и на тринадцатом контуре скорость в самой гребёнке выходит за разумные пределы — появляется гул. Вторая: чем больше контуров, тем труднее их сбалансировать между собой, потому что крайние петли оказываются в заведомо худших условиях, чем ближние.</p>
+
+        <p>Если петель больше двенадцати, ставят второй коллектор — обычно в другой части дома, ближе к своей группе помещений. Это заодно сокращает длину подводящих трасс.</p>
+
+        <div class="callout">
+            <p><strong>Узел подмеса считается отдельно и по худшему этажу.</strong> Один узел тянет примерно до 100 м² тёплого пола. Ошибка, которая встречается постоянно: общую площадь делят на число коллекторов и получают «в среднем нормально». При 200 м² на первом этаже и 50 на втором среднее даёт 83 м² — а самый нагруженный узел на деле держит все 100 и работает на пределе.</p>
+        </div>
+
+        <h2 id="kakoy-nuzhen-shkaf">Какой нужен шкаф</h2>
+
+        <p>Здесь чаще всего промахиваются. В паспорте шкафа написано «на 8–10 выходов», и это правда — но правда про голую гребёнку. В реальный шкаф, кроме неё, встают запорные краны, концевая группа с воздухоотводчиком и сливом, а если контур не заимствует насос у котельной — ещё и насосно-смесительный узел.</p>
+
+        <p>На практике это означает: <strong>шкаф берут на типоразмер больше</strong>, чем следует из числа выходов. Коллектор на 9 петель в шкаф «до 10 выходов» формально помещается, а на деле в него не входит узел подмеса, и шкаф приходится менять уже после штробления ниши.</p>
+
+        <h2 id="chto-stoit-na-kollektore">Что стоит на коллекторе</h2>
+
+        <ul>
+            <li><strong>Расходомеры</strong> на подающей гребёнке — по ним выставляют расход каждой петли. Без них балансировка превращается в гадание.</li>
+            <li><strong>Регулирующие вставки</strong> на обратной — под сервоприводы автоматики.</li>
+            <li><strong>Воздухоотводчик и сливной кран</strong> в концевой группе: без них систему не запустить и не обслужить.</li>
+            <li><strong>Евроконусы</strong> по два на каждую петлю — подача и обратка.</li>
+            <li><strong>Термометры</strong> на подаче и обратке, если хотите видеть реальный график, а не верить настройке.</li>
+        </ul>
+
+        <h2 id="gde-stavit-kollektor">Где ставить коллектор</h2>
+
+        <p>Правило простое: либо в котельной, либо на равном удалении от контуров, которые он обслуживает. Транзитные трассы от котельной до коллектора считаются отдельно — по 450 ₽ за погонный метр работ, — и на длинном доме вынос коллектора в дальний угол обходится дороже, чем второй коллектор поближе.</p>
+
+        <p>Коллектор второго этажа — почти всегда отдельный: тянуть на этаж десяток петель по 87 метров бессмысленно, проще поднять один транзит увеличенного диаметра.</p>
+
+        <h2 id="skolko-eto-stoit">Сколько это стоит</h2>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Работа</th><th>Единица</th><th>Цена</th></tr>
+                <tr><td>Установка и подключение коллектора</td><td>пара гребёнок</td><td class="num">6 500 ₽</td></tr>
+                <tr><td>Монтаж и обвязка распределительного шкафа</td><td>шт</td><td class="num">4 000 ₽</td></tr>
+                <tr><td>Сборка и установка узла подмеса</td><td>шт</td><td class="num">6 000 ₽</td></tr>
+                <tr><td>Прокладка транзитной трассы до коллектора</td><td>м.п.</td><td class="num">450 ₽</td></tr>
+                <tr><td>Опрессовка контуров тёплого пола</td><td>компл</td><td class="num">5 000 ₽</td></tr>
+            </table>
+        </div>
+        <p class="note">Базовые расценки калькулятора, без стоимости самого коллектора и шкафа. Полный прайс — на странице <a href="/rascenki-na-montazh-otopleniya/">расценок на монтаж</a>.</p>
+
+        <h2 id="kak-ne-pereplatit-i-ne-promahnutsya">Как не переплатить и не промахнуться</h2>
+
+        <ol>
+            <li>Считайте выходы по петлям, а не по комнатам — иначе гребёнка окажется мала или велика.</li>
+            <li>Проверьте, что ни одна петля не длиннее предела для вашего шага и трубы.</li>
+            <li>Шкаф берите на типоразмер больше расчётного.</li>
+            <li>Убедитесь, что узел подмеса не тянет больше сотни квадратов.</li>
+            <li>Заложите нишу под шкаф до штукатурки: переделка ниши — это заново отделка стены.</li>
+        </ol>
+
+        <div class="callout dom-cta">
+            <p>
+                <strong>Сколько это будет стоить в вашем доме?</strong> Семь вопросов, две минуты,
+                без регистрации: получите цену отопления вилкой — оборудование и монтаж отдельно,
+                в трёх комплектациях.
+            </p>
+        </div>
+
+        <a class="cta" href="/dom/?src=kollektor-teplogo-pola">
+            Узнать цену для своего дома
+            <small>Отопление под ключ, результат сразу на экране</small>
+        </a>
+
+        <a class="cta" href="/?ref=SITE&amp;utm_source=article&amp;utm_medium=seo&amp;utm_campaign=kollektor-teplogo-pola">
+            Посчитать петли и коллектор
+            <small>Калькулятор сам разложит площадь на контуры</small>
+        </a>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Сколько выходов должно быть у коллектора тёплого пола?</span></summary>
+            <div class="answer">
+                <p>Столько же, сколько петель. Петли считаются от метража трубы: площадь, делённая на шаг, умноженная на 1,1, и затем поделённая на предельную длину петли. При шаге 150 мм один выход закрывает около 12 м² пола, то есть на 100 м² нужен коллектор примерно на 9 выходов.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Можно ли поставить больше 12 контуров на один коллектор?</span></summary>
+            <div class="answer">
+                <p>Практический предел — двенадцать. Дальше через гребёнку идёт слишком большой суммарный расход, появляется гул, и петли становится трудно сбалансировать между собой: крайние оказываются в заведомо худших условиях. Если петель больше, ставят второй коллектор ближе к своей группе помещений — это заодно сокращает транзитные трассы.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Какой шкаф выбрать под коллектор?</span></summary>
+            <div class="answer">
+                <p>На типоразмер больше, чем следует из числа выходов. Паспортные «8–10 выходов» относятся к голой гребёнке, а в шкаф встают ещё запорные краны, концевая группа с воздухоотводчиком и сливом, а часто и насосно-смесительный узел. Коллектор на 9 петель в шкаф «до 10 выходов» формально влезает, но узел подмеса туда уже не помещается.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Сколько площади тянет один узел подмеса?</span></summary>
+            <div class="answer">
+                <p>Примерно до 100 м² тёплого пола. Считать надо по самому нагруженному этажу, а не делить общую площадь на число коллекторов: при 200 м² на первом этаже и 50 на втором среднее даёт 83 м², хотя тяжёлый узел держит все 100 и работает на пределе.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Где лучше разместить коллектор?</span></summary>
+            <div class="answer">
+                <p>В котельной или на равном удалении от своих контуров. Транзит от котельной до коллектора считается отдельно — 450 ₽ за погонный метр работ, — поэтому на длинном доме второй коллектор поближе обходится дешевле, чем длинная трасса к одному дальнему. Коллектор второго этажа обычно делают отдельным.</p>
+            </div>
+        </details>
+
+        <div class="callout">
+            <p>
+                <strong>Нужен мастер, а не только расчёт?</strong> Монтаж отопления, тёплого пола,
+                котельной и водоснабжения — Санкт-Петербург и Ленинградская область. Оставьте
+                заявку: мастер позвонит, уточнит задачу и договорится о выезде. Расчёт
+                из калькулятора можно приложить — тогда разговор будет короче.
+            </p>
+        </div>
+
+        <a class="cta" href="/montazh-otopleniya-spb/?src=kollektor-teplogo-pola#zayavka">
+            Заказать монтаж в СПб и области
+            <small>Отопление, тёплый пол, котельная, водоснабжение</small>
+        </a>
+
+        <div class="author">
+            <img src="/img/author_ibatullin.jpg" width="64" height="64" loading="lazy"
+                 alt="Дмитрий Ибатуллин, автор HeatCalc.ru">
+            <p><b>Дмитрий Ибатуллин</b><br><span>Инженер</span></p>
+        </div>
+
+        <h2>Читать дальше</h2>
+        <p><a href="/raschet-teplogo-pola/">расчёт тёплого пола: площадь, шаг, длина петли</a> · <a href="/smeta/">что входит в смету на отопление</a> · <a href="/raschet-teplopoter/">как считаются теплопотери дома</a></p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

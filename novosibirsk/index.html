@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Расчёт отопления частного дома в Новосибирске и области — калькулятор | HeatCalc.ru</title>
+    <meta name="description" content="Расчёт отопления частного дома в Новосибирске: расчётная температура −37 °C, газ 7,98 ₽/м³, электричество от 3,34 ₽/кВт·ч. Теплопотери, подбор котла, смета в PDF. Бесплатно.">
+    <link rel="canonical" href="https://heatcalc.ru/novosibirsk/">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <!-- Тот же шрифт, что в калькуляторе. -->
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode, поэтому тема,
+         выбранная в расчёте, действует и здесь. Если человек сюда попал
+         впервые и флага ещё нет, выбираем по часам: с 7 до 19 светлая. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <!-- Яндекс.Метрика + баннер согласия на cookie. Путь от корня, а не
+         относительный: страница лежит в подпапке /novosibirsk/. -->
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/novosibirsk/">
+    <meta property="og:title" content="Расчёт отопления частного дома в Новосибирске и области">
+    <meta property="og:description" content="Расчётная температура −37 °C, газ 7,98 ₽/м³, электричество от 3,34 ₽/кВт·ч. Теплопотери, подбор котла и оборудования, смета в PDF.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="HeatCalc.ru — калькулятор отопления частного дома">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Микроразметка: карточка страницы, хлебные крошки и блок вопрос-ответ.
+         Вопросы и ответы здесь обязаны дословно совпадать с видимым текстом
+         внизу страницы — за расхождение Яндекс и Google снимают разметку. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebPage",
+          "@id": "https://heatcalc.ru/novosibirsk/#webpage",
+          "url": "https://heatcalc.ru/novosibirsk/",
+          "name": "Расчёт отопления частного дома в Новосибирске и Новосибирской области",
+          "description": "Расчёт отопления частного дома в Новосибирске и Новосибирской области: расчётная зимняя температура −37 °C, действующие тарифы на газ и электроэнергию, подбор котла и оборудования, смета.",
+          "inLanguage": "ru-RU",
+          "isPartOf": { "@id": "https://heatcalc.ru/#website" },
+          "about": { "@type": "Thing", "name": "Отопление частного дома в Новосибирске" },
+          "spatialCoverage": [
+            { "@type": "City", "name": "Новосибирск" },
+            { "@type": "AdministrativeArea", "name": "Новосибирская область" }
+          ]
+        },
+        {
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            { "@type": "ListItem", "position": 1, "name": "Калькулятор отопления", "item": "https://heatcalc.ru/" },
+            { "@type": "ListItem", "position": 2, "name": "Новосибирск", "item": "https://heatcalc.ru/novosibirsk/" }
+          ]
+        },
+        {
+          "@type": "FAQPage",
+          "mainEntity": [
+            {
+              "@type": "Question",
+              "name": "Какая расчётная зимняя температура для Новосибирска?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Минус 37 °C — температура наиболее холодной пятидневки обеспеченностью 0,92. Среди городов-миллионников России это самая низкая цифра, наравне с Красноярском; у Омска −36 °C. По области цифры близкие: в Бердске, Искитиме, Карасуке, Татарске и Тогучине те же −37 °C, в Куйбышеве и Барабинске — −38 °C."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Работает ли в Новосибирске правило «1 кВт на 10 м²»?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Хуже, чем в средней полосе: правило выведено для неё, а при −37 °C теплопотери того же дома примерно на четверть выше московских. Котёл, взятый по такой прикидке, в сибирский январь дом не прогреет. Мощность здесь нужно считать по составу стен, крыши, пола и остекления — калькулятор делает это послойно."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Что выгоднее в Новосибирске: газовый котёл или электрический?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Основным источником — газ: 7,98 ₽ за кубометр, дешевле московского. Но и электричество здесь одно из самых дешёвых среди миллионников — 3,34 ₽ за кВт·ч против 7,28 ₽ в Москве. Поэтому электрокотёл в Новосибирске — нормальный резерв на случай остановки газового, а в связке с ночной ставкой 2,58 ₽ и теплоаккумулятором — рабочий вариант там, где газа нет."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Сколько котлов нужно на дом 300 м² в Новосибирске?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Скорее всего, больше одного. При расчётной температуре −37 °C потребная мощность большого дома упирается в верх линейки бытовых газовых котлов, и калькулятор предлагает каскад из двух-трёх котлов поменьше. Это не только способ набрать киловатты: каскад резервирует систему на случай отказа и мягче работает в межсезонье."
+              }
+            },
+            {
+              "@type": "Question",
+              "name": "Калькулятор платный?",
+              "acceptedAnswer": {
+                "@type": "Answer",
+                "text": "Расчёт теплопотерь, подбор оборудования и смета доступны бесплатно и бессрочно. Платный тариф «Профи» нужен только для брендирования документов логотипом и реквизитами компании, своего прайс-листа на монтажные работы и распознавания чужих смет."
+              }
+            }
+          ]
+        }
+      ]
+    }
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Новосибирск</nav>
+
+        <h1>Расчёт отопления частного дома в Новосибирске и Новосибирской области</h1>
+
+        <p class="lead">
+            Онлайн-калькулятор считает теплопотери дома по новосибирской расчётной температуре,
+            подбирает котёл, радиаторы, насосы и трубы по каталогам STOUT, ROMMER и Haier
+            и собирает готовую смету с коммерческим предложением в PDF. Регистрация не нужна,
+            расчёт бесплатный.
+        </p>
+
+        <div class="chart">
+            <p class="chart-title">Зима в городе Новосибирск: где она на шкале страны</p>
+            <svg viewBox="0 0 640 108" role="img" aria-label="Расчётная зимняя температура Новосибирск: -37 °C на шкале от −15 до −40 °C" xmlns="http://www.w3.org/2000/svg">
+                <title>Расчётная зимняя температура Новосибирск: -37 °C на шкале от −15 до −40 °C</title>
+                <rect x="24" y="57" width="592" height="10" rx="5" fill="var(--border)"/>
+                <rect x="24" y="57" width="521.0" height="10" rx="5" fill="var(--primary)"/>
+                <line x1="24.0" y1="71" x2="24.0" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="24.0" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−15</text>
+                <line x1="142.4" y1="71" x2="142.4" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="142.4" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−20</text>
+                <line x1="260.8" y1="71" x2="260.8" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="260.8" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−25</text>
+                <line x1="379.2" y1="71" x2="379.2" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="379.2" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−30</text>
+                <line x1="497.6" y1="71" x2="497.6" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="497.6" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−35</text>
+                <line x1="616.0" y1="71" x2="616.0" y2="76" stroke="var(--border)" stroke-width="2"/>
+                <text x="616.0" y="90" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="middle">−40</text>
+                <circle cx="545.0" cy="62" r="9" fill="var(--primary)" stroke="var(--surface)" stroke-width="3"/>
+                <text x="616" y="42" font-size="14" fill="var(--text-main)" font-weight="700" text-anchor="end">Новосибирск  −37 °C</text>
+                <text x="24" y="20" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="start">мягче</text>
+                <text x="616" y="20" font-size="11" fill="var(--text-sec)" font-weight="400" text-anchor="end">суровее</text>
+            </svg>
+        </div>
+
+        <p class="note">Расчётная температура наиболее холодной пятидневки: именно на неё подбирают котёл и радиаторы. Для сравнения шкала охватывает крупные города страны — от Краснодара (−15 °C) до Красноярска и Новосибирска (−37 °C).</p>
+
+        <a class="cta" href="/">
+            Рассчитать отопление для дома в Новосибирске
+            <small>Бесплатно, без регистрации, результат сразу на экране</small>
+        </a>
+
+        <h2>Исходные данные для Новосибирска</h2>
+
+        <p>
+            Расчёт отопления начинается с двух цифр: насколько холодно зимой и сколько
+            стоит энергия. У Новосибирска первая — самая жёсткая среди миллионников
+            России наравне с Красноярском, зато со второй повезло.
+        </p>
+
+        <div class="table-scroll">
+            <table>
+                <tr>
+                    <th>Параметр</th>
+                    <th>Новосибирск и область</th>
+                </tr>
+                <tr>
+                    <td>Расчётная зимняя температура</td>
+                    <td class="num">−37 °C</td>
+                </tr>
+                <tr>
+                    <td>Природный газ, отопление</td>
+                    <td class="num">7,98 → 8,37 ₽/м³</td>
+                </tr>
+                <tr>
+                    <td>Электроэнергия, дом с электроотоплением</td>
+                    <td class="num">3,34 → 3,71 ₽/кВт·ч</td>
+                </tr>
+                <tr>
+                    <td>Электроэнергия, ночная ставка</td>
+                    <td class="num">2,58 → 2,23 ₽/кВт·ч</td>
+                </tr>
+            </table>
+        </div>
+
+        <p class="note">
+            Две цифры через стрелку — это два периода 2026 года: с 1 января по 30 сентября
+            и с 1 октября. Город и область — один субъект, тарифы действуют на весь регион.
+            Расчётная температура по области почти та же: в Бердске, Искитиме, Карасуке,
+            Татарске и Тогучине −37 °C, в Куйбышеве и Барабинске — −38 °C. Тарифы
+            в калькуляторе обновляются автоматически раз в месяц.
+        </p>
+
+        <div class="callout">
+            <p>
+                <strong>Редкий случай: ночная ставка дешевеет.</strong> Обычно с 1 октября
+                обе ставки дорожают, а здесь ночной тариф снижается — с 2,58
+                до 2,23 ₽ за кВт·ч. С электрокотлом и теплоаккумулятором вторая половина
+                сезона обойдётся дешевле первой.
+            </p>
+        </div>
+
+        <h2>Минус 37 °C: одна из самых суровых зим среди миллионников</h2>
+
+        <p>
+            Для сравнения: в Москве расчётная температура −26 °C, в Петербурге −24 °C,
+            в Екатеринбурге −32 °C. Из миллионников так же холодно, как в Новосибирске
+            с его −37 °C, только в Красноярске, чуть мягче Омск (−36 °C): теплопотери
+            одного и того же дома здесь примерно на четверть выше московских.
+        </p>
+
+        <p>
+            Поэтому народное правило «1 кВт на 10 м²», выведенное для средней полосы,
+            в Новосибирске особенно опасно. Дом, которому в Подмосковье такой
+            прикидки ещё хватило бы, в сибирский январь не прогреется.
+        </p>
+
+        <p>
+            Отсюда два принципа. Первый — считать честно и послойно: материал и толщина
+            каждого слоя стены, утепление крыши и пола, тип остекления — так считает
+            калькулятор. Второй — запас без фанатизма: котёл с двух-трёхкратным запасом
+            от морозов не защищает, зато всю осень и весну тактует короткими циклами,
+            изнашивая теплообменник и пережигая газ.
+        </p>
+
+        <h2>Дом от 300 м²: один котёл или каскад</h2>
+
+        <p>
+            На большом доме — ориентир примерно 300 м² — новосибирские теплопотери
+            упираются в верх линейки бытовых газовых котлов: модели, которой в Москве
+            хватило бы с запасом, здесь уже мало.
+        </p>
+
+        <p>
+            Решение — каскад из двух-трёх котлов меньшей мощности, нормальная инженерная
+            практика, а не компромисс. Каскад резервирует систему: при −37 °C
+            отказ единственного котла — это риск разморозить весь контур за сутки.
+            В межсезонье работает один котёл каскада — без тактования. Калькулятор сам
+            замечает, когда одного котла мало, и собирает каскадную схему с обвязкой.
+        </p>
+
+        <h2>Газ и электричество: сибирский расклад</h2>
+
+        <p>
+            С ценами на энергию Новосибирску повезло больше, чем с климатом: газ дешевле
+            московского, электричество — одно из самых дешёвых среди миллионников.
+        </p>
+
+        <div class="table-scroll">
+            <table>
+                <tr>
+                    <th>Энергоноситель</th>
+                    <th>Новосибирск</th>
+                    <th>Москва</th>
+                </tr>
+                <tr>
+                    <td>Природный газ</td>
+                    <td class="num">7,98 ₽/м³</td>
+                    <td class="num">8,68 ₽/м³</td>
+                </tr>
+                <tr>
+                    <td>Электричество с электроотоплением</td>
+                    <td class="num">3,34 ₽/кВт·ч</td>
+                    <td class="num">7,28 ₽/кВт·ч</td>
+                </tr>
+                <tr>
+                    <td>Электричество, ночная ставка</td>
+                    <td class="num">2,58 ₽/кВт·ч</td>
+                    <td class="num">3,77 ₽/кВт·ч</td>
+                </tr>
+            </table>
+        </div>
+
+        <p>
+            Одноставочный тариф 3,34 ₽ против московских 7,28 ₽ — разница больше чем вдвое,
+            и она меняет логику выбора: электрокотёл здесь не экзотика, а рабочий
+            инструмент. Как резерв к газовому он особенно уместен. Там, где газа
+            нет, электрокотёл с ночной ставкой 2,58 ₽ и теплоаккумулятором даёт
+            вменяемые счета: бак греется ночью и отдаёт тепло днём.
+        </p>
+
+        <h2>Как посчитать</h2>
+
+        <ol>
+            <li><strong>Укажите город и площадь.</strong> Новосибирск подставит расчётную
+                температуру −37 °C автоматически. Для объекта в области выберите свой
+                населённый пункт.</li>
+            <li><strong>Опишите дом.</strong> Материал и толщину стен послойно, тип крыши, пол,
+                остекление. Чем честнее описание, тем ближе расчёт к реальному расходу.</li>
+            <li><strong>Выберите тип системы.</strong> Радиаторы, тёплый пол или их комбинация,
+                нужно ли горячее водоснабжение, сколько точек разбора.</li>
+            <li><strong>Получите смету.</strong> Калькулятор подберёт котёл или каскад,
+                радиаторы, насосы, трубы, коллекторы и арматуру по действующим ценам
+                STOUT и ROMMER, покажет наличие на складе и добавит монтажные работы.</li>
+        </ol>
+
+        <a class="cta" href="/">
+            Открыть калькулятор
+            <small>Расчёт занимает около пяти минут</small>
+        </a>
+
+        <h2>Что попадает в смету</h2>
+
+        <p>
+            Смета собирается разделами, как её привык видеть заказчик: котельная, разводка,
+            радиаторы, тёплый пол, водоснабжение, монтажные работы. По каждой позиции —
+            артикул, цена и наличие. Цены в системе — официальные рекомендованные розничные
+            STOUT и ROMMER, они обновляются автоматически, поэтому смету не приходится
+            пересобирать вручную после каждого пересмотра прайса.
+        </p>
+
+        <p>
+            Готовый документ выгружается в PDF. На платном тарифе в него подставляется
+            логотип и реквизиты вашей монтажной организации, а расценки на работы берутся
+            из вашего собственного прайс-листа.
+        </p>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg><span class="faq-q">Какая расчётная зимняя температура для Новосибирска?</span></summary>
+            <div class="answer">
+                <p>Минус 37 °C — температура наиболее холодной пятидневки обеспеченностью 0,92.
+                    Среди городов-миллионников России это самая низкая цифра, наравне
+                    с Красноярском; у Омска −36 °C.
+                    По области цифры близкие: в Бердске, Искитиме, Карасуке, Татарске
+                    и Тогучине те же −37 °C, в Куйбышеве и Барабинске — −38 °C.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M9.5 21v-6h5v6"/></svg><span class="faq-q">Работает ли в Новосибирске правило «1 кВт на 10 м²»?</span></summary>
+            <div class="answer">
+                <p>Хуже, чем в средней полосе: правило выведено для неё, а при −37 °C
+                    теплопотери того же дома примерно на четверть выше московских. Котёл,
+                    взятый по такой прикидке, в сибирский январь дом не прогреет. Мощность
+                    здесь нужно считать по составу стен, крыши, пола и остекления —
+                    калькулятор делает это послойно.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-6.5 0-4.5-4-6-4-9.5-2 1-3 3-3 5-1-1-2-2.5-2-4C7.5 9 5 11.5 5 15.5 5 19.3 8 22 12 22z"/></svg><span class="faq-q">Что выгоднее в Новосибирске: газовый котёл или электрический?</span></summary>
+            <div class="answer">
+                <p>Основным источником — газ: 7,98 ₽ за кубометр, дешевле московского.
+                    Но и электричество здесь одно из самых дешёвых среди миллионников —
+                    3,34 ₽ за кВт·ч против 7,28 ₽ в Москве. Поэтому электрокотёл
+                    в Новосибирске — нормальный резерв на случай остановки газового,
+                    а в связке с ночной ставкой 2,58 ₽ и теплоаккумулятором — рабочий
+                    вариант там, где газа нет.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 4v16"/><path d="M8.5 4h4.5a4 4 0 0 1 0 8H8.5"/><path d="M5.5 15.5h9"/></svg><span class="faq-q">Сколько котлов нужно на дом 300 м² в Новосибирске?</span></summary>
+            <div class="answer">
+                <p>Скорее всего, больше одного. При расчётной температуре −37 °C потребная
+                    мощность большого дома упирается в верх линейки бытовых газовых котлов,
+                    и калькулятор предлагает каскад из двух-трёх котлов поменьше. Это
+                    не только способ набрать киловатты: каскад резервирует систему на случай
+                    отказа и мягче работает в межсезонье.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 4v16"/><path d="M8.5 4h4.5a4 4 0 0 1 0 8H8.5"/><path d="M5.5 15.5h9"/></svg><span class="faq-q">Калькулятор платный?</span></summary>
+            <div class="answer">
+                <p>Расчёт теплопотерь, подбор оборудования и смета доступны бесплатно
+                    и бессрочно. Платный тариф «Профи» нужен только для брендирования документов
+                    логотипом и реквизитами компании, своего прайс-листа на монтажные работы
+                    и распознавания чужих смет.</p>
+            </div>
+        </details>
+
+        <h2>Расчёт для других городов</h2>
+        <p>
+            Работаете не только по Новосибирску? В базе калькулятора около 900 населённых
+            пунктов России, Казахстана и Беларуси со своей расчётной температурой и тарифами.
+            По суровости зимы из миллионников с Новосибирском вровень только Красноярск (−37 °C),
+            рядом стоит Омск (−36 °C). Уральский <a href="/ekaterinburg/">Екатеринбург</a>
+            заметно мягче (−32 °C), противоположный полюс — <a href="/krasnodar/">Краснодар</a>
+            (−15 °C), а с <a href="/moskva/">Москвой</a> мы сравнивали тарифы выше.
+            Полный список — на странице <a href="/goroda/">городов</a>.
+        </p>
+
+        <h2>Если вы монтажник, а не заказчик</h2>
+        <p>
+            Эта страница отвечает на вопрос «сколько будет стоить». Если объекты вы
+            считаете сами, дальше начинается работа с документами:
+            <a href="/raschet-teplopoter/">расчёт теплопотерь по ограждениям</a> вместо
+            прикидки по площади, <a href="/smeta/">смета</a> с оборудованием и работами,
+            <a href="/rascenki-na-montazh-otopleniya/">прайс на 97 видов монтажных
+            работ</a>, <a href="/kommercheskoe-predlozhenie/">коммерческое предложение
+            заказчику по ссылке</a> и <a href="/dogovor-na-montazh-otopleniya/">договор
+            с актами</a> из готового расчёта.
+        </p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>

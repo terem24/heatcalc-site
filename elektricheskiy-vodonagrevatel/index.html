@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Электрический водонагреватель: подбор объёма и стоимость нагрева | HeatCalc.ru</title>
+    <meta name="description" content="Как выбрать электрический водонагреватель: объём по числу жильцов, время нагрева по мощности ТЭНа, стоимость горячей воды по тарифам и когда выгоднее бойлер косвенного нагрева.">
+    <link rel="canonical" href="https://heatcalc.ru/elektricheskiy-vodonagrevatel/">
+    <meta name="robots" content="index, follow, max-snippet:-1, max-image-preview:large">
+    <link rel="icon" type="image/png" href="/img/logo_HC.png">
+    <meta name="theme-color" content="#F3F4F6">
+
+    <link href="/fonts/inter.css?v=1" rel="stylesheet">
+    <link rel="stylesheet" href="/seo.css?v=9">
+
+    <!-- Тему ставим до первой отрисовки, иначе тёмная страница моргает белым.
+         Флаг общий с калькулятором — stout_save.darkMode. -->
+    <script>
+        (function () {
+            var dark;
+            try {
+                var saved = JSON.parse(localStorage.getItem('stout_save') || 'null');
+                dark = saved && typeof saved.darkMode === 'boolean' ? saved.darkMode : null;
+            } catch (e) { dark = null; }
+            if (dark === null) {
+                var h = new Date().getHours();
+                dark = (h < 7 || h >= 19);
+            }
+            if (dark) document.documentElement.classList.add('dark-mode');
+        })();
+    </script>
+
+    <script src="/cookie-consent.js" defer></script>
+    <script src="/seo-theme.js" defer></script>
+
+    <meta property="og:type" content="article">
+    <meta property="og:site_name" content="HeatCalc.ru">
+    <meta property="og:locale" content="ru_RU">
+    <meta property="og:url" content="https://heatcalc.ru/elektricheskiy-vodonagrevatel/">
+    <meta property="og:title" content="Электрический водонагреватель: объём и расходы">
+    <meta property="og:description" content="Бак 100 литров греется 4 часа от полутора киловатт. Расчёт объёма, времени и денег.">
+    <meta property="og:image" content="https://heatcalc.ru/img/og_cover.png">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:image" content="https://heatcalc.ru/img/og_cover.png">
+
+    <!-- Вопросы и ответы собраны из того же источника, что и видимый текст ниже,
+         поэтому разойтись не могут. -->
+    <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://heatcalc.ru/elektricheskiy-vodonagrevatel/#webpage",
+      "url": "https://heatcalc.ru/elektricheskiy-vodonagrevatel/",
+      "name": "Электрический водонагреватель: объём, мощность, расходы",
+      "description": "Как выбрать электрический водонагреватель: объём по числу жильцов, время нагрева по мощности ТЭНа, стоимость горячей воды по тарифам и когда выгоднее бойлер косвенного нагрева.",
+      "inLanguage": "ru-RU",
+      "isPartOf": {
+        "@id": "https://heatcalc.ru/#website"
+      },
+      "about": {
+        "@type": "Thing",
+        "name": "электрический водонагреватель"
+      }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "name": "Калькулятор отопления",
+          "item": "https://heatcalc.ru/"
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "name": "Электрический водонагреватель: объём, мощность, расходы",
+          "item": "https://heatcalc.ru/elektricheskiy-vodonagrevatel/"
+        }
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Какой объём водонагревателя нужен?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "50 литров на одного человека, 80 на двоих, 100 на семью из трёх-четырёх, 150 на четверых-пятерых с ванной, 200 на шестерых и больше. Наполнить ванну на 170 литров можно и баком на 100: горячая вода смешивается с холодной, и на ванну уходит около 70 литров горячей."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Сколько греется бак на 100 литров?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "От ТЭНа 1,5 кВт — около 3,9 часа при нагреве с 10 до 60 °C, от 2,0 кВт — 2,9 часа, от 2,5 кВт — 2,3 часа. Догрев после частичного расхода идёт быстрее пропорционально. Мощность упирается в проводку: 1,5 кВт включается в обычную розетку, а 2,5 кВт требует отдельной линии с автоматом и УЗО."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Сколько стоит горячая вода от электрического нагревателя?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Семье из четырёх человек нужно около 8 500 кВт·ч в год на подогрев воды. По тарифу для дома с электроотоплением это 48 500 ₽, по городскому — 67 000 ₽, по ночной ставке — 29 000 ₽. От газового котла с бойлером косвенного нагрева та же вода обходится в 9 300 ₽."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Накопительный или проточный водонагреватель?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Накопительный для дома и квартиры: мощность 1,5–2,5 кВт, часто хватает обычной розетки, и он держит две точки одновременно. Проточный не хранит воду и греет мгновенно, но требует 8–27 кВт — это 36 ампер и больше, отдельная трёхфазная линия. В доме с электрокотлом такую нагрузку добавить обычно некуда."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Что нужно кроме самого водонагревателя?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Группа безопасности со стороны холодной воды с предохранительным клапаном на 6 бар и обратным клапаном, расширительный бак ГВС — иначе предохранительный будет подкапывать при каждом нагреве, — и ревизия магниевого анода раз в год-два. Плюс крепление с учётом веса: бак на 100 литров весит больше центнера."
+          }
+        }
+      ]
+    },
+    {
+      "@type": "Article",
+      "@id": "https://heatcalc.ru/elektricheskiy-vodonagrevatel/#article",
+      "headline": "Электрический водонагреватель: объём, мощность, расходы",
+      "description": "Как выбрать электрический водонагреватель: объём по числу жильцов, время нагрева по мощности ТЭНа, стоимость горячей воды по тарифам и когда выгоднее бойлер косвенного нагрева.",
+      "mainEntityOfPage": {
+        "@id": "https://heatcalc.ru/elektricheskiy-vodonagrevatel/#webpage"
+      },
+      "inLanguage": "ru-RU",
+      "datePublished": "2026-11-14",
+      "dateModified": "2026-11-14",
+      "author": {
+        "@type": "Person",
+        "name": "Дмитрий Ибатуллин"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "HeatCalc.ru",
+        "url": "https://heatcalc.ru/"
+      },
+      "isAccessibleForFree": true,
+      "image": "https://heatcalc.ru/img/og_cover.png",
+      "wordCount": 518,
+      "citation": []
+    }
+  ]
+}
+    </script>
+
+</head>
+
+<body>
+
+    <header class="top">
+        <div class="wrap">
+            <a class="logo" href="/">HeatCalc<span>.ru</span></a>
+            <div class="head-actions">
+                <a class="head-link" href="/?ref=SITE&amp;utm_source=article&amp;utm_medium=seo&amp;utm_campaign=elektricheskiy-vodonagrevatel">Открыть калькулятор →</a>
+                <button class="theme-toggle" type="button" aria-label="Сменить тему">
+                    <span class="i-moon" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="i-sun" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="wrap">
+
+        <nav class="crumbs"><a href="/">Калькулятор отопления</a> → Электрический водонагреватель: объём, мощность, расходы</nav>
+
+        <h1>Электрический водонагреватель: объём, мощность, расходы</h1>
+
+        <p class="art-meta"><time datetime="2026-11-14">14 ноября 2026</time></p>
+
+        <div class="short-answer">
+            <p class="short-answer-q">Какой электрический водонагреватель выбрать?</p>
+            <p>Объём — 50 литров на одного человека, 80 на двоих, 100 на семью из трёх-четырёх, 150 при ванне, 200 на шестерых и больше. Ванну на 170 литров закрывает и бак на 100: горячая вода смешивается с холодной, и на неё уходит около 70 литров горячей. Мощность упирается в проводку: ТЭН 1,5 кВт греет сотку 3,9 часа и включается в обычную розетку, 2,5 кВт справляется за 2,3 часа, но требует отдельной линии с автоматом и УЗО.</p>
+        </div>
+
+        <p class="lead">Электрический накопительный водонагреватель ставят там, где нет газа или где бойлер косвенного нагрева некуда включить. Выбор сводится к двум числам — объёму и мощности ТЭНа, — и оба считаются просто. Сложнее вопрос денег: киловатт-час здесь стоит впятеро дороже газового.</p>
+
+        <nav class="toc" aria-label="Содержание">
+            <p class="toc-title">В статье</p>
+            <ol>
+            <li><a href="#obem">Объём</a></li>
+            <li><a href="#vremya-nagreva">Время нагрева</a></li>
+            <li><a href="#skolko-stoit-goryachaya-voda">Сколько стоит горячая вода</a></li>
+            <li><a href="#nakopitelnyy-ili-protochnyy">Накопительный или проточный</a></li>
+            <li><a href="#chto-uchest-pri-ustanovke">Что учесть при установке</a></li>
+            </ol>
+        </nav>
+
+        <h2 id="obem">Объём</h2>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Жильцов</th><th>Объём</th><th>Чего хватает</th></tr>
+                <tr><td class="num">1</td><td class="num">50 л</td><td>душ и мойка</td></tr>
+                <tr><td class="num">2</td><td class="num">80 л</td><td>два душа подряд</td></tr>
+                <tr><td class="num">3–4</td><td class="num">100 л</td><td>душ, мойка, раковины</td></tr>
+                <tr><td class="num">4–5</td><td class="num">150 л</td><td>ванна или два душа одновременно</td></tr>
+                <tr><td class="num">6 и больше</td><td class="num">200 л</td><td>утренний час пик</td></tr>
+            </table>
+        </div>
+        <p class="note">Наполнить ванну на 170 литров баком на 100 можно: горячая вода смешивается с холодной, и на ванну уходит около 70 литров горячей.</p>
+
+        <p>Занижать объём неприятно: после исчерпания запаса придётся ждать нагрева, а он измеряется часами. Завышать — платить за поддержание температуры в баке, который наполовину не используется.</p>
+
+        <h2 id="vremya-nagreva">Время нагрева</h2>
+
+        <div class="formula">
+            <p><strong>Время, ч</strong> = объём, л × перепад, °C × 1,163 ÷ мощность, Вт</p>
+            <p>Бак 100 л, нагрев с 10 до 60 °C, ТЭН 1,5 кВт:</p>
+            <p>100 × 50 × 1,163 ÷ 1 500 = <strong>3,9 часа</strong></p>
+        </div>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Объём</th><th>ТЭН 1,5 кВт</th><th>ТЭН 2,0 кВт</th><th>ТЭН 2,5 кВт</th></tr>
+                <tr><td class="num">50 л</td><td class="num">1,9 ч</td><td class="num">1,5 ч</td><td class="num">1,2 ч</td></tr>
+                <tr><td class="num">80 л</td><td class="num">3,1 ч</td><td class="num">2,3 ч</td><td class="num">1,9 ч</td></tr>
+                <tr><td class="num">100 л</td><td class="num">3,9 ч</td><td class="num">2,9 ч</td><td class="num">2,3 ч</td></tr>
+                <tr><td class="num">150 л</td><td class="num">5,8 ч</td><td class="num">4,4 ч</td><td class="num">3,5 ч</td></tr>
+                <tr><td class="num">200 л</td><td class="num">7,8 ч</td><td class="num">5,8 ч</td><td class="num">4,7 ч</td></tr>
+            </table>
+        </div>
+        <p class="note">Нагрев с 10 до 60 °C, то есть с нуля. Догрев после частичного расхода идёт быстрее пропорционально.</p>
+
+        <div class="callout">
+            <p><strong>Мощность ТЭНа упирается в проводку.</strong> Полтора киловатта — это 7 ампер, и такой нагреватель включается в обычную розетку. Два с половиной киловатта требуют уже отдельной линии с автоматом и УЗО. Поэтому в готовом доме чаще ставят бак побольше с маломощным ТЭНом, а не наоборот: ждать дольше, зато без переделки электрики.</p>
+        </div>
+
+        <h2 id="skolko-stoit-goryachaya-voda">Сколько стоит горячая вода</h2>
+
+        <p>Считаем для семьи из четырёх человек: расход горячей воды около 100 литров в сутки на человека при нагреве с 10 до 60 °C.</p>
+
+        <div class="formula">
+            <p>400 л/сут × 50 °C × 1,163 ÷ 1000 = <strong>23 кВт·ч в сутки</strong></p>
+            <p>За год: 23 × 365 = <strong>8 500 кВт·ч</strong></p>
+        </div>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th>Источник</th><th>Цена киловатт-часа</th><th>Год, 8 500 кВт·ч</th></tr>
+                <tr><td>Газовый котёл с бойлером</td><td class="num">1,09 ₽</td><td class="num">9 300 ₽</td></tr>
+                <tr><td>Электричество, тариф с электроотоплением</td><td class="num">5,70 ₽</td><td class="num">48 500 ₽</td></tr>
+                <tr><td>Электричество, ночная ставка</td><td class="num">3,41 ₽</td><td class="num">29 000 ₽</td></tr>
+                <tr><td>Электричество, городской тариф</td><td class="num">7,88 ₽</td><td class="num">67 000 ₽</td></tr>
+            </table>
+        </div>
+        <p class="note">Тарифы Ленинградской области на конец 2026 года. Разница между первой и последней строкой — 58 тысяч рублей в год.</p>
+
+        <p>Отсюда простое правило: если в доме есть газовый котёл, горячую воду греют от него — бойлером косвенного нагрева. Электрический водонагреватель в газифицированном доме оправдан только как летний вариант, когда котёл выключен.</p>
+
+        <h2 id="nakopitelnyy-ili-protochnyy">Накопительный или проточный</h2>
+
+        <div class="table-scroll">
+            <table>
+                <tr><th></th><th>Накопительный</th><th>Проточный</th></tr>
+                <tr><td>Мощность</td><td>1,5–2,5 кВт</td><td>8–27 кВт</td></tr>
+                <tr><td>Нужна ли отдельная линия</td><td>часто нет</td><td>всегда, и трёхфазная</td></tr>
+                <tr><td>Ждать нагрева</td><td>часы с нуля</td><td>нет</td></tr>
+                <tr><td>Две точки одновременно</td><td>да</td><td>нет</td></tr>
+                <tr><td>Где уместен</td><td>дом, квартира</td><td>дача, летний душ, подстраховка</td></tr>
+            </table>
+        </div>
+        <p class="note">Проточный не хранит воду и не тратит энергию на поддержание, но требует мощности, которой в частном доме обычно нет свободной.</p>
+
+        <p>Проточный нагреватель на 8 кВт — это 36 ампер по одной фазе. В доме, где уже стоит электрокотёл, такую нагрузку добавить некуда.</p>
+
+        <h2 id="chto-uchest-pri-ustanovke">Что учесть при установке</h2>
+
+        <ul>
+            <li><strong>Группа безопасности со стороны холодной воды</strong> — обратный клапан и предохранительный на 6 бар. Без неё расширяющаяся вода некуда деваться и давит на бак.</li>
+            <li><strong>Расширительный бак ГВС,</strong> если стоит обратный клапан. Иначе предохранительный будет подкапывать при каждом нагреве.</li>
+            <li><strong>Магниевый анод.</strong> Он расходуется, защищая бак от коррозии; ревизия раз в год-два. Без неё бак живёт заметно меньше.</li>
+            <li><strong>Температура 60 °C.</strong> Ниже размножаются бактерии, выше — интенсивно растёт накипь на ТЭНе.</li>
+            <li><strong>Крепление по весу с водой.</strong> Бак на 100 литров — это больше центнера; гипсокартонная стена требует закладной.</li>
+            <li><strong>Жёсткая вода.</strong> Накипь на ТЭНе снижает теплоотдачу и приводит к перегоранию. Там, где вода жёсткая, водоподготовка окупается.</li>
+        </ul>
+
+        <div class="callout dom-cta">
+            <p>
+                <strong>Сколько это будет стоить в вашем доме?</strong> Семь вопросов, две минуты,
+                без регистрации: получите цену отопления вилкой — оборудование и монтаж отдельно,
+                в трёх комплектациях.
+            </p>
+        </div>
+
+        <a class="cta" href="/dom/?src=elektricheskiy-vodonagrevatel">
+            Узнать цену для своего дома
+            <small>Отопление под ключ, результат сразу на экране</small>
+        </a>
+
+        <a class="cta" href="/?ref=SITE&amp;utm_source=article&amp;utm_medium=seo&amp;utm_campaign=elektricheskiy-vodonagrevatel">
+            Посчитать горячее водоснабжение
+            <small>Объём бака и мощность источника</small>
+        </a>
+
+        <h2>Частые вопросы</h2>
+
+        <details open>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Какой объём водонагревателя нужен?</span></summary>
+            <div class="answer">
+                <p>50 литров на одного человека, 80 на двоих, 100 на семью из трёх-четырёх, 150 на четверых-пятерых с ванной, 200 на шестерых и больше. Наполнить ванну на 170 литров можно и баком на 100: горячая вода смешивается с холодной, и на ванну уходит около 70 литров горячей.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Сколько греется бак на 100 литров?</span></summary>
+            <div class="answer">
+                <p>От ТЭНа 1,5 кВт — около 3,9 часа при нагреве с 10 до 60 °C, от 2,0 кВт — 2,9 часа, от 2,5 кВт — 2,3 часа. Догрев после частичного расхода идёт быстрее пропорционально. Мощность упирается в проводку: 1,5 кВт включается в обычную розетку, а 2,5 кВт требует отдельной линии с автоматом и УЗО.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Сколько стоит горячая вода от электрического нагревателя?</span></summary>
+            <div class="answer">
+                <p>Семье из четырёх человек нужно около 8 500 кВт·ч в год на подогрев воды. По тарифу для дома с электроотоплением это 48 500 ₽, по городскому — 67 000 ₽, по ночной ставке — 29 000 ₽. От газового котла с бойлером косвенного нагрева та же вода обходится в 9 300 ₽.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Накопительный или проточный водонагреватель?</span></summary>
+            <div class="answer">
+                <p>Накопительный для дома и квартиры: мощность 1,5–2,5 кВт, часто хватает обычной розетки, и он держит две точки одновременно. Проточный не хранит воду и греет мгновенно, но требует 8–27 кВт — это 36 ампер и больше, отдельная трёхфазная линия. В доме с электрокотлом такую нагрузку добавить обычно некуда.</p>
+            </div>
+        </details>
+
+        <details>
+            <summary><svg class="faq-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.3 2.4c-.6.2-.9.7-.9 1.3v.5"/><path d="M12 17h.01"/></svg><span class="faq-q">Что нужно кроме самого водонагревателя?</span></summary>
+            <div class="answer">
+                <p>Группа безопасности со стороны холодной воды с предохранительным клапаном на 6 бар и обратным клапаном, расширительный бак ГВС — иначе предохранительный будет подкапывать при каждом нагреве, — и ревизия магниевого анода раз в год-два. Плюс крепление с учётом веса: бак на 100 литров весит больше центнера.</p>
+            </div>
+        </details>
+
+        <div class="callout">
+            <p>
+                <strong>Нужен мастер, а не только расчёт?</strong> Монтаж отопления, тёплого пола,
+                котельной и водоснабжения — Санкт-Петербург и Ленинградская область. Оставьте
+                заявку: мастер позвонит, уточнит задачу и договорится о выезде. Расчёт
+                из калькулятора можно приложить — тогда разговор будет короче.
+            </p>
+        </div>
+
+        <a class="cta" href="/montazh-otopleniya-spb/?src=elektricheskiy-vodonagrevatel#zayavka">
+            Заказать монтаж в СПб и области
+            <small>Отопление, тёплый пол, котельная, водоснабжение</small>
+        </a>
+
+        <div class="author">
+            <img src="/img/author_ibatullin.jpg" width="64" height="64" loading="lazy"
+                 alt="Дмитрий Ибатуллин, автор HeatCalc.ru">
+            <p><b>Дмитрий Ибатуллин</b><br><span>Инженер</span></p>
+        </div>
+
+        <h2>Читать дальше</h2>
+        <p><a href="/nasosnaya-stantsiya/">насосная станция или скважинный насос</a> · <a href="/dvuhtrubnaya-sistema/">двухтрубная система: тупиковая и попутная</a> · <a href="/kotel-ne-greet-v-moroz/">котёл не справляется в мороз: что проверять</a> · <a href="/boyler-kosvennogo-nagreva/">бойлер косвенного нагрева: как подобрать объём</a> · <a href="/smeta/">что входит в смету на отопление</a> · <a href="/raschet-teplopoter/">как считаются теплопотери дома</a></p>
+
+    </main>
+
+    <footer class="site-footer" role="contentinfo">
+        <div class="sf-wrap">
+            <div class="sf-brand">
+                <a class="sf-logo" href="/" aria-label="HeatCalc.ru — калькулятор отопления">HeatCalc<span>.ru</span></a>
+                <p class="sf-about">Инженерный калькулятор отопления, водоснабжения и канализации для монтажников: теплопотери, подбор оборудования STOUT и ROMMER, смета и коммерческое предложение.</p>
+                <div class="sf-social no-print">
+                    <a class="sf-pill" href="https://t.me/heatcalc_ru" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','footer_tg_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4 3 11l5.5 2L10 19l3.2-3.8L18 19z"/><path d="m8.5 13 9-6.5"/></svg><span>Telegram-канал</span></a>
+                    <a class="sf-pill" href="https://www.rustore.ru/catalog/app/ru.heatcalc.app" target="_blank" rel="noopener" onclick="if(window.ym)ym(109490947,'reachGoal','app_install_click');"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></svg><span>Android в RuStore</span></a>
+                    <a class="sf-pill" href="/novosti/"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M18 8h2v10a2 2 0 0 1-2 2M8 8h6M8 12h6M8 16h4"/></svg><span>Новости</span></a>
+                </div>
+            </div>
+            <nav class="sf-col" aria-label="Расчёты">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01"/></svg><span>Расчёты</span></div>
+                <ul><li><a href="/raschet-teplopoter/">Теплопотери дома</a></li><li><a href="/smeta/">Смета на отопление</a></li><li><a href="/diametr-trub-otopleniya/">Диаметр труб</a></li><li><a href="/podbor-tsirkulyatsionnogo-nasosa/">Циркуляционный насос</a></li><li><a href="/kollektor-teplogo-pola/">Тёплый пол</a></li><li><a href="/boyler-kosvennogo-nagreva/">Бойлер косвенного нагрева</a></li><li><a href="/stoimost-otopleniya-gazom/">Стоимость отопления</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Монтажникам">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg><span>Монтажникам</span></div>
+                <ul><li><a href="/rascenki-na-montazh-otopleniya/">Расценки на монтаж</a></li><li><a href="/kommercheskoe-predlozhenie/">Коммерческое предложение</a></li><li><a href="/dogovor-na-montazh-otopleniya/">Договор и акты</a></li><li><a href="/akt-skrytyh-rabot-otopleniya/">Акт скрытых работ</a></li><li><a href="/nacenka-montazhnika/">Наценка монтажника</a></li><li><a href="/kalkulyator-dlya-montazhnikov/">Калькулятор для монтажников</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="Города">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.2 7-11a7 7 0 0 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg><span>Города</span></div>
+                <ul><li><a href="/moskva/">Москва</a></li><li><a href="/spb/">Санкт-Петербург</a></li><li><a href="/novosibirsk/">Новосибирск</a></li><li><a href="/ekaterinburg/">Екатеринбург</a></li><li><a href="/montazh-otopleniya-spb/">Монтаж отопления в СПб</a></li><li><a href="/montazh-teplogo-pola-spb/">Тёплый пол в СПб</a></li><li><a href="/goroda/">Все города →</a></li></ul>
+            </nav>
+            <nav class="sf-col" aria-label="О проекте">
+                <div class="sf-title"><svg class="sf-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg><span>О проекте</span></div>
+                <ul><li><a href="/prilozhenie/">Приложение для Android</a></li><li><a href="/novosti/">Новости</a></li><li><a href="/teplopoteri-doma-dannye-102-proektov/">Исследование: 102 проекта</a></li><li><a href="https://t.me/heatcalc_ru">Telegram-канал</a></li><li><a href="/oferta.html#rightsholders">Правообладателям</a></li></ul>
+            </nav>
+        </div>
+        <div class="sf-bottom">
+            <div class="sf-bottom-in">
+                <span>&copy; 2026 HeatCalc.ru — профессиональный калькулятор систем отопления</span>
+                <span class="sf-legal">
+                    <a href="/oferta.html">Публичная оферта</a>
+                    <a href="/privacy-policy.html">Политика конфиденциальности</a>
+                    <a href="/sitemap.xml">Карта сайта</a>
+                </span>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>
