@@ -13,6 +13,7 @@
 
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/';
   var GLB_DIR = 'models3d/room/';
+  var GLB_V = 5;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
   var ROLE_Z = { sup: 0.19, ret: 0.13, ld: 0.055, lr: 0.13 };
@@ -131,7 +132,7 @@
     var gl = new lib.GL(); gl.setDRACOLoader(dl);
     var jobs = spec.layers.map(function (Ly, i) {
       return new Promise(function (res) {
-        gl.load(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb', function (g) { res({ L: Ly, g: g }); }, null, function () { res({ L: Ly, g: null }); });
+        gl.load(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, null, function () { res({ L: Ly, g: null }); });
       });
     });
     // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
@@ -165,6 +166,9 @@
       if (!o.isMesh) return;
       if (hideStub && STUB.test(o.name.replace(/_\d+$/, ''))) { o.visible = false; o.userData.stub = true; return; }
       o.castShadow = true; o.receiveShadow = true;
+      // наклейки (логотипы, экраны, шкалы) — прозрачные плоскости в доле миллиметра над корпусом: без тени и со смещением глубины, иначе мерцают
+      var m0 = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (m0 && m0.transparent && m0.map) { o.castShadow = false; m0.depthWrite = false; m0.polygonOffset = true; m0.polygonOffsetFactor = -2; m0.polygonOffsetUnits = -2; }
       var b = new T.Box3().setFromObject(o), c = b.getCenter(new T.Vector3());
       var lx = c.x - Ly.off[0], lz = c.y - Ly.off[2], best = null, ba = 1e9;
       zs.forEach(function (z) {

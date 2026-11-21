@@ -67,6 +67,16 @@
     }
     return null;
   }
+  // кадр коллектора с группами: нужного насоса нет — берём ближайшую модель ТОГО ЖЕ бренда (у ROMMER кадры только с PROFI,
+  // у STOUT — с SPC-0011 без суффикса). Раньше pickKey отбрасывал суффиксы по одному и в смете ROMMER с насосом EVO показывал
+  // коллектор и группы STOUT. Другой бренд, число групп и тип коллектора не подменяются: нет кадра — нет вида (и плашка).
+  function pickHydro(idx, key) {
+    if (idx[key]) return key;
+    var m = /^(.*?)(_p[a-z0-9]+)$/.exec(String(key));
+    if (!m) return null;
+    var alt = /_r(_i)?$/.test(m[1]) ? '_pprofi' : '';
+    return idx[m[1] + alt] ? m[1] + alt : null;
+  }
   function baseKey(k) { return A.blBase(k).replace(/_c(_rm)?$/, '').replace(/_rm$/, ''); }
 
   function dhwKeys() {
@@ -76,9 +86,9 @@
     if (!boiler) return null;
     var s = sku(boiler).toUpperCase(), vol = parseInt(s.slice(-3), 10); if (vol === 190) vol = 200;
     // кадры бойлеров есть для трёх серий: b (OptiBase), gt (ROMMER), e (электро). Остальные берут кадр ближайшей модели того же объёма
-    var BK = { 'SWH-2110': 'b', 'RWH-2110': 'gt', 'SWH-3110': 'e', 'SWH-1110': 'b', 'SWH-4110': 'b' };
+    var BK = { 'SWH-2110': 'b', 'RWH-2110': 'gt', 'SWH-3110': 'e', 'SWH-1110': 'b', 'SWH-4110': 'd' };
     var di = (A.nodeIndex && DATA && DATA.DI) || {};
-    var order = [BK[s.slice(0, 8)], 'b', 'gt', 'e'], tank = null, i, k;
+    var order = [BK[s.slice(0, 8)], 'b', 'gt', 'e', 'd'], tank = null, i, k;
     for (i = 0; i < order.length && !tank; i++) if (di[order[i] + vol + '_k']) tank = order[i] + vol;
     if (!tank) {                       // такого объёма нет ни в одной серии — ближайший по объёму из b
       var best = null; [150, 200, 300, 500].forEach(function (v) { if (best === null || Math.abs(v - vol) < Math.abs(best - vol)) best = v; });
@@ -117,7 +127,7 @@
 
     // ── коллектор с группами: правее котлов, низ коллектора на уровне низа котлов
     var hk = A.hydroFrameKey();
-    var hkey = hk ? pickKey(hi, hk.key) : null, hb = hkey ? hkey.replace(/_p[a-z0-9]+$/, '') : null;
+    var hkey = hk ? pickHydro(hi, hk.key) : null, hb = hkey ? hkey.replace(/_p[a-z0-9]+$/, '') : null;
     var hp = hb ? PH[hb] : null;
     var hOff = null;
     if (hkey && hi[hkey] && hp && hp.boiler.length === 2) {
@@ -679,7 +689,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=2'), j('img/boiler_node_front/boiler.json?v=1'), j('img/hydro_node_front/hydro.json?v=1'), j('img/dhw_node_front/dhw.json?v=3')])
+    Promise.all([j('img/room_ports.json?v=3'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4')])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3] }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
@@ -965,6 +975,7 @@
       '.fc-b{cursor:grab;touch-action:none}.fc-b:active{cursor:grabbing}' +
       '.fc-s{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.14);font-size:10.5px;opacity:.6}' +
       /* окно «На весь экран»: панель значков в духе Revit, одна на все виды */
+      '.rv-gap{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.55);font:13px/1.45 system-ui,Arial,sans-serif}.rv-gap b{font-weight:600}' +
       '.rvm{position:fixed;inset:0;z-index:99990;background:#E3E6EA;overflow:hidden;font-family:system-ui,Arial,sans-serif}' +
       '.rvm-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:72px 236px 22px}' +
       '.rvm-stage.is3d{padding:0}.rvm-stage.is3d .r3{position:absolute;inset:0;border-radius:0;height:100%}' +
@@ -1005,12 +1016,71 @@
   };
   function ibtn(a, ic, tip, on) { return '<button type="button" data-a="' + a + '" data-tip="' + tip + '" aria-label="' + tip + '" class="' + (on ? 'on' : '') + '"><svg viewBox="0 0 24 24">' + IC[ic] + '</svg></button>'; }
 
+  // ── позиции, которые есть в смете, но на виде не показаны: для них нет кадра. Раньше такой котёл, коллектор или бойлер
+  // пропадали молча, а вид выглядел полным. Теперь под видом — плашка «Нет полного соответствия проекту» со списком.
+  // база ключа котла без признаков состава сметы и бренда кранов: haier2_rm_ns -> haier2, status27_n -> status27, polis_r -> polis
+  function bBase(k) { return String(k).replace(/_(rm|c|n|nf|sf|ns|s1|r)(?=_|$)/g, ''); }
+  function hasFrame(idx, key) { var b = bBase(key); return Object.keys(idx).some(function (k) { return bBase(k) === b; }); }
+  var CATB = null;
+  function boilerIds() {
+    if (CATB) return CATB;
+    CATB = {};
+    try {
+      ['boilers_gas', 'boilers_baxi', 'boilers_vaillant', 'boilers_navien', 'boilers_plus', 'boilers_status', 'boilers_polis', 'boilers_el_analogs']
+        .forEach(function (k) { (catalog[k] || []).forEach(function (b) { CATB[String(b.id)] = b; }); });
+    } catch (e) { CATB = {}; }
+    return CATB;
+  }
+  function gapList(app) {
+    var eq = (app.currentEquipmentList || []).filter(function (it) { return !it.isOpt; }), out = [];
+    var sk = function (it) { return String(it.displaySku || it.id || ''); };
+    var nm = function (it) { return ((it.brand ? it.brand + ' ' : '') + String(it.name || sk(it))).replace(/\s+/g, ' ').trim(); };
+    var seen = {};
+    var add = function (kind, it) { var k = kind + '|' + nm(it); if (!seen[k]) { seen[k] = 1; out.push({ kind: kind, name: nm(it) }); } };
+    // котлы: в списке сметы у них нет ни группы, ни типа, поэтому узнаём их по артикулам каталога (газовые Haier, Baxi, Vaillant,
+    // Navien; электрические STATUS, POLIS, PLUS и аналоги). Свой кадр есть у Haier GE0Q6 (и PNGB одноконтурных, как у Haier),
+    // STOUT STATUS и POLIS.
+    var cb = boilerIds();
+    eq.forEach(function (it) {
+      if (!cb[String(it.id)] && !cb[sk(it)]) return;
+      var key = null;
+      try { key = app.boilerFrameKey(it); } catch (e) { key = null; }
+      if (!key && /^PNGB/i.test(sk(it)) && /одноконтур/i.test(String(it.name || ''))) key = 'haier1';
+      if (!key) { add('котёл', it); return; }
+      if (DATA && DATA.BI && !hasFrame(DATA.BI, key)) add('котёл', it);
+    });
+    // коллектор и насосные группы: вид строится только для коллекторов SDG-0016/0018, RDG-0017/1017 с группами DN25 своего бренда
+    var hyd = eq.filter(function (it) { return /^2\.4/.test(String(it.group || '')) && /^(SDG-00(16|18)|RDG-(0017|1017)|МУ|MU|SDG-0120|RDG-0120|SDG-0038|SVM-0025)/i.test(sk(it)); });
+    var hk = null;
+    try { hk = app.hydroFrameKey(); } catch (e) { hk = null; }
+    var hpick = hk && DATA && DATA.HI ? pickHydro(DATA.HI, hk.key) : null;
+    if (hyd.length && !hk) hyd.forEach(function (it) { add('коллектор, узел или группа', it); });
+    else if (hk && DATA && DATA.HI && !hpick) hyd.forEach(function (it) { add('коллектор, узел или группа', it); });
+    else if (hk && hpick && hpick !== hk.key) out.push({ kind: 'насос', name: 'насос ' + hk.pump + ' (на виде показан ближайший по бренду)' });
+    // бойлер: кадры есть у SWH-1110/2110/3110/4110 и RWH-2110
+    eq.forEach(function (it) {
+      if (!/^2\.3/.test(String(it.group || ''))) return;
+      if (/^(SWH|RWH)-(1110|2110|3110|4110)-/i.test(sk(it))) return;
+      if (/^(Бойлер|Водонагреватель)/i.test(String(it.name || ''))) add('бойлер', it);
+    });
+    return out;
+  }
+  function gapHtml(app) {
+    var g;
+    try { g = gapList(app); } catch (e) { g = []; }
+    if (!g.length) return '';
+    css();
+    return '<div class="rv-gap"><b>Нет полного соответствия проекту.</b> На виде не показано, потому что для этих позиций нет готовой модели: ' +
+      g.map(function (x) { return x.kind === 'насос' ? esc(x.name) : esc(x.name) + ' (' + x.kind + ')'; }).join('; ') +
+      '. Они есть в смете и в таблице, на схему не попали.</div>';
+  }
+
   // ── встроенный вид: всегда плоская картинка в размер рендера, как у остальных листов; управление — в окне «На весь экран»
   function inlineView(app, c, st) {
     css();
     return '<div class="rv"><div class="rv-head"><div class="rv-title">Общий вид котельной</div></div>' +
       '<div class="rv-stage zoomable" data-style="' + st + '" onclick="RoomView.openFull()" title="Открыть на весь экран"><img src="' + c.url + '" alt="Общий вид котельной">' +
-      '<button type="button" class="scheme-zoom-btn" aria-label="На весь экран">⛶ На весь экран</button></div></div>';
+      '<button type="button" class="scheme-zoom-btn" aria-label="На весь экран">⛶ На весь экран</button></div>' + gapHtml(app) + '</div>';
   }
 
   // ── окно «На весь экран»
@@ -1278,7 +1348,10 @@
     // встроенный вид — всегда плоский: «Схема» или «Реалистично»; 3D и поток открываются только в окне «На весь экран»
     var st = (!proOf(app) || app.state.roomViewStyle === 'scheme') ? 'scheme' : 'real';
     var e = entry(app, st);
-    if (!e) return '';
+    if (!e) {
+      var gh = gapHtml(app);
+      return gh ? '<div class="rv"><div class="rv-head"><div class="rv-title">Общий вид котельной</div></div>' + gh + '</div>' : '';
+    }
     return inlineView(app, e.c, st);
   }
 
