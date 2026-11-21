@@ -899,7 +899,7 @@
       return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs, pf: l.kind === 'hydro' && hkNow ? hkNow.pf : l.pf, baked: l.baked, pid: l.kind === 'hydro' && hkNow ? hkNow.pid : l.pid };
     });
     var tk = layers.filter(function (l) { return l.kind === 'dhw' && l.fid === 'w0'; })[0], tpk = tk && DATA && DATA.PB['dhw:' + tk.key];
-    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; tk.dy = rotInfo.dy; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } }
+    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; tk.dy = rotInfo.dy; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } else { try { var li = tankLift(tk, tpk, S3.routes); if (li) { routes3 = li.routes; tk.dy = li.dy; } } catch (e) { console.warn('[3D] подъём бойлера не построен:', e); } } }
     return { sig: sig + (ang && rotInfo ? '|r' + ang : ''), baseSig: sig, rot: rotInfo ? ang : 0, layers: layers, routes: routes3, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
   }
   // ── выноски показаний при включённом потоке: подача, обратка, скорость, расход по каждой системе (числа — из расчётов приложения)
@@ -1388,9 +1388,23 @@
   // стены по глубине так, чтобы патрубки с арматурой не упёрлись в неё, а две трубы змеевика (подача и обратка) прокладываются заново:
   // от стыка с магистралью по своим плоскостям (подача 40 мм, обратка 70 мм от стены), в обход корпуса и к патрубку строго по его оси.
   // Точки трасс — в метрах [x, высота, глубина от стены], как у room_3d.js; плоский вид этим не затрагивается.
+  // бойлер в исходном положении: если патрубок обратки ниже конца магистрали на пару сантиметров, бойлер приподнимается на регулируемых ножках
+  // (они у серий STOUT и ROMMER рассчитаны на 25–40 мм), и обратка идёт к магистрали прямо: обрезок трубы короче вылетов двух фитингов собрать нельзя
+  function tankLift(tank, tp, routes) {
+    var zl = tp[1].pos_m[2] + tank.off[2], zd = tp[0].pos_m[2] + tank.off[2], dy = 0;
+    routes.forEach(function (r) { if (r.role === 'lr' && r.d0 != null && r.pp.length === 3) { var dd = -r.pp[2][1] / PXM - zl; if (Math.abs(dd) < 0.04) dy = dd; } });
+    if (Math.abs(dy) < 1e-4) return null;
+    var out = routes.map(function (r) {
+      var c = {}; Object.keys(r).forEach(function (q) { c[q] = r[q]; });
+      if (r.role === 'lr' && r.d0 != null && r.pp.length === 3) { var yy = -(zl + dy) * PXM; c.pp = [[r.pp[0][0], yy], [r.pp[1][0], yy]]; }
+      else if (r.role === 'ld' && r.d1 != null && r.pp.length === 4) { var yd = -(zd + dy) * PXM; c.pp = [r.pp[0], r.pp[1], [r.pp[2][0], yd], [r.pp[3][0], yd]]; }
+      return c;
+    });
+    return { routes: out, dy: dy };
+  }
   function tankRoutes(tank, tp, routes, ang) {
-    // плоскости труб те же, что у room_3d.js (ROLE_Z): подача бойлера 55 мм от стены, обратка 130 мм — иначе новый участок не стыкуется с магистралью
-    var ZLD = 0.055, ZLR = 0.13, RUN = 0.102;       // RUN: прямой участок перед патрубком = плечо угольника 22 (57 мм) + 45 мм, иначе угольник не встаёт
+    // плоскости труб те же, что у room_3d.js (ROLE_Z): подача бойлера 50 мм от стены, обратка 140 мм — иначе новый участок не стыкуется с магистралью
+    var ZLD = 0.05, ZLR = 0.14, RUN = 0.102;       // RUN: прямой участок перед патрубком = плечо угольника 22 (57 мм) + 45 мм, иначе угольник не встаёт
     var R = -tp[0].pos_m[1] - 0.05, ax = tank.off[0], dA = R + 0.05;
     var ends = {};                                    // расстояние от оси бойлера до конца трубы на патрубке — по самой трассе плоского вида (конец трубы = край переходника)
     routes.forEach(function (r) {

@@ -13,10 +13,10 @@
 
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/';
   var GLB_DIR = 'models3d/room/';
-  var GLB_V = 7;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
+  var GLB_V = 8;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
-  var ROLE_Z = { sup: 0.19, ret: 0.13, ld: 0.055, lr: 0.13 };
+  var ROLE_Z = { sup: 0.19, ret: 0.14, ld: 0.05, lr: 0.14 };   // глубины труб от стены; разница с глубиной патрубка узла обязана быть 0 или не меньше 28 мм (пара 45° не встаёт в меньший сдвиг, труба осталась бы изогнутой без фитинга): патрубки узлов 81 и 107 мм дают 31 и 33 мм
   var ROLE_COL = { cw: 0x0891B2, sup: 0xE53935, ret: 0x1E88E5, ld: 0xF57C00, lr: 0x1E88E5 };
   var L = null, loading = null;      // библиотеки
   var S = null;                      // живая сцена (одна на страницу)
@@ -181,7 +181,7 @@
     var zs = Ly.zones || [];
     var hideStub = Ly.kind === 'boiler' || (Ly.kind === 'dhw' && !/^ex/.test(Ly.fid || ''));
     obj.traverse(function (o) {
-      if (!o.isMesh) return;
+      if (!o.isMesh) { if (/^port_/.test(o.name)) (S.ports = S.ports || []).push(o); return; }       // метки патрубков бойлера для подписей: идут вместе с корпусом при повороте
       if (hideStub && STUB.test(o.name.replace(/_\d+$/, ''))) { o.visible = false; o.userData.stub = true; return; }
       o.castShadow = true; o.receiveShadow = true;
       // передняя крышка теплоизоляции группы: закрыта по умолчанию, не часть компонентов сметы (щёлкается отдельно)
@@ -257,6 +257,26 @@
       }
       return pts.filter(function (pt, i) { return i === 0 || pt.distanceTo(pts[i - 1]) > 1e-4; });
     };
+    // трасса, которая доходит до конца магистрали и возвращается по ней назад к ответвлению, — на деле две трубы: магистраль и ответвление от её середины
+    // (на плоском виде это одна ломаная, а в 3D возврат ложился бы трубой на трубу и давал угол без фитинга); ответвление встаёт на тройник
+    (function () {
+      var out = [];
+      spec.routes.forEach(function (rt) {
+        if (rt.p3 || !rt.pp || rt.pp.length < 4) { out.push(rt); return; }
+        var cut = -1, i;
+        for (i = 1; i < rt.pp.length - 1 && cut < 0; i++) {
+          var a = rt.pp[i - 1], b = rt.pp[i], c = rt.pp[i + 1], x1 = b[0] - a[0], y1 = b[1] - a[1], x2 = c[0] - b[0], y2 = c[1] - b[1];
+          if (Math.abs(x1 * y2 - y1 * x2) < 1e-6 * (Math.hypot(x1, y1) * Math.hypot(x2, y2) + 1) && x1 * x2 + y1 * y2 < 0) cut = i;
+        }
+        if (cut < 0) { out.push(rt); return; }
+        var r1 = {}, r2 = {};
+        Object.keys(rt).forEach(function (q) { r1[q] = rt[q]; r2[q] = rt[q]; });
+        r1.pp = rt.pp.slice(0, cut + 1); r1.d1 = null;
+        r2.pp = rt.pp.slice(cut + 1); r2.d0 = null;
+        out.push(r1, r2);
+      });
+      spec.routes = out;
+    })();
     spec.routes.forEach(function (rt) { var od = rt.od || PS.od; built.push({ rt: rt, pts: buildPts(rt), cut: [], rad: od / 2000, s: od, ok: steel && RF.ok(od) }); });
     var put = function (key, P, u, v, tag) {
       var k = key + '|' + P.x.toFixed(3) + '|' + P.y.toFixed(3) + '|' + P.z.toFixed(3) + (tag || '');
@@ -290,7 +310,24 @@
             else { a1 = P.clone().sub(ad.clone().multiplyScalar(s0 + D + off)); a2 = Q.clone().sub(ad.clone().multiplyScalar(s0 + off)); }
             return [a1, a2];
           };
-          var jogFree = function (a1, a2) {
+          // участки трубы по обе стороны пары (до первого угольника и после второго) тоже не должны ложиться на чужую трубу: стояк на другой глубине
+          // проходит мимо магистрали с зазором не меньше 6 мм между стенками, иначе пару надо увести за магистраль
+          var jogLegs = function (after, jj) {
+            return after ? [[P, jj[0]], [jj[1], hasB ? pts[i + 2] : jj[1]]] : [[pts[i - 1], jj[0]], [jj[1], Q]];
+          };
+          var legFree = function (A, B) {
+            if (A.distanceTo(B) < 1e-4) return true;
+            return built.every(function (o) {
+              if (o === r) return true;
+              for (var kq = 0; kq < o.pts.length - 1; kq++) {
+                var C1 = o.pts[kq], C2 = o.pts[kq + 1];
+                if (ptSeg(A, C1, C2) < 0.012 || ptSeg(B, C1, C2) < 0.012 || ptSeg(C1, A, B) < 0.012 || ptSeg(C2, A, B) < 0.012) continue;      // стык
+                if (segDist(A, B, C1, C2) < r.rad + o.rad + 0.006) return false;
+              }
+              return true;
+            });
+          };
+          var jogFree = function (a1, a2, legs) {
             return built.every(function (o) {
               if (o === r) return true;
               for (var kq = 0; kq < o.pts.length - 1; kq++) {
@@ -299,10 +336,10 @@
                 if (ptSeg(a1, C1, C2) < o.rad + 0.019 || ptSeg(a2, C1, C2) < o.rad + 0.019) return false;      // корпус пресс-фитинга 22 — радиус около 17 мм
               }
               return true;
-            });
+            }) && legs.every(function (lg) { return legFree(lg[0], lg[1]); });
           };
           var pickJog = function (after, room) {
-            for (var off = 0; off <= room; off += 0.01) { var jj = jogTry(after, off); if (jogFree(jj[0], jj[1])) return jj; }
+            for (var off = 0; off <= room; off += 0.01) { var jj = jogTry(after, off); if (jogFree(jj[0], jj[1], jogLegs(after, jj))) return jj; }
             return null;
           };
           var jg = null, jAfter = false;
@@ -827,6 +864,13 @@
     S.r.render(S.scene, S.cam);
     labels();
   }
+  // подпись патрубка бойлера по имени метки «port_<код>_<размер>_<M|F>» (tools/render_dhw_node.py): назначение, резьба по паспорту серии
+  var PORT_NAME = { cold: 'Вход ХВС', hot: 'Выход ГВС', rec: 'Рециркуляция', safe: 'Патрубок предохранительного клапана', sens: 'Гильза датчика', cin: 'Змеевик: подача', cout: 'Змеевик: обратка' };
+  var PORT_SIZE = { G1: 'G1"', G34: 'G3/4"', G12: 'G1/2"', D6: 'Ø6 мм' };
+  function portText(name) {
+    var m = /^port_([a-z]+)_([A-Z0-9]+)_([MF])/.exec(name); if (!m || !PORT_NAME[m[1]]) return null;
+    return PORT_NAME[m[1]] + ', ' + (PORT_SIZE[m[2]] || m[2]) + (m[2] === 'D6' ? '' : (m[3] === 'M' ? ' НР' : ' ВР'));
+  }
   // подписи позиций с линиями-выносками: якорь — центр самой крупной детали класса, проекция на экран каждый кадр
   function labels() {
     var svg = S.wrap.querySelector('.r3-lbl'); if (!svg) return;
@@ -849,6 +893,13 @@
       var v = a.p.clone().project(S.cam);
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return;
       items.push({ x: (v.x * 0.5 + 0.5) * W, y: (-v.y * 0.5 + 0.5) * H, text: a.text });
+    });
+    (S.ports || []).forEach(function (o) {
+      var t = portText(o.name); if (!t) return;
+      var wp = new T.Vector3(); o.getWorldPosition(wp);
+      var v = wp.project(S.cam);
+      if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return;
+      items.push({ x: (v.x * 0.5 + 0.5) * W, y: (-v.y * 0.5 + 0.5) * H, text: t });
     });
     G.RoomLabels.draw(svg, items, W, H); S.lblOn = true;
   }
