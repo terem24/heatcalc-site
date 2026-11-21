@@ -266,8 +266,9 @@
     <script src="probe.js?v=1.0" defer></script>
     <script src="app.min.js?v=16.75" defer></script>
     <!-- Общий вид котельной по смете (кадры спереди, трубы по смете, подписи): видит только владелец, см. app.renderRoomView -->
-    <script src="room_view.js?v=25" defer></script>
-    <script src="room_3d.js?v=7" defer></script>
+    <script src="boiler_room_list.js?v=1.0" defer></script>
+    <script src="room_view.js?v=28" defer></script>
+    <script src="room_3d.js?v=10" defer></script>
     <!-- Счётчик активного времени и открытых экранов: по нему в панели видно, чем
          занят тот, кто заходит каждый день и не считает. Идёт после app.js —
          берёт у него getDeviceName() и адрес базы. -->
@@ -315,7 +316,7 @@
             sheetjs: ['vendor/xlsx.full.min.js'],
             // Движок листов проекта и схемы котельной (≈0,5 МБ): нужен кнопке «Выпустить проект»
             // и переключателю «Схема»; до этого схема не рисуется, а app.renderScheme перерисует сам
-            project: ['project_sheets.js?v=4.28', 'project_scheme.js?v=4.83']
+            project: ['project_sheets.js?v=4.28', 'project_scheme.js?v=4.84']
         };
         (function () {
             var started = {};

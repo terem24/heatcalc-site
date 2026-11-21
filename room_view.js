@@ -108,13 +108,27 @@
     } else notes.push('нет кадра коллектора');
 
     // ── бойлер: напольный (пол z = 0), справа от коллектора; кадр «…_k» — только два подключения змеевика, высоты патрубков по паспорту объёма
+    var cfgE = null; try { cfgE = A.buildSchemeConfig ? A.buildSchemeConfig() : null; } catch (e) { }
+    var needExp = !!(cfgE && (cfgE.tankHeating || cfgE.tankDhw)), exps = [];
     var dk = dhwKeys(), tankOff = null, tp = null;
     var tkey = dk ? dk.tank + '_k' : null;
     if (tkey && di[tkey] && PB['dhw:' + tkey]) {
       var maxX = hp ? Math.max.apply(null, hp.outlets.map(function (o) { return o.pos_m[0]; })) : 0.3;
       tp = PB['dhw:' + tkey];
-      tankOff = [hOff ? hOff[0] + maxX + 0.40 - tp[0].pos_m[0] : bx + 1.5, YP - tp[0].pos_m[1], 0];
+      tankOff = [(hOff ? hOff[0] + maxX + 0.40 : bx + 1.5) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
       layers.push({ kind: 'dhw', fid: 'w0', key: tkey, fr: di[tkey], off: tankOff, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + tkey + '.webp' });
+      // расширительные баки парой на стене слева от бойлера, выше его верха, на одной высоте; слева красный (отопления), справа белый (ГВС)
+      if (needExp) {
+        var frT = di[tkey], xb = tankOff[0] + tp[0].pos_m[0], xe0 = xb - 260 / PXM;
+        var topZ = tankOff[2] + frT.o[1] / Math.abs(frT.ax.z[1]), zOrig = topZ + 0.12 - 0.046;   // низ клапана бака на 0,12 м выше верха бойлера
+        [['exh', 'h', cfgE.tankHeating, xe0 - 0.38, 'Расширительный бак отопления', 'ret'], ['exw', 't', cfgE.tankDhw, xe0 - 0.06, 'Расширительный бак ГВС', 'cw']].forEach(function (e) {
+          var key = e[1] + e[2], pp = PB['dhw:' + key];
+          if (!e[2] || !di[key] || !pp) { notes.push('нет кадра бака ' + key); return; }
+          var off = [e[3], YP - pp[0].pos_m[1], zOrig];
+          layers.push({ kind: 'dhw', fid: e[0], key: key, fr: di[key], off: off, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + key + '.webp' });
+          exps.push({ fid: e[0], key: key, role: e[5], text: e[4] + ' ' + e[2] + ' л', port: proj(add(pp[0].pos_m, off)), depth: -pp[0].pos_m[1] });
+        });
+      }
     } else if (dk) notes.push('нет кадра бойлера ' + tkey);
 
     // ── трубы: на картинке только горизонтали и вертикали (вид спереди, как на эталоне владельца). Считаем в пикселях кадра.
@@ -135,7 +149,7 @@
         nhCons = plainCons();
         if (nhCons.length) {
           var xr0 = Math.max.apply(null, bports.map(function (b) { return Math.max(proj(b.sup)[0], proj(b.ret)[0], b.mid ? proj(b.mid)[0] : 0); })) + 0.30 * PXM;
-          var xlim = cS[0] - 260 - 0.18 * PXM, SEP = 0.125 * PXM, PAIR = Math.min(0.42 * PXM, (xlim - xr0 - SEP) / nhCons.length);
+          var xlim = cS[0] - 260 - (exps.length ? 0.62 : 0.18) * PXM, SEP = 0.125 * PXM, PAIR = Math.min(0.42 * PXM, (xlim - xr0 - SEP) / nhCons.length);
           var yTop = proj([0, YP, BOILER_Z + 0.20])[1];
           nhCons.forEach(function (cn, k) {                  // у каждой пары: обратка слева, подача справа — как выходы групп коллектора
             var rx = xr0 + k * PAIR, sx = rx + SEP;
@@ -170,6 +184,10 @@
           lines.push({ role: 'ret', d0: b.dR, ext0: [0, -0.23 * PXM], pts: [b.ret, [b.ret[0], yl.ret]] });
           if (useB && b.mid) lines.push({ role: 'ld', d0: b.dM, ext0: [0, -0.23 * PXM], jog: b.jM ? [b.jM, 0.15 * PXM] : null, pts: [b.mid, [b.midx, yl.ld]] });
         });
+        exps.forEach(function (e) {      // бак отопления врезается в обратку, бак ГВС заканчивается отводом к линии ХВС
+          if (e.role === 'ret') lines.push({ role: 'ret', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
+          else lines.push({ role: 'cw', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
+        });
         nhR.forEach(function (r) { lines.push({ role: 'sup', pts: [[r.sx, yl.sup], [r.sx, r.y]] }); lines.push({ role: 'ret', pts: [[r.rx, yl.ret], [r.rx, r.y]] }); });
         lines.push({ role: 'sup', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
         lines.push({ role: 'ret', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
@@ -199,7 +217,7 @@
       // глубина от стены, мм до оси трубы: подача — в плоскости патрубков котла (105–107), обратка и змеевик ближе к стене; в одной плоскости линии
       // разных контуров не пересекаются, пересечения на виде спереди — это проход одной трубы за другой (основа для 3D)
       var PLANE = { sup: 107, ret: 70, lr: 70, ld: 40 };
-      best.r.lines.forEach(function (ln) { ln.planeMm = PLANE[ln.role]; });
+      best.r.lines.forEach(function (ln) { if (ln.role !== 'cw') ln.planeMm = PLANE[ln.role]; });
       var sameCross = 0;
       (function () { var L = best.r.lines; for (var i = 0; i < L.length; i++) for (var j = i + 1; j < L.length; j++) { if (L[i].role === L[j].role || L[i].planeMm !== L[j].planeMm) continue; if (crossings([L[i], L[j]]) > 0 && !((L[i].role === 'ret' && L[j].role === 'lr') || (L[i].role === 'lr' && L[j].role === 'ret'))) sameCross++; } })();
       notes.push('пересечений на виде спереди: ' + best.c + ', в одной плоскости: ' + sameCross + ' (глубина от стены, мм: подача 107, обратка 70, змеевик 40)');
@@ -217,7 +235,7 @@
       }
     }
     if (!hOff && typeof nhCons !== 'undefined' && nhCons && nhCons.length && nhCons[0].sup) nhCons.forEach(function (cn) { cons.push(cn); });
-    return { layers: layers, routes: routes, notes: notes, cons: cons };
+    return { layers: layers, routes: routes, notes: notes, cons: cons, exps: exps };
   }
 
   // мощность контура из названия строки группы («… радиаторы: 15,8 из 48,8 кВт»), по порядку: тёплый пол слева, затем радиаторы, как ключ кадра
@@ -309,7 +327,7 @@
 
   // ── трубы: три стиля. scheme — условные цветные линии от арматуры; real — материал и фитинги как в смете; flow — real + подсветка и стрелки потока
   var GRP = { sup: 'h', ld: 'h', ret: 'c', lr: 'c' };
-  var FLOWCOL = { sup: '#E02424', ld: '#E02424', ret: '#2563EB', lr: '#2563EB' };
+  var FLOWCOL = { sup: '#E02424', ld: '#E02424', ret: '#2563EB', lr: '#2563EB', cw: '#0891B2' };
   function pathOf(g, pp) { g.beginPath(); pp.forEach(function (q, i) { if (i) g.lineTo(q[0], q[1]); else g.moveTo(q[0], q[1]); }); }
   function shift(pp, dx, dy) { return pp.map(function (q) { return [q[0] + dx, q[1] + dy]; }); }
   function segs(pp) { var o = []; for (var i = 0; i < pp.length - 1; i++) o.push([pp[i], pp[i + 1]]); return o; }
@@ -317,6 +335,38 @@
     var hz = Math.abs(a[1] - b[1]) < 1;
     return hz ? (Math.abs(pt[1] - a[1]) < 2 && pt[0] > Math.min(a[0], b[0]) + 2 && pt[0] < Math.max(a[0], b[0]) - 2)
               : (Math.abs(pt[0] - a[0]) < 2 && pt[1] > Math.min(a[1], b[1]) + 2 && pt[1] < Math.max(a[1], b[1]) - 2);
+  }
+  // спрайты нержавеющих пресс-фитингов (img/fit_node, Blender): угольник по двум плечам, тройник по отводу; нет спрайта — прежний кружок
+  var FITS = null;
+  async function loadFits() {
+    var base = 'img/fit_node/';
+    var idx = await fetch(base + 'fit.json?v=1').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    if (!idx) return null;
+    var names = Object.keys(idx), ims = await Promise.all(names.map(function (n) { return img(base + 'fit_' + n + '.webp').catch(function () { return null; }); }));
+    var o = { idx: idx, im: {} }; names.forEach(function (n, i) { if (ims[i]) o.im[n] = ims[i]; });
+    return o;
+  }
+  function dirOf(a, b) {
+    var dx = b[0] - a[0], dy = b[1] - a[1];
+    if (Math.abs(dy) < 1.5 && Math.abs(dx) > 1) return dx > 0 ? 'R' : 'L';
+    if (Math.abs(dx) < 1.5 && Math.abs(dy) > 1) return dy > 0 ? 'D' : 'U';
+    return null;
+  }
+  function fitSprite(g, pt, kind, d1, d2, mat) {
+    if (!FITS || mat === 'ppr' || !d1) return false;
+    var name = null;
+    if (kind === 'elbow') {
+      if (!d2 || d1 === d2) return false;
+      var ab = d1 + d2, hh = /[RL]/.exec(ab), vv = /[UD]/.exec(ab);
+      if (!hh || !vv || ab.length !== 2) return false;
+      name = 'e90_' + hh[0] + vv[0];
+    } else if (kind === 'tee') name = { U: 'tee_U', D: 'tee_D', R: 'tee_R', L: 'tee_L' }[d1];
+    if (!name) return false;
+    if (A.state && A.state.brandMode === 'rommer') name += '_r';
+    var im = FITS.im[name], m = FITS.idx[name];
+    if (!im || !m) return false;
+    g.drawImage(im, pt[0] - m.o[0], pt[1] - m.o[1], m.w, m.h);
+    return true;
   }
   function fitting(g, pt, W, kind, pal) {
     var r = W * (kind === 'tee' ? 0.78 : 0.66);
@@ -333,7 +383,7 @@
   function drawPipes(g, routes, x0, y0, style, mat) {
     var scheme = style === 'scheme', glow = style.indexOf('flow') === 0, W = 22 * PXM / 1000 * (mat === 'ppr' ? 1.15 : 1);
     var PAL = mat === 'ppr' ? { edge: '#5E9453', mid: '#8CC57E', hi: '#D3EDCB', ring: '#3F6D38' } : { edge: '#7B838B', mid: '#C7CDD3', hi: '#F7F9FA', ring: '#5E666E' };
-    var order = { ld: 0, lr: 0, ret: 1, sup: 2 };                     // «глубина» от стены: змеевик ближе всех к стене, подача дальше всех
+    var order = { ld: 0, lr: 0, cw: 1, ret: 1, sup: 2 };                     // «глубина» от стены: змеевик ближе всех к стене, подача дальше всех
     var R = routes.map(function (r) {
       var pp = r.pts.map(function (p) { var q = r.scr ? p : proj(p); return [q[0] - x0, q[1] - y0]; });
       {
@@ -387,17 +437,18 @@
         var end = i === 0 || i === n - 1;
         if (!end) {
           var p0 = r.pp[i - 1], p2 = r.pp[i + 1], turn = Math.abs((pt[0] - p0[0]) * (p2[1] - pt[1]) - (pt[1] - p0[1]) * (p2[0] - pt[0])) > 100;
-          if (turn) fitting(g, pt, W, 'elbow', PAL);
+          if (turn && !fitSprite(g, pt, 'elbow', dirOf(pt, p0), dirOf(pt, p2), mat)) fitting(g, pt, W, 'elbow', PAL);
           return;
         }
-        var kind = null;
+        var kind = null, od = null;
         R.forEach(function (o, oi) {
           if (oi === ri || GRP[o.role] !== GRP[r.role] || kind === 'elbow') return;
-          o.pp.forEach(function (q, qi) { if (Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 3 && (qi === 0 || qi === o.pp.length - 1)) kind = 'elbow'; });
+          o.pp.forEach(function (q, qi) { if (Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 3 && (qi === 0 || qi === o.pp.length - 1)) { kind = 'elbow'; od = dirOf(pt, o.pp[qi === 0 ? 1 : o.pp.length - 2]); } });
           if (!kind) for (var k = 0; k < o.pp.length - 1; k++) if (onSeg(pt, o.pp[k], o.pp[k + 1])) kind = 'tee';
           if (!kind) o.pp.forEach(function (q, qi) { if (Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 3 && qi > 0 && qi < o.pp.length - 1) kind = 'tee'; });
         });
-        if (kind) fitting(g, pt, W, kind, PAL);
+        var nb0 = i === 0 ? r.pp[1] : r.pp[n - 2];
+        if (kind) { if (!fitSprite(g, pt, kind, dirOf(pt, nb0), od, mat)) fitting(g, pt, W, kind, PAL); }
         else { var nb = i === 0 ? r.pp[1] : r.pp[n - 2]; collar(g, pt, W, Math.abs(nb[0] - pt[0]) < 2, PAL); }
       });
     });
@@ -454,7 +505,7 @@
     if (!S) return null;
     var sc = function (fr) { return PXM / Math.hypot(fr.ax.x[0], fr.ax.x[1]); };
     var ims = await Promise.all(S.layers.map(function (l) { return img(l.src); }));
-    var ers = await Promise.all(S.layers.map(function (l, i) { return (l.kind === 'boiler' || l.kind === 'dhw') ? eraseTubes(ims[i]) : null; }));
+    var ers = await Promise.all(S.layers.map(function (l, i) { return ((l.kind === 'boiler' || l.kind === 'dhw') && !/^ex/.test(l.fid || '')) ? eraseTubes(ims[i]) : null; }));
     var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     S.layers.forEach(function (l, i) {
       var s = sc(l.fr), p = proj(l.off), ox = l.fr.o[0] * s, oy = l.fr.o[1] * s;
@@ -479,12 +530,13 @@
     g.fillStyle = '#CBD5E1'; g.fillRect(0, fy, cv.width, 4);
     S.layers.slice().sort(function (a, b) { return b.off[1] - a.off[1] || a.off[0] - b.off[0]; }).forEach(function (l) { g.drawImage(l.im, l.x - x0, l.y - y0, l.w, l.h); });
     var mat = (A.boilerPipeSystem && A.boilerPipeSystem()) || 'ss316';
+    if (!FITS) { try { FITS = await loadFits(); } catch (e) { FITS = null; } }
     cv._flow = drawPipes(g, S.routes, x0, y0, style || 'scheme', mat);
     cv._mat = mat;
     drawCons(g, S.cons || [], x0, y0);
     cv._notes = S.notes;
     cv._geom = { x0: x0, y0: y0, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, off: l.off, fid: l.fid, fr: l.fr, x: l.x, y: l.y, w: l.w, h: l.h }; }) };
-    cv._s3 = { mat: mat, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr }; }), routes: S.routes.map(function (r) {
+    cv._s3 = { exp: (S.exps || []).map(function (e) { return { fid: e.fid, text: e.text }; }), mat: mat, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr }; }), routes: S.routes.map(function (r) {
       var pp = r.pts.map(function (p) { return r.scr ? p.slice() : proj(p); });
       if (r.ext0) pp[0] = [pp[0][0] + r.ext0[0], pp[0][1] + r.ext0[1]];
       if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
@@ -502,7 +554,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=1'), j('img/boiler_node_front/boiler.json?v=1'), j('img/hydro_node_front/hydro.json?v=1'), j('img/dhw_node_front/dhw.json?v=1')])
+    Promise.all([j('img/room_ports.json?v=2'), j('img/boiler_node_front/boiler.json?v=1'), j('img/hydro_node_front/hydro.json?v=1'), j('img/dhw_node_front/dhw.json?v=3')])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3] }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
@@ -716,7 +768,7 @@
       });
       return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs };
     });
-    return { sig: sig, layers: layers, routes: S3.routes, mat: S3.mat, comps: compItems(layers, caps), tank: tankName() };
+    return { sig: sig, layers: layers, routes: S3.routes, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
   }
   // ── выноски показаний при включённом потоке: подача, обратка, скорость, расход по каждой системе (числа — из расчётов приложения)
   var FC_ICON = {
@@ -824,6 +876,13 @@
       '.rvm-bar button[data-a=close]:hover{background:rgba(220,38,38,.12);color:#B91C1C}' +
       '.rvm-bar [data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#0F172A;color:#fff;font:12px system-ui,Arial,sans-serif;padding:5px 9px;border-radius:7px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}' +
       '.rvm-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 14px;border-radius:9px;background:rgba(17,24,39,.9);color:#fff;font:12.5px system-ui,Arial,sans-serif;opacity:0;pointer-events:none;transition:opacity .2s;z-index:6;white-space:nowrap}.rvm-toast.on{opacity:1}' +
+      '.rvm-list{position:absolute;right:14px;top:70px;bottom:18px;width:318px;z-index:4;overflow:auto;padding:12px 12px 10px;border-radius:14px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);box-shadow:0 8px 28px rgba(15,23,42,.2);border:1px solid rgba(15,23,42,.08);color:#0f172a;font:12.5px/1.35 system-ui,Arial,sans-serif}' +
+      '.rvm-list h4{margin:0 0 2px;font:600 14px system-ui,Arial,sans-serif}.rvm-list .sub{opacity:.6;font-size:11.5px;margin-bottom:8px}' +
+      '.rvm-list .grp{margin:10px 0 4px;font:600 11px system-ui,Arial,sans-serif;letter-spacing:.05em;text-transform:uppercase;opacity:.55}' +
+      '.rvm-list .row{display:flex;align-items:flex-start;gap:8px;padding:4px 0;border-top:1px solid rgba(15,23,42,.06)}' +
+      '.rvm-list .dot{flex:none;width:9px;height:9px;margin-top:4px;border-radius:50%;background:#16A34A}.rvm-list .row.no .dot{background:#F59E0B}.rvm-list .row.nos .dot{background:#DC2626}' +
+      '.rvm-list .t{flex:1}.rvm-list .q{opacity:.55;white-space:nowrap}.rvm-list .n{display:block;font-size:11px;opacity:.6}' +
+      '.rvm-list .sum{margin-top:10px;padding-top:8px;border-top:1px solid rgba(15,23,42,.12);font-size:11.5px;opacity:.75}' +
       '.rvm-lbl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}' +
       '@media (max-width:900px){.rvm-stage{padding:68px 120px 16px}}';
     document.head.appendChild(st);
@@ -839,7 +898,8 @@
     pin: '<path d="M6 3h12v18l-6-4-6 4z"/>',
     pinall: '<path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7v6M9 10h6"/>',
     undo: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
-    x: '<path d="M5 5l14 14M19 5L5 19"/>'
+    x: '<path d="M5 5l14 14M19 5L5 19"/>',
+    list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
   };
   function ibtn(a, ic, tip, on) { return '<button type="button" data-a="' + a + '" data-tip="' + tip + '" aria-label="' + tip + '" class="' + (on ? 'on' : '') + '"><svg viewBox="0 0 24 24">' + IC[ic] + '</svg></button>'; }
 
@@ -862,7 +922,7 @@
   function barFull(app, st) {
     var pro = proOf(app), h = '';
     if (pro) h += ibtn('v:scheme', 'scheme', 'Схема', st === 'scheme') + ibtn('v:real', 'real', 'Реалистично', st === 'real' || st === 'flow') + ibtn('v:3d', 'cube', '3D: вращение и приближение', st === '3d') + '<i class="sep"></i>';
-    h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels);
+    h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels) + ibtn('list', 'list', 'Состав котельной: единый список позиций', !!app.state.roomViewList);
     if (pro && (st === 'real' || st === 'flow')) h += ibtn('flow', 'flow', 'Поток теплоносителя и показания', st === 'flow');
     if (st === '3d') {
       h += '<i class="sep"></i>' + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
@@ -876,7 +936,7 @@
     css(); FULL = true;
     if (!MODAL) {
       MODAL = document.createElement('div'); MODAL.className = 'rvm';
-      MODAL.innerHTML = '<div class="rvm-bar"></div><div class="rvm-stage"></div><div class="rvm-toast"></div>';
+      MODAL.innerHTML = '<div class="rvm-bar"></div><div class="rvm-stage"></div><div class="rvm-list" style="display:none"></div><div class="rvm-toast"></div>';
       MODAL.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.rvm-bar button'); if (b) act(b.getAttribute('data-a')); });
       document.addEventListener('keydown', function (e) { if (FULL && e.key === 'Escape') closeFull(); });
       window.addEventListener('resize', function () { if (FULL) drawFlatLabels(); });
@@ -897,6 +957,7 @@
     if (a === 'close') { closeFull(); return; }
     if (a.indexOf('v:') === 0) { app.state.roomViewStyle = a.slice(2); app.saveState(); renderFull(); return; }
     if (a === 'flow') { app.state.roomViewFlow = !app.state.roomViewFlow; app.state.roomViewStyle = 'real'; app.saveState(); renderFull(); return; }
+    if (a === 'list') { app.state.roomViewList = !app.state.roomViewList; app.saveState(); barFull(app, st); drawList(); return; }
     if (a === 'hl' || a === 'lbl') {
       var k = a === 'hl' ? 'roomViewHl' : 'roomViewLabels';
       app.state[k] = !app.state[k]; app.saveState();
@@ -950,6 +1011,7 @@
     var e = entry(app, kk);
     if (!e) { CUR = null; if (window.Room3D) window.Room3D.hide(); stage.className = 'rvm-stage'; stage.innerHTML = '<div class="rvm-load">' + (e === false ? 'Для этой сметы общий вид не собирается: в ней нет котла с обвязкой.' : 'Собираю вид…') + '</div>'; return; }
     CUR = { st: st, c: e.c, caps: e.caps, sig: e.sig };
+    drawList();
     if (st === '3d') {
       stage.className = 'rvm-stage is3d'; stage.innerHTML = '';
       if (window.Room3D) window.Room3D.show(stage, spec3d(e.c, e.caps, e.sig), app, { embedded: true });
@@ -974,6 +1036,67 @@
     if (st === 'flow') setTimeout(animate, 0);
     var img = stage.querySelector('img'); if (img) img.onload = drawFlatLabels;
     drawFlatLabels();
+  }
+
+  // ── единый список позиций: тот же перечень, что строит главную схему (boiler_room_list.js), со статусом «есть на виде»
+  var EST_RE = { gas: /котёл газовый|котел газовый/i, el: /котёл электрический|котел электрический|STATUS/i, indirect: /бойлер|водонагревател/i,
+    exp_heat: /расширительный бак для отопления/i, exp_dhw: /расширительный бак для ГВС/i, hydro: /коллектор|гидрострелк/i, airsep: /сепаратор воздуха/i,
+    tp: /узел подмеса|группа насосн|насосная группа/i, rad: /радиатор|группа насосн|насос/i, snow: /снеготаян/i };
+  function viewHas(id, e) {
+    var L = e.c.geom.layers, cons = (e.c.s3 && e.c.s3.cons) || [];
+    var has = function (kind, re) { return L.some(function (l) { return l.kind === kind && (!re || re.test(l.key)); }); };
+    var hk = (L.filter(function (l) { return l.kind === 'hydro'; })[0] || {}).key || '', grp = (hk.split('_')[1] || '');
+    var anyB = function (re) { return L.some(function (l) { return l.kind === 'boiler' && re.test(l.key); }); };
+    switch (id) {
+      case 'gas': return anyB(/^(haier|navien|baxi|vaillant)/i);
+      case 'el': return anyB(/^(status|polis)/i);
+      case 'indirect': return L.some(function (l) { return l.kind === 'dhw' && !/^ex/.test(l.fid || ''); });
+      case 'exp_heat': return L.some(function (l) { return l.fid === 'exh'; });
+      case 'exp_dhw': return L.some(function (l) { return l.fid === 'exw'; });
+      case 'hydro': return has('hydro');
+      case 'airsep': return L.some(function (l) { return l.kind === 'boiler' && !/_ns/.test(l.key); }) || has('hydro');
+      case 'rad': return cons.some(function (c) { return c.kind === 'rad'; });
+      case 'tp': return cons.some(function (c) { return c.kind === 'floor'; });
+      case 'fit_ball': case 'fit_check': return has('boiler');
+      case 'fit_pump': return has('hydro');
+      case 'fit_servo': return /s/.test(grp);
+      case 'fit_therm': return /m/.test(grp);
+      case 'fit_airvent': return has('hydro') || L.some(function (l) { return l.kind === 'boiler' && !/_ns/.test(l.key); });
+      case 'fit_filter': return L.some(function (l) { return l.kind === 'boiler' && !/_nf/.test(l.key); });
+      case 'fit_prio': return anyB(/^status/i);
+      case 'line_Т1': case 'line_Т2': return cons.some(function (c) { return c.kind === 'rad'; });
+      case 'line_Т11': case 'line_Т21': return cons.some(function (c) { return c.kind === 'floor'; });
+      default: return false;
+    }
+  }
+  function listData(app, e) {
+    var BRL = window.BoilerRoomList, cfg = app.buildSchemeConfig && app.buildSchemeConfig();
+    if (!BRL || !cfg) return null;
+    var eq = (app.currentEquipmentList || []).filter(function (it) { return !it.isOpt; });
+    var inEst = function (id) { var re = EST_RE[id]; return re ? eq.some(function (it) { return re.test(it.name || ''); }) : null; };
+    return BRL.positions(cfg).map(function (p) {
+      return { id: p.id, group: p.group, title: p.title, qty: p.qty, onView: viewHas(p.id, e), inEst: p.group === 'equip' || p.group === 'consumer' ? inEst(p.id) : null };
+    });
+  }
+  function drawList() {
+    if (!FULL || !MODAL) return;
+    var box = MODAL.querySelector('.rvm-list');
+    if (!A.state.roomViewList || !CUR) { box.style.display = 'none'; return; }
+    var rows = listData(A, CUR);
+    if (!rows) { box.style.display = 'none'; return; }
+    var G = { equip: 'Оборудование', consumer: 'Потребители', fit: 'Арматура', line: 'Линии (маркировка на схеме)' }, h = '<h4>Состав котельной</h4><div class="sub">Тот же список, по которому строится главная схема. Зелёная точка: позиция есть на общем виде.</div>';
+    ['equip', 'consumer', 'fit', 'line'].forEach(function (g) {
+      var part = rows.filter(function (r) { return r.group === g; });
+      if (!part.length) return;
+      h += '<div class="grp">' + G[g] + '</div>';
+      part.forEach(function (r) {
+        var cls = r.onView ? '' : ((r.inEst === false) ? ' nos' : ' no'), note = r.onView ? '' : (r.inEst === false ? 'есть на схеме, в смете не найдено' : 'есть на схеме, на виде пока нет');
+        h += '<div class="row' + cls + '"><i class="dot"></i><span class="t">' + esc(r.title) + (note ? '<span class="n">' + note + '</span>' : '') + '</span>' + (r.qty > 1 ? '<span class="q">× ' + r.qty + '</span>' : '') + '</div>';
+      });
+    });
+    var main = rows.filter(function (r) { return r.group === 'equip' || r.group === 'consumer'; }), on = main.filter(function (r) { return r.onView; }).length;
+    h += '<div class="sum">Оборудование и потребители на виде: ' + on + ' из ' + main.length + '.</div>';
+    box.innerHTML = h; box.style.display = '';
   }
 
   // ── подписи позиций с линиями-выносками (плоские виды): якорь — центр самой крупной детали класса на карте кадра
@@ -1002,7 +1125,7 @@
     var n = String(it.name).replace(/\s+/g, ' ');
     return n.length > 46 ? n.slice(0, 44).replace(/\s+\S*$/, '') + '…' : n;
   }
-  function isMajor(t) { return /^(Котёл|Котел|Бойлер|Водонагревател|Накопител|Группы? насосн|Насос|Фильтр|Коллектор)/i.test(t) || /бойлер|водонагревател/i.test(t); }
+  function isMajor(t) { return /^(Котёл|Котел|Бойлер|Водонагревател|Накопител|Группы? насосн|Насос|Фильтр|Коллектор|Расширительн)/i.test(t) || /бойлер|водонагревател/i.test(t); }
   function drawFlatLabels() {
     if (!FULL || !MODAL || !CUR || CUR.st === '3d') return;
     var svg = MODAL.querySelector('.rvm-lbl'), stg = MODAL.querySelector('.rv-stage'), cont = MODAL.querySelector('.rvm-stage');
@@ -1023,7 +1146,11 @@
     var items = LB.anchors.filter(function (it) { return isMajor(it.text) || it.key === LB.hover || LB.pins[it.key]; }).map(function (it) {
       return { x: ir.left - cr.left + it.x * k, y: ir.top - cr.top + it.y * k, text: it.text };
     });
-    var tl = c.geom.layers.filter(function (L) { return L.kind === 'dhw'; })[0], tn = tl && tankName();
+    var tl = c.geom.layers.filter(function (L) { return L.kind === 'dhw' && !/^ex/.test(L.fid || ''); })[0], tn = tl && tankName();
+    ((c.s3 && c.s3.exp) || []).forEach(function (ex) {
+      var le = c.geom.layers.filter(function (L) { return L.fid === ex.fid; })[0];
+      if (le) items.push({ x: ir.left - cr.left + (le.x - c.geom.x0 + le.w * 0.5) * k, y: ir.top - cr.top + (le.y - c.geom.y0 + le.h * 0.28) * k, text: ex.text });
+    });
     if (tn) items.push({ x: ir.left - cr.left + (tl.x - c.geom.x0 + tl.w * 0.5) * k, y: ir.top - cr.top + (tl.y - c.geom.y0 + tl.h * 0.5) * k, text: tn });
     window.RoomLabels.draw(svg, items, cr.width, cr.height);
   }

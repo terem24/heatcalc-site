@@ -663,41 +663,26 @@
     cfg = cfg || {};
     var L = 25.07, R = 127.65, S = 39.07, top = 12.35, o = [];
     var cx = (L + S) / 2, tx = (S + R) / 2;
-    var twoC = !!(cfg.gas && cfg.gas.circuits === 2 && !cfg.indirect && !cfg.elWh);
-    var nBoilers = (cfg.gas ? Math.max(1, cfg.gas.count || 1) : 0) +
-      (cfg.el ? Math.max(1, cfg.el.count || 1) : 0);
-    var usePump = !!(cfg.tp || cfg.snow || cfg.hydro || cfg.recirc || cfg.loadPump || (cfg.el && cfg.el.polis));
-    var useCheck = !!(nBoilers > 1 || cfg.indirect || cfg.elWh || (cfg.tp && (cfg.tpGroups > 0 || cfg.tpCheck !== false)) || cfg.snow || cfg.hydro || cfg.recirc || !!(cfg.feed && cfg.feed.auto));
-
-    // При автоматике узел ТП ведёт контроллер: смеситель с сервоприводом
-    // вместо термостатического, плюс на схеме появляются датчики NTC
-    // (или по смете: группа «под сервопривод» с приводом — cfg.mixServo)
-    var mixServo = !!(cfg.mixServo || (cfg.auto && cfg.auto.mixServo));
+    // условия появления арматуры и линий — общие с общим видом котельной (boiler_room_list.js)
+    var BRL = window.BoilerRoomList;
+    if (!BRL) throw new Error('boiler_room_list.js не загружен');
+    var F = BRL.fittingFlags(cfg);
+    var twoC = F.twoC, nBoilers = F.nBoilers, usePump = F.usePump, useCheck = F.useCheck, mixServo = F.mixServo;
     var rows = [
-      ['Шаровый кран', function (c) { return ballValve(cx, c, false); }, true],
-      ['Обратный клапан', function (c) { return checkValve(cx, c, 'right'); }, useCheck],
-      ['Циркуляционный насос', function (c) { return pump(cx, c, 'left'); }, usePump],
-      ['Термостатический смесительный клапан', function (c) { return valve3(cx + 1.21, c, 'therm', 'udr', 'l'); }, !!cfg.dhwMix || ((!!cfg.tp || !!cfg.snow) && !mixServo)],
-      ['Клапан трехходовой с сервоприводом', function (c) { return valve3(cx + 1.21, c, 'servo', 'udr', 'l'); }, (!!cfg.tp || !!cfg.snow) && mixServo],
-      ['Клапан подпиточный автоматический', function (c) { return feedValve(cx, c); }, !!(cfg.feed && cfg.feed.auto)],
-      ['Предохранительный клапан', function (c) { return safetyValve(cx, c, false); }, ((!!cfg.indirect || !!cfg.elWh) && cfg.water !== false) || !!cfg.snow],
-      ['Автоматический воздухоотводчик', function (c) { return airVent(cx, c + 3.77); }, !!cfg.hydro || !!cfg.airSep],
-      ['Фильтр', function (c) { return filterSym(cx, c); }, true],
-      ['Клапан приоритета бойлера', function (c) { return valve3(cx + 1.21, c, 'prio', 'udr', 'l'); }, !!cfg.fugas],
-      ['Датчик температуры NTC (в гильзе)', function (c) { return gauge(cx, c, 'Т'); }, !!cfg.auto]
+      ['Шаровый кран', function (c) { return ballValve(cx, c, false); }, F.ball],
+      ['Обратный клапан', function (c) { return checkValve(cx, c, 'right'); }, F.check],
+      ['Циркуляционный насос', function (c) { return pump(cx, c, 'left'); }, F.pump],
+      ['Термостатический смесительный клапан', function (c) { return valve3(cx + 1.21, c, 'therm', 'udr', 'l'); }, F.therm],
+      ['Клапан трехходовой с сервоприводом', function (c) { return valve3(cx + 1.21, c, 'servo', 'udr', 'l'); }, F.servo],
+      ['Клапан подпиточный автоматический', function (c) { return feedValve(cx, c); }, F.feed],
+      ['Предохранительный клапан', function (c) { return safetyValve(cx, c, false); }, F.safety],
+      ['Автоматический воздухоотводчик', function (c) { return airVent(cx, c + 3.77); }, F.airvent],
+      ['Фильтр', function (c) { return filterSym(cx, c); }, F.filter],
+      ['Клапан приоритета бойлера', function (c) { return valve3(cx + 1.21, c, 'prio', 'udr', 'l'); }, F.prio],
+      ['Датчик температуры NTC (в гильзе)', function (c) { return gauge(cx, c, 'Т'); }, F.ntc]
     ].filter(function (r) { return r[2]; });
 
-    var marks = [
-      ['Т1', 'Подача радиаторного отопления', cfg.rad !== false],
-      ['Т2', 'Обратка радиаторного отопления', cfg.rad !== false],
-      ['Т11', 'Подача напольного отопления', !!cfg.tp],
-      ['Т21', 'Обратка напольного отопления', !!cfg.tp],
-      ['В1', 'Холодное водоснабжение', twoC || !!cfg.water || !!cfg.indirect || !!cfg.elWh],
-      ['Т3', 'Горячее водоснабжение', twoC || !!cfg.indirect || !!cfg.elWh],
-      ['Т4', 'Рециркуляция горячего водоснабжения', !!cfg.recirc],
-      ['Т12', 'Подача на узел снеготаяния', !!cfg.snow],
-      ['Т22', 'Обратка от узла снеготаяния', !!cfg.snow]
-    ].filter(function (m) { return m[2]; });
+    var marks = BRL.lineMarks(cfg).filter(function (m) { return m[2]; });
 
     var bottom = 22.35 + rows.length * 10 + (cfg.airSep ? 16 : 0) + (cfg.hydro ? 40 : 0) + marks.length * 6;
     o.push(pline([[L, top], [R, top], [R, bottom], [L, bottom], [L, top]]));

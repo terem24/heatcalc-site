@@ -16,7 +16,7 @@
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
   var ROLE_Z = { sup: 0.19, ret: 0.13, ld: 0.055, lr: 0.13 };
-  var ROLE_COL = { sup: 0xE53935, ret: 0x1E88E5, ld: 0xF57C00, lr: 0x1E88E5 };
+  var ROLE_COL = { cw: 0x0891B2, sup: 0xE53935, ret: 0x1E88E5, ld: 0xF57C00, lr: 0x1E88E5 };
   var L = null, loading = null;      // библиотеки
   var S = null;                      // живая сцена (одна на страницу)
   var A = null;
@@ -134,7 +134,16 @@
         gl.load(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb', function (g) { res({ L: Ly, g: g }); }, null, function () { res({ L: Ly, g: null }); });
       });
     });
+    // нержавеющие пресс-фитинги (угольник 90°, тройник): общие для всех стыков труб; для полипропилена остаются прежние шарики
+    var fb = (window.app && window.app.state && window.app.state.brandMode === 'rommer') ? '_r' : '';
+    S.fit = {};
+    if (spec.mat !== 'ppr') {
+      [['e', 'fitting_e90_RU'], ['t', 'fitting_tee_U']].forEach(function (f) {
+        jobs.push(new Promise(function (res) { gl.load(GLB_DIR + f[1] + fb + '.glb', function (g) { S.fit[f[0]] = g.scene; res({ L: null, g: null, fit: true }); }, null, function () { res({ L: null, g: null, fit: true }); }); }));
+      });
+    }
     return Promise.all(jobs).then(function (rs) {
+      rs = rs.filter(function (x) { return !x.fit; });
       var miss = [];
       rs.forEach(function (x) { if (!x.g) { miss.push(x.L.kind + '_' + x.L.key); return; } place(x.L, x.g.scene); });
       S.miss = miss;
@@ -150,9 +159,9 @@
     var T = S.T;
     obj.position.set(Ly.off[0], Ly.off[2], 0);     // глубину не сдвигаем: на плоском виде узлы приведены в одну плоскость, а в 3D патрубки лежат на своих расстояниях от стены
     S.root.add(obj); obj.updateMatrixWorld(true);
-    (S.lbox = S.lbox || {})[Ly.kind] = new T.Box3().setFromObject(obj);
+    (S.lbox = S.lbox || {})[Ly.kind === 'dhw' && /^ex/.test(Ly.fid || '') ? 'dhw:' + Ly.fid : Ly.kind] = new T.Box3().setFromObject(obj);
     var zs = Ly.zones || [];
-    var hideStub = Ly.kind === 'boiler' || Ly.kind === 'dhw';
+    var hideStub = Ly.kind === 'boiler' || (Ly.kind === 'dhw' && !/^ex/.test(Ly.fid || ''));
     obj.traverse(function (o) {
       if (!o.isMesh) return;
       if (hideStub && STUB.test(o.name.replace(/_\d+$/, ''))) { o.visible = false; o.userData.stub = true; return; }
@@ -205,10 +214,11 @@
     var rad = (ppr ? 0.0125 : 0.011);
     var mat = new T.MeshStandardMaterial({ color: ppr ? 0x8CC57E : 0xC9CFD5, metalness: ppr ? 0.0 : 0.92, roughness: ppr ? 0.55 : 0.28 });
     var g = new T.Group(); g.name = 'pipes';
-    spec.routes.forEach(function (rt) {
-      // трасса плоского вида + глубина: первый и последний участки лежат на глубине патрубка (d0, d1), остальное — на глубине своей роли;
-      // переход по глубине — в ближайшем к патрубку углу, так что труба входит в патрубок строго по его оси
-      var zp = ROLE_Z[rt.role] || 0.1, pp = rt.pp, n = pp.length, pts = [], V = function (i, z) { return new T.Vector3(pp[i][0] / PXM, -pp[i][1] / PXM, z); };
+    var FS = 0.058, GRPS = { sup: 'h', ld: 'h', ret: 'c', lr: 'c' }, built = [], places = [], seen = {};
+    var dirv = function (a, b) { return b.clone().sub(a).normalize(); };
+    // первый проход: точки всех трасс; второй — где ставить фитинги (угол 90°, тройник, стык двух концов); третий — рисование труб с отступом от фитинга
+    var buildPts = function (rt) {
+      var zp = rt.role === 'cw' ? (rt.plane || 100) / 1000 : (ROLE_Z[rt.role] || 0.1), pp = rt.pp, n = pp.length, pts = [], V = function (i, z) { return new T.Vector3(pp[i][0] / PXM, -pp[i][1] / PXM, z); };
       var d0 = rt.d0 == null ? null : rt.d0, d1 = rt.d1 == null ? null : rt.d1;
       pts.push(V(0, d0 == null ? zp : d0));
       if (d0 != null && n > 1) { pts.push(V(1, d0)); if (Math.abs(d0 - zp) > 0.004) pts.push(V(1, zp)); } else if (n > 1) pts.push(V(1, zp));
@@ -217,22 +227,82 @@
         if (d1 != null) { if (Math.abs(d1 - zp) > 0.004) { pts.push(V(n - 2, zp)); } pts.push(V(n - 2, d1)); pts.push(V(n - 1, d1)); }
         else { pts.push(V(n - 2, zp)); pts.push(V(n - 1, zp)); }
       }
-      pts = pts.filter(function (pt, i) { return i === 0 || pt.distanceTo(pts[i - 1]) > 1e-4; });
+      return pts.filter(function (pt, i) { return i === 0 || pt.distanceTo(pts[i - 1]) > 1e-4; });
+    };
+    spec.routes.forEach(function (rt) { built.push({ rt: rt, pts: buildPts(rt) }); built[built.length - 1].fit = []; });
+    if (S.fit && S.fit.e && S.fit.t) {
+      var addPlace = function (type, P, u, v) {
+        var key = type + P.x.toFixed(3) + '|' + P.y.toFixed(3) + '|' + P.z.toFixed(3);
+        if (seen[key]) return; seen[key] = 1; places.push({ type: type, P: P.clone(), u: u.clone(), v: v.clone() });
+      };
+      var legOk = function (r, i, j) { return r.pts[i].distanceTo(r.pts[j]) >= FS * (1 + (r.fit[j] ? 1 : 0)) + 0.01; };
+      built.forEach(function (r) {
+        var pts = r.pts, n = pts.length;
+        for (var j = 1; j < n - 1; j++) {
+          var a = dirv(pts[j - 1], pts[j]), b = dirv(pts[j], pts[j + 1]);
+          if (Math.abs(a.dot(b)) > 0.02) continue;
+          if (pts[j].distanceTo(pts[j - 1]) < FS * (1 + (r.fit[j - 1] ? 1 : 0)) + 0.01 || pts[j].distanceTo(pts[j + 1]) < FS + 0.01) continue;
+          r.fit[j] = true; addPlace('e', pts[j], a.clone().negate(), b);
+        }
+      });
+      built.forEach(function (r) {
+        var n = r.pts.length; if (n < 2) return;
+        [0, n - 1].forEach(function (e) {
+          if (r.fit[e]) return;
+          var P = r.pts[e], nb = e === 0 ? 1 : n - 2, nd = dirv(P, r.pts[nb]);
+          if (P.distanceTo(r.pts[nb]) < FS * (1 + (r.fit[nb] ? 1 : 0)) + 0.01) return;
+          built.some(function (o) {
+            if (o === r || GRPS[o.rt.role] !== GRPS[r.rt.role]) return false;
+            var m = o.pts.length;
+            // конец к концу: угольник
+            for (var oe = 0; oe < 2; oe++) {
+              var oi = oe ? m - 1 : 0, onb = oe ? m - 2 : 1;
+              if (o.pts[oi].distanceTo(P) > 0.004 || o.fit[oi]) continue;
+              var od = dirv(P, o.pts[onb]);
+              if (Math.abs(nd.dot(od)) > 0.02 || P.distanceTo(o.pts[onb]) < FS * (1 + (o.fit[onb] ? 1 : 0)) + 0.01) continue;
+              r.fit[e] = true; o.fit[oi] = true; addPlace('e', P, nd, od); return true;
+            }
+            // конец в середину чужой трубы: тройник
+            for (var k = 0; k < m - 1; k++) {
+              var A = o.pts[k], B = o.pts[k + 1], ab = B.clone().sub(A), L2 = ab.lengthSq(); if (L2 < 1e-8) continue;
+              var t = P.clone().sub(A).dot(ab) / L2; if (t < 0.02 || t > 0.98) continue;
+              var Q = A.clone().add(ab.clone().multiplyScalar(t)); if (Q.distanceTo(P) > 0.004) continue;
+              var td = ab.clone().normalize(); if (Math.abs(nd.dot(td)) > 0.02) continue;
+              r.fit[e] = true; addPlace('t', P, td, nd); return true;
+            }
+            return false;
+          });
+        });
+      });
+    }
+    built.forEach(function (bt) {
+      var rt = bt.rt, pts = bt.pts;
       var band = new T.MeshStandardMaterial({ color: ROLE_COL[rt.role] || 0x888888, metalness: 0.1, roughness: 0.5 });
       for (var i = 0; i < pts.length - 1; i++) {
-        var a = pts[i], b = pts[i + 1], len = a.distanceTo(b); if (len < 1e-4) continue;
-        (S.segs = S.segs || []).push({ role: rt.role, ri: S.spec.routes.indexOf(rt), a: a.clone(), b: b.clone() });
+        var a0 = pts[i], b0 = pts[i + 1], dv = dirv(a0, b0), a = a0, b = b0;
+        if (a0.distanceTo(b0) < 1e-4) continue;
+        (S.segs = S.segs || []).push({ role: rt.role, ri: S.spec.routes.indexOf(rt), a: a0.clone(), b: b0.clone() });
+        if (bt.fit[i]) a = a0.clone().add(dv.clone().multiplyScalar(FS));      // труба входит в раструб фитинга, а не торчит сквозь изгиб
+        if (bt.fit[i + 1]) b = b0.clone().sub(dv.clone().multiplyScalar(FS));
+        var len = a.distanceTo(b); if (len < 1e-4 || a.clone().sub(b).dot(dv) > 0) continue;
         var cy = new T.Mesh(new T.CylinderGeometry(rad, rad, len, 20, 1), mat);
         cy.position.copy(a).add(b).multiplyScalar(0.5);
-        cy.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+        cy.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dv);
         cy.castShadow = true; cy.receiveShadow = true; cy.userData.pipe = rt.role; g.add(cy);
         for (var d = 0.12; d < len - 0.08; d += 0.26) {          // цветные ленты-маркеры потока: красная — подача, синяя — обратка
           var ring = new T.Mesh(new T.CylinderGeometry(rad * 1.12, rad * 1.12, 0.012, 20, 1), band);
-          ring.position.copy(a).add(b.clone().sub(a).normalize().multiplyScalar(d)); ring.quaternion.copy(cy.quaternion); g.add(ring);
+          ring.position.copy(a).add(dv.clone().multiplyScalar(d)); ring.quaternion.copy(cy.quaternion); g.add(ring);
         }
       }
-      for (var j = 1; j < pts.length - 1; j++) { var sp = new T.Mesh(new T.SphereGeometry(rad, 20, 14), mat); sp.position.copy(pts[j]); sp.castShadow = true; g.add(sp); }
+      for (var j = 1; j < pts.length - 1; j++) { if (bt.fit[j]) continue; var sp = new T.Mesh(new T.SphereGeometry(rad, 20, 14), mat); sp.position.copy(pts[j]); sp.castShadow = true; g.add(sp); }
     });
+    places.forEach(function (pl) {
+      var o = (pl.type === 'e' ? S.fit.e : S.fit.t).clone(true), w = new T.Vector3().crossVectors(pl.u, pl.v);
+      o.matrixAutoUpdate = true; o.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pl.u, pl.v, w)); o.position.copy(pl.P);
+      o.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
+      g.add(o);
+    });
+    S.fitCount = places.length;
     S.root.add(g); S.pipeGroup = g;
   }
 
@@ -396,6 +466,7 @@
       });
     }
     if (S.spec.tank && S.lbox && S.lbox.dhw && !S.anch['dhw|tank']) S.anch['dhw|tank'] = { vol: 1, p: S.lbox.dhw.getCenter(new T.Vector3()), text: S.spec.tank };
+    (S.spec.exp || []).forEach(function (e) { var b = S.lbox && S.lbox['dhw:' + e.fid]; if (b && !S.anch['exp|' + e.fid]) { var cc = b.getCenter(new T.Vector3()); cc.y += (b.max.y - b.min.y) * 0.18; S.anch['exp|' + e.fid] = { vol: 1, p: cc, text: e.text }; } });
     Object.keys(S.anch).forEach(function (ck) {
       var a = S.anch[ck];
       if (!G.RoomLabels.isMajor(a.text) && ck !== S.lhover && !S.pins[ck]) return;
@@ -434,7 +505,7 @@
   var LBLCTX = null;
   function textW(t) { LBLCTX = LBLCTX || document.createElement('canvas').getContext('2d'); LBLCTX.font = '500 12px system-ui, Arial, sans-serif'; return LBLCTX.measureText(t).width; }
   G.RoomLabels = {
-    isMajor: function (t) { return /^(Котёл|Котел|Бойлер|Водонагревател|Накопител|Группы? насосн|Насос|Фильтр|Коллектор)/i.test(t) || /бойлер|водонагревател/i.test(t); },
+    isMajor: function (t) { return /^(Котёл|Котел|Бойлер|Водонагревател|Накопител|Группы? насосн|Насос|Фильтр|Коллектор|Расширительн)/i.test(t) || /бойлер|водонагревател/i.test(t); },
     // items: [{x, y, text}] в пикселях области; подписи — в колонках слева и справа, линия идёт от подписи к детали
     draw: function (svg, items, W, H) {
       var GAP = 22, MG = 18, cols = [[], []], out = '';
