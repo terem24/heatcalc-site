@@ -163,6 +163,7 @@
 - [Дорого: как отвечать на возражение по цене](https://heatcalc.ru/kak-otvechat-na-dorogo/) — как отвечать клиенту дорого монтаж
 - [Насосная станция или скважинный насос](https://heatcalc.ru/nasosnaya-stantsiya/) — насосная станция для дома
 - [Электрический водонагреватель для дома](https://heatcalc.ru/elektricheskiy-vodonagrevatel/) — электрический водонагреватель
+- [Воздух в системе: развоздушивание и автоматика](https://heatcalc.ru/vozduh-v-sisteme-otopleniya/) — воздух в системе отопления
 
 ## Примечания для моделей
 
