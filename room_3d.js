@@ -149,6 +149,8 @@
     // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
     var fb = (window.app && window.app.state && window.app.state.brandMode === 'rommer') ? '_r' : '';
     S.fit = {}; S.plan = planPipes(spec, T);
+    S.bad = spec.rot ? violations(S.plan, T) : [];          // проверка сборки новых труб бойлера: пересечения, углы без фитинга, нехватка прямого участка
+    if (S.bad.length) console.warn('[3D] поворот бойлера не собирается:', S.bad.map(function (v) { return v.t + ' ' + (v.msg || ''); }));
     var keys = {}; S.plan.places.forEach(function (pl) { keys[pl.key] = 1; });
     Object.keys(keys).forEach(function (k) {
       jobs.push(new Promise(function (res) { gl.load(GLB_DIR + 'fitting_' + k + fb + '.glb', function (g) { S.fit[k] = g.scene; res({ L: null, g: null, fit: true }); }, null, function () { res({ L: null, g: null, fit: true }); }); }));
@@ -271,7 +273,7 @@
     if (steel) {
       // 1) смещение по глубине: пара угольников 45° вместо ножки под 90°
       built.forEach(function (r) {
-        if (!r.ok) return;
+        if (!r.ok || r.rt.p3) return;                      // трассы повёрнутого бойлера уже с готовыми углами: заход на патрубок по его оси, а не косой отвод
         var e45 = RF.e45(r.s), c45 = e45.cut * MMV, c90 = RF.elbow(r.s, r.s).armA.cut * MMV, pts = r.pts, i = 1, guard = 0;
         while (i < pts.length - 1 && guard++ < 20) {
           var P = pts[i], Q = pts[i + 1], dl = Q.clone().sub(P), D = Math.abs(dl.z), hasB = i + 2 < pts.length;
@@ -347,6 +349,53 @@
       });
     }
     return { built: built, places: places, PS: PS, steel: steel };
+  }
+
+  // ── проверка сборки: трасса, которую нельзя собрать из фитингов каталога, не показывается (сфера на углу — не деталь каталога).
+  // Проверяются только трассы с p3 (новые трубы повёрнутого бойлера): угол без угольника, участок короче суммы вылетов двух фитингов
+  // (труба не помещается между раструбами), пересечение с чужой трубой (зазор меньше 6 мм между стенками).
+  function segDist(p1, q1, p2, q2) {
+    var d1 = q1.clone().sub(p1), d2 = q2.clone().sub(p2), r = p1.clone().sub(p2), a = d1.dot(d1), e = d2.dot(d2), f = d2.dot(r), s, t;
+    if (a < 1e-12 && e < 1e-12) return r.length();
+    if (a < 1e-12) { s = 0; t = Math.max(0, Math.min(1, f / e)); }
+    else {
+      var c = d1.dot(r);
+      if (e < 1e-12) { t = 0; s = Math.max(0, Math.min(1, -c / a)); }
+      else {
+        var b = d1.dot(d2), den = a * e - b * b;
+        s = den > 1e-12 ? Math.max(0, Math.min(1, (b * f - c * e) / den)) : 0;
+        t = (b * s + f) / e;
+        if (t < 0) { t = 0; s = Math.max(0, Math.min(1, -c / a)); } else if (t > 1) { t = 1; s = Math.max(0, Math.min(1, (b - c) / a)); }
+      }
+    }
+    return p1.clone().add(d1.multiplyScalar(s)).distanceTo(p2.clone().add(d2.multiplyScalar(t)));
+  }
+  function ptSeg(p, a, b) {
+    var ab = b.clone().sub(a), L2 = ab.lengthSq(), t = L2 < 1e-12 ? 0 : Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / L2));
+    return p.distanceTo(a.clone().add(ab.multiplyScalar(t)));
+  }
+  function violations(plan, T) {
+    var bad = [], B = plan.built;
+    B.forEach(function (b, bi) {
+      if (!b.rt.p3) return;
+      var pts = b.pts, n = pts.length, j;
+      if (plan.steel && b.ok) {
+        for (j = 1; j < n - 1; j++) if (!b.cut[j]) bad.push({ t: 'corner', ri: bi, msg: 'угол без угольника, точка ' + j });
+        for (j = 0; j < n - 1; j++) { var L = pts[j].distanceTo(pts[j + 1]), need = (b.cut[j] || 0) + (b.cut[j + 1] || 0); if (L < need) bad.push({ t: 'short', ri: bi, msg: 'участок ' + j + ' короче вылетов фитингов: ' + L.toFixed(3) + ' < ' + need.toFixed(3) }); }
+      }
+      B.forEach(function (o, oi) {
+        if (oi === bi) return;
+        var ends = [pts[0], pts[n - 1]], oe = [o.pts[0], o.pts[o.pts.length - 1]];
+        if (ends.some(function (e) { return oe.some(function (q) { return e.distanceTo(q) < 0.006; }); })) return;      // трассы сходятся в одной точке: стык, не пересечение
+        for (j = 0; j < n - 1; j++) for (var k = 0; k < o.pts.length - 1; k++) {
+          var A1 = pts[j], A2 = pts[j + 1], C1 = o.pts[k], C2 = o.pts[k + 1];
+          if (ptSeg(A1, C1, C2) < 0.012 || ptSeg(A2, C1, C2) < 0.012 || ptSeg(C1, A1, A2) < 0.012 || ptSeg(C2, A1, A2) < 0.012) continue;      // стык: конец одной трубы лежит на другой
+          var d = segDist(A1, A2, C1, C2), lim = b.rad + o.rad + 0.006;
+          if (d < lim) bad.push({ t: 'cross', ri: bi, other: oi, msg: 'пересечение с трассой ' + oi + ': ' + d.toFixed(3) + ' < ' + lim.toFixed(3) });
+        }
+      });
+    });
+    return bad;
   }
 
   // трубы системы по трассам плоского вида: горизонтали и вертикали на своей глубине от стены; концы — по плану фитингов (труба входит в раструб)
@@ -829,5 +878,5 @@
       svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = out;
     }
   };
-  G.Room3D = { show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
+  G.Room3D = { _bad: function () { return S && S.bad; }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
 })(window);

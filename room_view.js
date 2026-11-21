@@ -1389,20 +1389,26 @@
   // от стыка с магистралью по своим плоскостям (подача 40 мм, обратка 70 мм от стены), в обход корпуса и к патрубку строго по его оси.
   // Точки трасс — в метрах [x, высота, глубина от стены], как у room_3d.js; плоский вид этим не затрагивается.
   function tankRoutes(tank, tp, routes, ang) {
-    var R = -tp[0].pos_m[1] - 0.05, Lx = -tp[0].pos_m[0] - R, ax = tank.off[0], dA = R + 0.05;
-    var phi = -ang * Math.PI / 180, cs = Math.round(Math.cos(phi)), sn = Math.round(Math.sin(phi));
-    var dz = 0.07 + Lx;                                                    // патрубки к стене — ось бойлера дальше от неё на длину арматуры
-    var tipX = function (px) { return ax + px * cs; }, tipD = function (px) { return dA + dz - px * sn; };
-    var out = routes.map(function (r, i) {
+    // плоскости труб те же, что у room_3d.js (ROLE_Z): подача бойлера 55 мм от стены, обратка 130 мм — иначе новый участок не стыкуется с магистралью
+    var ZLD = 0.055, ZLR = 0.13, RUN = 0.102;       // RUN: прямой участок перед патрубком = плечо угольника 22 (57 мм) + 45 мм, иначе угольник не встаёт
+    var R = -tp[0].pos_m[1] - 0.05, ax = tank.off[0], dA = R + 0.05;
+    var ends = {};                                    // расстояние от оси бойлера до конца трубы на патрубке — по самой трассе плоского вида (конец трубы = край переходника)
+    routes.forEach(function (r) {
+      if (r.role === 'ld' && r.d1 != null) ends.ld = Math.abs(ax - r.pp[r.pp.length - 1][0] / PXM);
+      if (r.role === 'lr' && r.d0 != null) ends.lr = Math.abs(ax - r.pp[0][0] / PXM);
+    });
+    var xd = Math.max(ends.ld || 0, ends.lr || 0);
+    var dt = ZLR + RUN, dz = dt + xd - dA;            // конец трубы на глубине dt; ось бойлера — на dA + dz
+    var out = routes.map(function (r) {
       var ld = r.role === 'ld' && r.d1 != null, lr = r.role === 'lr' && r.d0 != null;
       if (!ld && !lr) return r;
-      var k = ld ? 0 : 1, px = tp[k].pos_m[0], z = tp[k].pos_m[2] + tank.off[2], xt = tipX(px), dt = tipD(px), pp = r.pp, p3;
+      var k = ld ? 0 : 1, z = tp[k].pos_m[2] + tank.off[2], xt = ax, pp = r.pp, p3;
       if (ld) {
-        var A0 = [pp[0][0] / PXM, -pp[0][1] / PXM, 0.04], xe = pp[1][0] / PXM, B = [xe, A0[1], 0.04], C = [xe, z, 0.04];
-        p3 = [A0, B, C, [xt, z, 0.04], [xt, z, dt]];
+        var A0 = [pp[0][0] / PXM, -pp[0][1] / PXM, ZLD], xe = pp[1][0] / PXM;
+        p3 = [A0, [xe, A0[1], ZLD], [xe, z, ZLD], [xt, z, ZLD], [xt, z, dt]];
       } else {
         var xj = pp[1][0] / PXM, yr = -pp[2][1] / PXM;
-        p3 = [[xt, z, dt], [xt, z, 0.07], [xj, z, 0.07], [xj, yr, 0.07]];
+        p3 = [[xt, z, dt], [xt, z, ZLR], [xj, z, ZLR], [xj, yr, ZLR]];
       }
       var c = {};
       Object.keys(r).forEach(function (q) { c[q] = r[q]; });
