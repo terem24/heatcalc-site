@@ -13,7 +13,7 @@
 
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/';
   var GLB_DIR = 'models3d/room/';
-  var GLB_V = 5;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
+  var GLB_V = 7;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
   var ROLE_Z = { sup: 0.19, ret: 0.13, ld: 0.055, lr: 0.13 };
@@ -89,7 +89,14 @@
       '.r3-cube .f{position:absolute;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.92);border:1px solid #94A3B8;color:#334155;font:600 8.5px system-ui,Arial,sans-serif;letter-spacing:.02em;backface-visibility:hidden;transition:background .1s}' +
       '.r3-cube .f:hover{background:#BFDBFE}' +
       '.r3-lbl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}' +
-      '.r3-hint{position:absolute;right:12px;bottom:10px;font:11px system-ui,Arial,sans-serif;color:#64748B}';
+      '.r3-hint{position:absolute;right:12px;bottom:10px;font:11px system-ui,Arial,sans-serif;color:#64748B}' +
+      '.r3-pk{position:absolute;z-index:4;transform:translate(-50%,0);min-width:120px;max-width:170px;text-align:center;padding:7px 10px;border-radius:11px;background:rgba(255,255,255,.92);color:#0F172A;font:12px/1.3 system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.2);cursor:pointer;transition:background .15s,transform .15s}' +
+      '.r3-pk b{display:block;font-weight:600;font-size:12px}.r3-pk span{display:block;opacity:.7;margin-top:1px}.r3-pk i{display:inline-block;margin-top:4px;padding:1px 9px;border-radius:99px;background:#2563EB;color:#fff;font-style:normal;font-size:11px}' +
+      '.r3-pk.cur i{background:#16A34A}.r3-pk.hv{background:#fff;transform:translate(-50%,0) scale(1.06)}' +
+      '.r3-pkbar{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:12px;background:rgba(15,23,42,.88);color:#fff;font:13px system-ui,Arial,sans-serif}' +
+      '.r3-pkbar button{border:0;border-radius:8px;padding:5px 12px;background:rgba(255,255,255,.16);color:#fff;font:12px system-ui,Arial,sans-serif;cursor:pointer}.r3-pkbar button:hover{background:rgba(255,255,255,.28)}' +
+      '.r3-tg{position:absolute;z-index:5;transform:translate(-50%,-100%);display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
+      '.r3-tg button{width:32px;height:32px;border:0;border-radius:9px;background:#2563EB;color:#fff;font-size:18px;line-height:1;cursor:pointer}.r3-tg button:hover{background:#1D4ED8}';
     document.head.appendChild(st);
   }
 
@@ -133,7 +140,7 @@
     scene.add(sun); scene.add(sun.target);
     S.r = r; S.scene = scene; S.cam = cam; S.ctl = ctl; S.sun = sun; S.ray = new T.Raycaster(); S.root = new T.Group(); scene.add(S.root);
     var dl = new lib.DR(); dl.setDecoderPath(THREE_URL + 'examples/jsm/libs/draco/gltf/');
-    var gl = new lib.GL(); gl.setDRACOLoader(dl);
+    var gl = new lib.GL(); gl.setDRACOLoader(dl); S.gl = gl;
     var jobs = spec.layers.map(function (Ly, i) {
       return new Promise(function (res) {
         gl.load(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, null, function () { res({ L: Ly, g: null }); });
@@ -151,7 +158,7 @@
       var miss = [];
       rs.forEach(function (x) { if (!x.g) { miss.push(x.L.kind + '_' + x.L.key); return; } place(x.L, x.g.scene); });
       S.miss = miss;
-      split(); pipes(); wall(); fit(true); bindUi(); S.ready = true;
+      split(); applyTankRot(); pipes(); wall(); fit(true); bindUi(); S.ready = true; applyPumps();
       var ld = S.wrap.querySelector('.r3-load'); if (ld) ld.remove();
       if (miss.length) msg('Нет 3D-модели: ' + miss.join(', '));
       loop();
@@ -160,16 +167,23 @@
 
   // деталь узла: на своё место, заводские патрубки скрыть, детали разложить по компонентам сметы
   function place(Ly, obj) {
-    var T = S.T;
-    obj.position.set(Ly.off[0], Ly.off[2], 0);     // глубину не сдвигаем: на плоском виде узлы приведены в одну плоскость, а в 3D патрубки лежат на своих расстояниях от стены
-    S.root.add(obj); obj.updateMatrixWorld(true);
-    (S.lbox = S.lbox || {})[Ly.kind === 'dhw' && /^ex/.test(Ly.fid || '') ? 'dhw:' + Ly.fid : Ly.kind] = new T.Box3().setFromObject(obj);
+    var T = S.T, host = obj;
+    if (Ly.kind === 'dhw' && Ly.fid === 'w0' && Ly.piv) {
+      // бойлер на поворотной оси: вертикаль через центр корпуса (в модели x = 0, глубина = радиус + 50 мм от стены), сдвиг по глубине dz
+      var pivot = new T.Group(); pivot.position.set(0, 0, Ly.piv); obj.position.set(0, 0, -Ly.piv); pivot.add(obj);
+      var hold = new T.Group(); hold.position.set(Ly.off[0], Ly.off[2], Ly.dz || 0); hold.add(pivot);
+      S.tankPivot = pivot; S.tankHold = hold; host = hold;
+    } else obj.position.set(Ly.off[0], Ly.off[2], 0);     // глубину не сдвигаем: на плоском виде узлы приведены в одну плоскость, а в 3D патрубки лежат на своих расстояниях от стены
+    S.root.add(host); host.updateMatrixWorld(true);
+    (S.lbox = S.lbox || {})[Ly.kind === 'dhw' && /^ex/.test(Ly.fid || '') ? 'dhw:' + Ly.fid : Ly.kind] = new T.Box3().setFromObject(host);
     var zs = Ly.zones || [];
     var hideStub = Ly.kind === 'boiler' || (Ly.kind === 'dhw' && !/^ex/.test(Ly.fid || ''));
     obj.traverse(function (o) {
       if (!o.isMesh) return;
       if (hideStub && STUB.test(o.name.replace(/_\d+$/, ''))) { o.visible = false; o.userData.stub = true; return; }
       o.castShadow = true; o.receiveShadow = true;
+      // передняя крышка теплоизоляции группы: закрыта по умолчанию, не часть компонентов сметы (щёлкается отдельно)
+      if (/^крышка[_ ]группы/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.cover = Ly.fid; (S.covers = S.covers || []).push(o); o.visible = !S.coversOpen; return; }
       // наклейки (логотипы, экраны, шкалы) — прозрачные плоскости в доле миллиметра над корпусом: без тени и со смещением глубины, иначе мерцают
       var m0 = Array.isArray(o.material) ? o.material[0] : o.material;
       if (m0 && m0.transparent && m0.map) { o.castShadow = false; m0.depthWrite = false; m0.polygonOffset = true; m0.polygonOffsetFactor = -2; m0.polygonOffsetUnits = -2; }
@@ -229,6 +243,7 @@
     // точки трассы: первый и последний участки лежат на глубине патрубка (d0, d1), остальное — на глубине своей роли;
     // переход по глубине — в ближайшем к патрубку углу, так что труба входит в патрубок строго по его оси
     var buildPts = function (rt) {
+      if (rt.p3) return rt.p3.map(function (q) { return new T.Vector3(q[0], q[1], q[2]); });
       var zp = rt.role === 'cw' ? (rt.plane || 100) / 1000 : (ROLE_Z[rt.role] || 0.1), pp = rt.pp, n = pp.length, pts = [], V = function (i, z) { return new T.Vector3(pp[i][0] / PXM, -pp[i][1] / PXM, z); };
       var d0 = rt.d0 == null ? null : rt.d0, d1 = rt.d1 == null ? null : rt.d1;
       pts.push(V(0, d0 == null ? zp : d0));
@@ -417,6 +432,193 @@
     });
   }
 
+  // ── насосы групп: кадр группы с базовым насосом (STOUT SPC-0011 или ROMMER PROFI), нужный насос — отдельным GLB поверх по габариту
+  // (tools/export_pump_glb.py). Так замена насоса на 3D-виде не требует отдельных кадров групп на каждый насос.
+  var PUMP_DIR = 'models3d/pumps/';
+  function famOf(pf) { return pf ? String(pf).replace(/^_/, '') : 'default'; }
+  function loadPumpGlb(fam) {
+    S.pumpGlb = S.pumpGlb || {};
+    if (!S.pumpGlb[fam]) S.pumpGlb[fam] = new Promise(function (res) {
+      S.gl.load(PUMP_DIR + 'pump_' + fam + '.glb?v=' + GLB_V, function (g) { res(g.scene); }, null, function () { res(null); });
+    });
+    return S.pumpGlb[fam];
+  }
+  function bakedPump(fid) {
+    var out = [];
+    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay) out.push(o); }); });
+    return out;
+  }
+  function boxOf(arr) { var T = S.T, b = new T.Box3(); arr.forEach(function (o) { b.union(new T.Box3().setFromObject(o)); }); return b; }
+  // встать на место штатного насоса: по центру X, низ и задняя плоскость совпадают (гайки и литой корпус у всех насосов одинаковые)
+  function seatPump(root, baked) {
+    var T = S.T, a = boxOf(baked), b = new T.Box3().setFromObject(root);
+    root.position.add(new T.Vector3(a.getCenter(new T.Vector3()).x - b.getCenter(new T.Vector3()).x, a.min.y - b.min.y, a.min.z - b.min.z));
+    root.updateMatrixWorld(true);
+  }
+  function applyPumps() {
+    if (!S || !S.ready) return;
+    S.pumpOv = S.pumpOv || {};
+    S.spec.layers.forEach(function (Ly) {
+      if (Ly.kind !== 'hydro') return;
+      var want = famOf(Ly.pf), baked = famOf(Ly.baked), cur = S.pumpOv[Ly.fid];
+      if (cur && cur.fam === want) return;
+      var bk = bakedPump(Ly.fid); if (!bk.length) return;
+      if (cur) {
+        S.root.remove(cur.root);
+        S.comps[cur.key] = (S.comps[cur.key] || []).filter(function (o) { return !o.userData.overlay; });
+        delete S.pumpOv[Ly.fid];
+      }
+      if (want === baked) { bk.forEach(function (o) { o.visible = true; }); return; }
+      var key = bk[0].userData.comp;
+      loadPumpGlb(want).then(function (src) {
+        if (!src || !S || S.pumpOv[Ly.fid]) return;
+        var root = src.clone(true);
+        root.position.set(0, 0, 0); root.updateMatrixWorld(true);
+        seatPump(root, bk);
+        bk.forEach(function (o) { o.visible = false; });
+        root.traverse(function (m) {
+          if (!m.isMesh) return;
+          m.castShadow = true; m.receiveShadow = true; m.userData.comp = key; m.userData.overlay = 1;
+          m.userData.box = new S.T.Box3().setFromObject(m);
+          (S.comps[key] = S.comps[key] || []).push(m);
+        });
+        S.root.add(root); S.pumpOv[Ly.fid] = { fam: want, root: root, key: key };
+      });
+    });
+  }
+
+  // ── выбор насоса: щелчок по насосу открывает «витрину» — камера подходит к группе, остальное гаснет, перед группой в ряд стоят
+  // насосы-варианты (вращаются), под каждым имя и цена; щелчок по варианту заменяет насос в смете и на виде, по пустому месту — закрывает
+  function openPicker(compKey) {
+    var T = S.T, opts = window.RoomView.pumpOptions(); if (!opts || !opts.list.length) return;
+    var fid = compKey.split('|')[1], bk = bakedPump(fid), ov = S.pumpOv && S.pumpOv[fid];
+    var meshes = (ov ? (S.comps[ov.key] || []).filter(function (o) { return o.userData.overlay; }) : bk);
+    if (!meshes.length) return;
+    var C = boxOf(meshes).getCenter(new T.Vector3());
+    var P = { key: compKey, fid: fid, opts: opts, items: [], group: new T.Group(), saved: { p: S.cam.position.toArray(), t: S.ctl.target.toArray() }, faded: [], hover: -1, t0: performance.now(), C: C };
+    var gap = 0.2, n = opts.list.length;
+    S.picker = P;
+    Promise.all(opts.list.map(function (o) { return loadPumpGlb(o.fam); })).then(function (srcs) {
+      if (!S || S.picker !== P) return;
+      opts.list.forEach(function (o, i) {
+        if (!srcs[i]) return;
+        var holder = new T.Group(), root = srcs[i].clone(true);
+        root.updateMatrixWorld(true);
+        var cc = new T.Box3().setFromObject(root).getCenter(new T.Vector3());
+        root.position.set(-cc.x, -cc.y, -cc.z);                       // вращение вокруг своего центра
+        holder.add(root);
+        holder.position.set(C.x + (i - (n - 1) / 2) * gap, C.y + 0.02, C.z + 0.36);
+        root.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.userData.pickIdx = i; } });
+        P.group.add(holder);
+        var el = document.createElement('div'); el.className = 'r3-pk' + (o.cur ? ' cur' : '');
+        el.innerHTML = '<b>' + esc(o.name) + '</b><span>' + (o.price ? Number(o.price).toLocaleString('ru-RU') + ' ₽' : '') + '</span><i>' + (o.cur ? 'сейчас' : 'выбрать') + '</i>';
+        S.wrap.appendChild(el);
+        P.items.push({ o: o, holder: holder, el: el, i: i });
+      });
+    });
+    S.scene.add(P.group);
+    // остальное гаснет: трубы скрыты, детали прозрачные (кроме уже прозрачных пользователем)
+    if (S.pipeGroup) S.pipeGroup.visible = false;
+    Object.keys(S.comps).forEach(function (k) {
+      if (S.hid[k]) return;
+      if (k.indexOf('hydro|' + fid + '|kit#') === 0) return;
+      setFade(k, true); P.faded.push(k);
+    });
+    P.covers = (S.covers || []).map(function (c) { return [c, c.visible]; }); (S.covers || []).forEach(function (c) { c.visible = false; });     // крышка открывается на время выбора
+    meshes.forEach(function (o) { o.visible = false; });                  // штатный насос уходит со своего места: варианты рядом, текущий среди них
+    var bar = document.createElement('div'); bar.className = 'r3-pkbar'; bar.innerHTML = '<span>Выберите насос группы</span><button type="button">Закрыть</button>';
+    bar.querySelector('button').addEventListener('click', function (e) { e.stopPropagation(); closePicker(); });
+    S.wrap.appendChild(bar); P.bar = bar;
+    flyTo([C.x, C.y + 0.05, C.z + 1.7], [C.x, C.y + 0.02, C.z]);
+  }
+  function pickerHit(e) {
+    var T = S.T, cvs = S.r.domElement, rc = cvs.getBoundingClientRect();
+    S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);
+    var hits = S.ray.intersectObject(S.picker.group, true);
+    for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.userData.pickIdx !== undefined) return o.userData.pickIdx; }
+    return -1;
+  }
+  function pickerClick(e) {
+    var P = S.picker, i = pickerHit(e);
+    if (i < 0 && e.target && e.target.closest && e.target.closest('.r3-pk')) { var el = e.target.closest('.r3-pk'); P.items.forEach(function (it) { if (it.el === el) i = it.i; }); }
+    if (i < 0) { closePicker(); return; }
+    var it = P.items.filter(function (x) { return x.i === i; })[0]; if (!it) return;
+    if (it.o.cur) { closePicker(); return; }
+    var id = it.o.id, nm = it.o.name; closePicker();
+    if (window.RoomView.pumpSwap(id)) msg('Насос заменён: ' + nm);
+  }
+  function pickerTick() {
+    var P = S.picker, t = (performance.now() - P.t0) / 1000, cvs = S.r.domElement, w = cvs.clientWidth, h = cvs.clientHeight;
+    P.items.forEach(function (it) {
+      var hv = P.hover === it.i;
+      it.holder.rotation.y = t * 0.8 + it.i * 0.9;
+      var sc = it.holder.scale.x + ((hv ? 1.18 : 1) - it.holder.scale.x) * 0.18; it.holder.scale.setScalar(sc);
+      var v = it.holder.position.clone(); v.y -= 0.14; v.project(S.cam);
+      it.el.style.left = ((v.x * 0.5 + 0.5) * w) + 'px'; it.el.style.top = ((-v.y * 0.5 + 0.5) * h) + 'px';
+      it.el.classList.toggle('hv', hv);
+    });
+  }
+  function closePicker(silent) {
+    var P = S.picker; if (!P) return;
+    S.picker = null;
+    P.items.forEach(function (it) { it.el.remove(); });
+    if (P.bar) P.bar.remove();
+    S.scene.remove(P.group);
+    P.faded.forEach(function (k) { if (S.comps[k]) setFade(k, false); });
+    if (S.pipeGroup) S.pipeGroup.visible = true;
+    (P.covers || []).forEach(function (q) { q[0].visible = q[1]; });
+    var ov = S.pumpOv && S.pumpOv[P.fid];
+    if (ov) (S.comps[ov.key] || []).forEach(function (o) { if (o.userData.overlay) o.visible = true; });
+    else bakedPump(P.fid).forEach(function (o) { o.visible = true; });
+    if (!silent) flyTo(P.saved.p, P.saved.t);
+  }
+
+
+  // ── поворот бойлера: щелчок по бойлеру показывает две стрелки «повернуть на 90°»; бойлер плавно поворачивается, затем сцена пересобирается
+  // с новыми трубами (room_view.js: tankRoutes), камера остаётся прежней
+  function openTankGizmo() {
+    closeTankGizmo();
+    if (!S.tankPivot) return;
+    var ang = window.RoomView.tankAngle(), box = new S.T.Box3().setFromObject(S.tankHold), c = box.getCenter(new S.T.Vector3());
+    var el = document.createElement('div'); el.className = 'r3-tg';
+    el.innerHTML = '<span>Бойлер: ' + (ang ? 'патрубки к стене, лицевая сторона к вам' : 'как в проекте, лицевая сторона вправо') + '</span><button type="button" title="Повернуть бойлер">&#x21BB;</button>';
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (e.target.closest && e.target.closest('button')) rotateTank();
+    });
+    S.wrap.appendChild(el); S.tg = { el: el, at: new S.T.Vector3(c.x, box.max.y + 0.08, c.z) };
+  }
+  function closeTankGizmo() { if (S && S.tg) { S.tg.el.remove(); S.tg = null; } }
+  function tankGizmoTick() {
+    var g = S.tg; if (!g) return;
+    var cvs = S.r.domElement, v = g.at.clone().project(S.cam);
+    g.el.style.left = ((v.x * 0.5 + 0.5) * cvs.clientWidth) + 'px'; g.el.style.top = ((-v.y * 0.5 + 0.5) * cvs.clientHeight) + 'px';
+  }
+  function rotateTank() {
+    if (!S || !S.tankPivot || S.rotating) return;
+    var dir = window.RoomView.tankAngle() === 90 ? -1 : 1;      // 0 -> 90 по часовой, 90 -> 0 обратно
+    S.rotating = true; closeTankGizmo();
+    if (S.pipeGroup) S.pipeGroup.visible = false;
+    var pv = S.tankPivot, y0 = pv.rotation.y, y1 = y0 - dir * Math.PI / 2, t0 = performance.now();
+    (function st(n) {
+      var k = Math.min(1, (n - t0) / 520), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+      pv.rotation.y = y0 + (y1 - y0) * e;
+      if (k < 1) { requestAnimationFrame(st); return; }
+      S.rotating = false;
+      carryNext = true;                                    // камера остаётся: сцена пересоберётся с новыми трубами под тем же видом
+      window.RoomView.tankRotate();
+    })(t0);
+  }
+  // поворот бойлера применяется после раскладки деталей по компонентам: зоны сметы заданы по неповёрнутой модели
+  function applyTankRot() {
+    var T = S.T, Ly = S.spec.layers.filter(function (l) { return l.kind === 'dhw' && l.fid === 'w0'; })[0];
+    if (!Ly || !S.tankPivot) return;
+    S.tankPivot.rotation.y = -(Ly.rot || 0) * Math.PI / 180; S.tankHold.updateMatrixWorld(true);
+    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('dhw|w0|') === 0) S.comps[k].forEach(function (o) { o.userData.box = new T.Box3().setFromObject(o); }); });
+    (S.lbox = S.lbox || {}).dhw = new T.Box3().setFromObject(S.tankHold);
+  }
+  var carryNext = false;
+
   // ── интерфейс
   function msg(t) { var m = S.wrap.querySelector('.r3-msg'); m.textContent = t; m.classList.add('on'); clearTimeout(S.mt); S.mt = setTimeout(function () { m.classList.remove('on'); }, 2600); }
   function bar() { }                       // панель значков — в окне «На весь экран» (room_view.js), здесь только сцена
@@ -451,12 +653,27 @@
       if (!S.mode) { Object.keys(S.hid).forEach(function (k) { setFade(k, false); }); return { msg: 'Прозрачность выключена, детали возвращены' }; }
       return { msg: 'Щёлкните по детали, чтобы сделать её прозрачной; ещё раз — вернуть' };
     }
+    if (a === 'covers') {
+      if (!S.covers || !S.covers.length) return { msg: 'В этой сборке нет насосных групп' };
+      S.coversOpen = !S.coversOpen; S.covers.forEach(function (o) { o.visible = !S.coversOpen; });
+      return { msg: S.coversOpen ? 'Крышки открыты: видны насосы и арматура' : 'Крышки закрыты' };
+    }
     if (a === 'save') { lsSet('rv3d:' + S.spec.sig, curView()); return { msg: 'Вид сохранён у вас: вернётся при следующем открытии' }; }
     if (a === 'saveall') { saveAll().then(function (r) { if (S && S.onMsg) S.onMsg(r.msg); }); return { msg: 'Сохраняю вид для всех…' }; }
     if (a === 'home') { flyTo(S.home.p, S.home.t); Object.keys(S.hid).forEach(function (k) { setFade(k, false); }); try { localStorage.removeItem('rv3d:' + S.spec.sig); } catch (e) { } delete MEM[S.spec.sig]; return { msg: 'Вид сброшен' }; }
     return null;
   }
   function isFade() { return !!(S && S.mode); }
+  function coversOpen() { return !!(S && S.coversOpen); }
+
+  // первая видимая деталь под курсором (насквозь через прозрачные не идём): нужна, чтобы щелчок по крышке не попадал в насос за ней
+  function firstHit(e) {
+    var T = S.T, cvs = S.r.domElement, rc = cvs.getBoundingClientRect();
+    S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);
+    var hits = S.ray.intersectObject(S.root, true);
+    for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.visible && !(o.material && o.material.transparent && o.material.opacity < 0.5)) return o; }
+    return null;
+  }
 
   function bindUi() {
     var wrap = S.wrap, T = S.T;
@@ -477,7 +694,14 @@
     cvs.addEventListener('pointerup', function (e) {
       if (!down || Math.abs(e.clientX - down[0]) + Math.abs(e.clientY - down[1]) > 5) { down = null; return; }
       down = null;
+      if (S.picker) { pickerClick(e); return; }
       if (!S.mode) {
+        var fh = firstHit(e);
+        if (fh && fh.userData.cover) { fh.visible = false; if (S.covers && S.covers.every(function (c) { return !c.visible; })) S.coversOpen = true; msg('Крышка открыта: щёлкните по насосу, чтобы заменить; кнопка на панели закрывает крышки'); return; }
+        var kp = pick(e);
+        if (kp && /^dhw\|w0\|/.test(kp) && S.tankPivot && window.RoomView && window.RoomView.tankRotate) { if (S.tg) closeTankGizmo(); else openTankGizmo(); return; }
+        if (S.tg) closeTankGizmo();
+        if (kp && /^hydro\|[^|]+\|kit#/.test(kp) && window.RoomView && window.RoomView.pumpOptions && window.RoomView.pumpOptions()) { openPicker(kp); return; }
         if (A.state.roomViewLabels) { var k2 = pick(e), c2 = compOf(k2); if (c2) { var ck2 = String(k2).split('#')[0]; S.pins[ck2] = !S.pins[ck2]; } }
         return;
       }
@@ -485,6 +709,7 @@
       setFade(k, !S.hid[k]);
     });
     cvs.addEventListener('pointermove', function (e) {
+      if (S.picker) { S.picker.hover = pickerHit(e); cvs.style.cursor = S.picker.hover >= 0 ? 'pointer' : ''; return; }
       var hl = !!A.state.roomViewHl, lb = !!A.state.roomViewLabels;
       if (e.buttons || (!hl && !lb)) { tip.classList.remove('on'); return; }
       var k = pick(e), c = compOf(k);
@@ -521,6 +746,8 @@
     var e = S.cam.matrixWorldInverse.elements, cb = S.wrap.querySelector('.cb');
     S.cam.updateMatrixWorld();
     cb.style.transform = 'matrix3d(' + [e[0], -e[1], e[2], 0, -e[4], e[5], -e[6], 0, e[8], -e[9], e[10], 0, 0, 0, 0, 1].join(',') + ')';
+    if (S.picker) pickerTick();
+    if (S.tg) tankGizmoTick();
     S.r.render(S.scene, S.cam);
     labels();
   }
@@ -553,8 +780,10 @@
   // ── вход: сцена в окне «На весь экран»; при смене состава сметы собирается заново, при возврате в тот же вид камера та же
   function show(host, spec, app) {
     A = app; loadDefaults();
-    if (S && S.spec.sig === spec.sig && S.ready) { S.spec = spec; host.appendChild(S.wrap); resize(); return; }
+    if (S && S.spec.sig === spec.sig && S.ready) { S.spec = spec; host.appendChild(S.wrap); resize(); applyPumps(); return; }
     if (S && S.building === spec.sig) { host.appendChild(S.wrap); return; }
+    if (S && S.ready && carryNext) { try { MEM[spec.sig] = curView(); } catch (e) { } }
+    carryNext = false;
     if (S) dispose();
     S = null;
     host.innerHTML = '';
@@ -567,6 +796,8 @@
   }
   function dispose() {
     if (!S) return;
+    if (S.picker) closePicker(true);
+    closeTankGizmo();
     try { if (S.ready) MEM[S.spec.sig] = curView(); } catch (e) { }
     cancelAnimationFrame(S.raf); if (S.ro) S.ro.disconnect();
     try { S.r.dispose(); } catch (e) { }
@@ -598,5 +829,5 @@
       svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = out;
     }
   };
-  G.Room3D = { show: show, hide: hide, cmd: cmd, isFade: isFade, _scene: function () { return S; } };   // _scene — для проверок стыковки
+  G.Room3D = { show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
 })(window);

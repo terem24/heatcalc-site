@@ -133,7 +133,7 @@
     if (hkey && hi[hkey] && hp && hp.boiler.length === 2) {
       var ZC = BOILER_Z + 0.075;
       hOff = [bx + 0.35, YP - hp.boiler[0].pos_m[1], ZC];
-      layers.push({ kind: 'hydro', fid: 'h0', key: hkey, fr: hi[hkey], off: hOff, src: A.HYDRO_DIR.replace('hydro_node', 'hydro_node_front') + 'hydro_' + hkey + '.webp' });
+      layers.push({ kind: 'hydro', fid: 'h0', key: hkey, pf: hk.pf || '', baked: (/_p[a-z0-9]+$/.exec(hkey) || [''])[0], pid: hk.pid, fr: hi[hkey], off: hOff, src: A.HYDRO_DIR.replace('hydro_node', 'hydro_node_front') + 'hydro_' + hkey + '.webp' });
     } else notes.push('нет кадра коллектора');
 
     // ── бойлер: напольный (пол z = 0), справа от коллектора; кадр «…_k» — только два подключения змеевика, высоты патрубков по паспорту объёма
@@ -671,7 +671,7 @@
     drawCons(g, S.cons || [], x0, y0);
     cv._notes = S.notes;
     cv._geom = { x0: x0, y0: y0, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, off: l.off, fid: l.fid, fr: l.fr, x: l.x, y: l.y, w: l.w, h: l.h }; }) };
-    cv._s3 = { exp: (S.exps || []).map(function (e) { return { fid: e.fid, text: e.text }; }), mat: mat, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr }; }), routes: S.routes.map(function (r) {
+    cv._s3 = { exp: (S.exps || []).map(function (e) { return { fid: e.fid, text: e.text }; }), mat: mat, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr, pf: l.pf, baked: l.baked, pid: l.pid }; }), routes: S.routes.map(function (r) {
       var pp = r.pts.map(function (p) { return r.scr ? p.slice() : proj(p); });
       if (r.ext0) pp[0] = [pp[0][0] + r.ext0[0], pp[0][1] + r.ext0[1]];
       if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
@@ -888,16 +888,19 @@
   }
   // состав сцены 3D: узлы с зонами в метрах (привязка деталей модели к строкам сметы), трассы труб, подписи компонентов
   function spec3d(c, caps, sig) {
-    var S3 = c.s3;
+    var S3 = c.s3, hkNow = null, ang = tankAngle(), rotInfo = null, routes3 = S3.routes;
+    try { hkNow = A && A.hydroFrameKey && A.hydroFrameKey(); } catch (e) { hkNow = null; }     // насос читается заново: сцена в кэше, а насос могли заменить
     var layers = S3.layers.map(function (l) {
       var fr = l.fr, ax = fr.ax, zs = [];
       Object.keys(fr.zones || {}).forEach(function (zn) {
         var q = fr.zones[zn];
         zs.push({ root: zn.split(':')[0], x0: (q[0] * fr.w - fr.o[0]) / ax.x[0], x1: (q[2] * fr.w - fr.o[0]) / ax.x[0], z0: (fr.o[1] - q[3] * fr.h) / Math.abs(ax.z[1]), z1: (fr.o[1] - q[1] * fr.h) / Math.abs(ax.z[1]) });
       });
-      return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs };
+      return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs, pf: l.kind === 'hydro' && hkNow ? hkNow.pf : l.pf, baked: l.baked, pid: l.kind === 'hydro' && hkNow ? hkNow.pid : l.pid };
     });
-    return { sig: sig, layers: layers, routes: S3.routes, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
+    var tk = layers.filter(function (l) { return l.kind === 'dhw' && l.fid === 'w0'; })[0], tpk = tk && DATA && DATA.PB['dhw:' + tk.key];
+    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } }
+    return { sig: sig + (ang && rotInfo ? '|r' + ang : ''), baseSig: sig, rot: rotInfo ? ang : 0, layers: layers, routes: routes3, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
   }
   // ── выноски показаний при включённом потоке: подача, обратка, скорость, расход по каждой системе (числа — из расчётов приложения)
   var FC_ICON = {
@@ -1011,6 +1014,7 @@
     pin: '<path d="M6 3h12v18l-6-4-6 4z"/>',
     pinall: '<path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7v6M9 10h6"/>',
     undo: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+    cover: '<rect x="5" y="3" width="14" height="18" rx="3.5"/><circle cx="9.5" cy="8" r="1.7"/><circle cx="14.5" cy="8" r="1.7"/><rect x="8" y="12" width="8" height="5" rx="1"/>',
     x: '<path d="M5 5l14 14M19 5L5 19"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
   };
@@ -1097,7 +1101,7 @@
     h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels) + ibtn('list', 'list', 'Состав котельной: единый список позиций', !!app.state.roomViewList);
     if (pro && (st === 'real' || st === 'flow')) h += ibtn('flow', 'flow', 'Поток теплоносителя и показания', st === 'flow');
     if (st === '3d') {
-      h += '<i class="sep"></i>' + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
+      h += '<i class="sep"></i>' + ibtn('covers', 'cover', 'Крышки теплоизоляции насосных групп: открыть или закрыть все', !!(window.Room3D && window.Room3D.coversOpen && window.Room3D.coversOpen())) + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
         ibtn('save', 'pin', 'Зафиксировать вид для себя') + (app.wmPreviewOn() ? ibtn('saveall', 'pinall', 'Вид по умолчанию для всех') : '') + ibtn('home', 'undo', 'Сбросить вид');
     }
     h += '<i class="sep"></i>' + ibtn('close', 'x', 'Закрыть (Esc)');
@@ -1136,7 +1140,7 @@
       if (st === '3d') barFull(app, st); else renderFull();
       return;
     }
-    if (st === '3d' && window.Room3D && (a === 'fade' || a === 'save' || a === 'saveall' || a === 'home')) {
+    if (st === '3d' && window.Room3D && (a === 'fade' || a === 'covers' || a === 'save' || a === 'saveall' || a === 'home')) {
       var r = window.Room3D.cmd(a);
       if (r && r.msg) toast(r.msg);
       barFull(app, st);
@@ -1326,7 +1330,7 @@
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
     var hk = app.hydroFrameKey(), dk = dhwKeys();
-    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key, dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size]);
+    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size]);
     var c = cache[sig];
     if (c === 'wait') return null;
     if (!c) {
@@ -1355,5 +1359,68 @@
     return inlineView(app, e.c, st);
   }
 
-  window.RoomView = { html: html, openFull: openFull, closeFull: closeFull };
+  // ── замена насоса группы прямо на 3D-виде (room_3d.js): варианты по бренду текущего насоса (STOUT: четыре, ROMMER: два), замена —
+  // штатной функцией приложения, как щелчком по строке таблицы замен, поэтому пересчитываются смета, подбор и подписи
+  var PUMP_FAM = { 'SPC-0011-2560180': 'default', 'SPC-0010-2560180': 'p10', 'SPC-0002-2560180': 'pmini', 'SPC-0003-2560180': 'pminipro', 'RCP-0004-2560180': 'pprofi', 'RCP-0030-2560180': 'pevo' };
+  function pumpOptions() {
+    var hk = null;
+    try { hk = A && A.hydroFrameKey && A.hydroFrameKey(); } catch (e) { hk = null; }
+    if (!hk) return null;
+    var cur = hk.pid, rm = /^RCP-/.test(cur), seen = {}, list = [];
+    ((typeof catalog !== 'undefined' && catalog.pumps_dn25) || []).forEach(function (p) {
+      var it = rm ? p.rommer : p;
+      if (!it || seen[it.id]) return;
+      seen[it.id] = 1;
+      list.push({ id: it.id, name: String(it.name || '').replace(/^Насос\s+/i, ''), price: it.price, fam: PUMP_FAM[it.id] || 'default', cur: it.id === cur, desc: p.desc || '' });
+    });
+    return { cur: cur, list: list };
+  }
+  function pumpSwap(id) {
+    var eq = (A && A.currentEquipmentList) || [];
+    var it = eq.filter(function (x) { return !x.isOpt && /^(SPC|RCP)-\d{4}-2560180$/.test(String(x.displaySku || x.id)); })[0];
+    if (!it) return false;
+    A.selectSwapAlternative(it.originalId || it.id, id);
+    return true;
+  }
+
+
+  // ── поворот бойлера вокруг своей оси на 3D-виде (0, 90, 180, 270°; 90 — термометром к зрителю, патрубками к стене). Бойлер сдвигается от
+  // стены по глубине так, чтобы патрубки с арматурой не упёрлись в неё, а две трубы змеевика (подача и обратка) прокладываются заново:
+  // от стыка с магистралью по своим плоскостям (подача 40 мм, обратка 70 мм от стены), в обход корпуса и к патрубку строго по его оси.
+  // Точки трасс — в метрах [x, высота, глубина от стены], как у room_3d.js; плоский вид этим не затрагивается.
+  function tankRoutes(tank, tp, routes, ang) {
+    var R = -tp[0].pos_m[1] - 0.05, Lx = -tp[0].pos_m[0] - R, ax = tank.off[0], dA = R + 0.05;
+    var phi = -ang * Math.PI / 180, cs = Math.round(Math.cos(phi)), sn = Math.round(Math.sin(phi));
+    var dz = 0.07 + Lx;                                                    // патрубки к стене — ось бойлера дальше от неё на длину арматуры
+    var tipX = function (px) { return ax + px * cs; }, tipD = function (px) { return dA + dz - px * sn; };
+    var out = routes.map(function (r, i) {
+      var ld = r.role === 'ld' && r.d1 != null, lr = r.role === 'lr' && r.d0 != null;
+      if (!ld && !lr) return r;
+      var k = ld ? 0 : 1, px = tp[k].pos_m[0], z = tp[k].pos_m[2] + tank.off[2], xt = tipX(px), dt = tipD(px), pp = r.pp, p3;
+      if (ld) {
+        var A0 = [pp[0][0] / PXM, -pp[0][1] / PXM, 0.04], xe = pp[1][0] / PXM, B = [xe, A0[1], 0.04], C = [xe, z, 0.04];
+        p3 = [A0, B, C, [xt, z, 0.04], [xt, z, dt]];
+      } else {
+        var xj = pp[1][0] / PXM, yr = -pp[2][1] / PXM;
+        p3 = [[xt, z, dt], [xt, z, 0.07], [xj, z, 0.07], [xj, yr, 0.07]];
+      }
+      var c = {};
+      Object.keys(r).forEach(function (q) { c[q] = r[q]; });
+      c.p3 = p3; c.d0 = null; c.d1 = null;
+      return c;
+    });
+    return { routes: out, dz: dz, piv: dA };
+  }
+  // два положения: 0 — как в кадрах (патрубки влево, лицевая сторона с логотипом вправо) и 90 — патрубки к стене, лицевая сторона к зрителю
+  function tankAngle() { return (A && A.state && A.state.roomViewTank === 90) ? 90 : 0; }
+  function tankRotate() {
+    var a = tankAngle() === 90 ? 0 : 90;
+    A.state.roomViewTank = a;
+    if (A.saveState) A.saveState();
+    A.render();
+    if (FULL && MODAL) renderFull();                                 // поворот не меняет плоский вид, поэтому окно обновляем сами
+    return a;
+  }
+
+  window.RoomView = { html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, tankAngle: tankAngle, tankRotate: tankRotate };
 })();
