@@ -173,7 +173,7 @@
     if (Ly.kind === 'dhw' && Ly.fid === 'w0' && Ly.piv) {
       // бойлер на поворотной оси: вертикаль через центр корпуса (в модели x = 0, глубина = радиус + 50 мм от стены), сдвиг по глубине dz
       var pivot = new T.Group(); pivot.position.set(0, 0, Ly.piv); obj.position.set(0, 0, -Ly.piv); pivot.add(obj);
-      var hold = new T.Group(); hold.position.set(Ly.off[0], Ly.off[2], Ly.dz || 0); hold.add(pivot);
+      var hold = new T.Group(); hold.position.set(Ly.off[0], Ly.off[2] + (Ly.dy || 0), Ly.dz || 0); hold.add(pivot);
       S.tankPivot = pivot; S.tankHold = hold; host = hold;
     } else obj.position.set(Ly.off[0], Ly.off[2], 0);     // глубину не сдвигаем: на плоском виде узлы приведены в одну плоскость, а в 3D патрубки лежат на своих расстояниях от стены
     S.root.add(host); host.updateMatrixWorld(true);
@@ -282,12 +282,38 @@
           if (Math.abs(ad.z) > 0.02 || (bd && Math.abs(bd.z) > 0.02)) { i++; continue; }
           var perpC = bd ? Math.abs(ad.dot(bd)) < 0.02 : true, s0 = perpC ? c90 + c45 + 0.01 : c45 + 0.02, tail = c45 + c90 + 0.01;
           var Lb = hasB ? Q.distanceTo(pts[i + 2]) : 0, La = P.distanceTo(pts[i - 1]), J1, J2;
-          if (hasB && Lb >= s0 + D + tail) {                // сдвиг на участке после угла
-            J1 = P.clone().add(bd.clone().multiplyScalar(s0)); J2 = Q.clone().add(bd.clone().multiplyScalar(s0 + D));
-            pts.splice(i + 1, 1, J1, J2); J1.jg = 1; J2.jg = 2; i += 3;
-          } else if (La >= s0 + D + tail) {                 // сдвиг на участке перед углом
-            J1 = P.clone().sub(ad.clone().multiplyScalar(s0 + D)); J2 = Q.clone().sub(ad.clone().multiplyScalar(s0));
-            pts.splice(i, 1, J1, J2); J1.jg = 1; J2.jg = 2; i += 3;
+          // пара 45° со своим диагональным отрезком не должна ложиться на чужую трубу или фитинг: сдвигаем её вдоль участка шагом 10 мм,
+          // пока диагональ и оба угольника не освободятся (труба не пересекает фитинг и другую трубу, сборка физически возможна)
+          var jogTry = function (after, off) {
+            var a1, a2;
+            if (after) { a1 = P.clone().add(bd.clone().multiplyScalar(s0 + off)); a2 = Q.clone().add(bd.clone().multiplyScalar(s0 + D + off)); }
+            else { a1 = P.clone().sub(ad.clone().multiplyScalar(s0 + D + off)); a2 = Q.clone().sub(ad.clone().multiplyScalar(s0 + off)); }
+            return [a1, a2];
+          };
+          var jogFree = function (a1, a2) {
+            return built.every(function (o) {
+              if (o === r) return true;
+              for (var kq = 0; kq < o.pts.length - 1; kq++) {
+                var C1 = o.pts[kq], C2 = o.pts[kq + 1];
+                if (segDist(a1, a2, C1, C2) < r.rad + o.rad + 0.012) return false;
+                if (ptSeg(a1, C1, C2) < o.rad + 0.019 || ptSeg(a2, C1, C2) < o.rad + 0.019) return false;      // корпус пресс-фитинга 22 — радиус около 17 мм
+              }
+              return true;
+            });
+          };
+          var pickJog = function (after, room) {
+            for (var off = 0; off <= room; off += 0.01) { var jj = jogTry(after, off); if (jogFree(jj[0], jj[1])) return jj; }
+            return null;
+          };
+          var jg = null, jAfter = false;
+          if (hasB && Lb >= s0 + D + tail) { jg = pickJog(true, Lb - (s0 + D + tail)); jAfter = !!jg; }
+          if (!jg && La >= s0 + D + tail) jg = pickJog(false, La - (s0 + D + tail));
+          if (!jg && hasB && Lb >= s0 + D + tail) { jg = jogTry(true, 0); jAfter = true; }      // свободного места нет: ставим как раньше, проверка сборки покажет нарушение
+          else if (!jg && La >= s0 + D + tail) jg = jogTry(false, 0);
+          if (jg) {
+            J1 = jg[0]; J2 = jg[1];
+            if (jAfter) pts.splice(i + 1, 1, J1, J2); else pts.splice(i, 1, J1, J2);
+            J1.jg = 1; J2.jg = 2; i += 3;
           } else i++;
         }
         pts.forEach(function (p, k) { if (p.jg) r.cut[k] = c45; });
@@ -374,24 +400,25 @@
     var ab = b.clone().sub(a), L2 = ab.lengthSq(), t = L2 < 1e-12 ? 0 : Math.max(0, Math.min(1, p.clone().sub(a).dot(ab) / L2));
     return p.distanceTo(a.clone().add(ab.multiplyScalar(t)));
   }
-  function violations(plan, T) {
-    var bad = [], B = plan.built;
+  // all = true: проверить и все трассы (а не только новые трубы бойлера) — для отладки и сверки раскладки по глубине
+  function violations(plan, T, all) {
+    var bad = [], B = plan.built, HUB = 0.020;
     B.forEach(function (b, bi) {
-      if (!b.rt.p3) return;
+      if (!all && !b.rt.p3) return;
       var pts = b.pts, n = pts.length, j;
-      if (plan.steel && b.ok) {
+      if (plan.steel && b.ok && b.rt.p3) {
         for (j = 1; j < n - 1; j++) if (!b.cut[j]) bad.push({ t: 'corner', ri: bi, msg: 'угол без угольника, точка ' + j });
         for (j = 0; j < n - 1; j++) { var L = pts[j].distanceTo(pts[j + 1]), need = (b.cut[j] || 0) + (b.cut[j + 1] || 0); if (L < need) bad.push({ t: 'short', ri: bi, msg: 'участок ' + j + ' короче вылетов фитингов: ' + L.toFixed(3) + ' < ' + need.toFixed(3) }); }
       }
       B.forEach(function (o, oi) {
-        if (oi === bi) return;
+        if (oi === bi || (all && oi < bi)) return;
         var ends = [pts[0], pts[n - 1]], oe = [o.pts[0], o.pts[o.pts.length - 1]];
         if (ends.some(function (e) { return oe.some(function (q) { return e.distanceTo(q) < 0.006; }); })) return;      // трассы сходятся в одной точке: стык, не пересечение
         for (j = 0; j < n - 1; j++) for (var k = 0; k < o.pts.length - 1; k++) {
           var A1 = pts[j], A2 = pts[j + 1], C1 = o.pts[k], C2 = o.pts[k + 1];
           if (ptSeg(A1, C1, C2) < 0.012 || ptSeg(A2, C1, C2) < 0.012 || ptSeg(C1, A1, A2) < 0.012 || ptSeg(C2, A1, A2) < 0.012) continue;      // стык: конец одной трубы лежит на другой
           var d = segDist(A1, A2, C1, C2), lim = b.rad + o.rad + 0.006;
-          if (d < lim) bad.push({ t: 'cross', ri: bi, other: oi, msg: 'пересечение с трассой ' + oi + ': ' + d.toFixed(3) + ' < ' + lim.toFixed(3) });
+          if (d < lim) bad.push({ t: 'cross', ri: bi, other: oi, at: [j, k], msg: 'пересечение трасс ' + bi + '/' + oi + ' (участки ' + j + '/' + k + '): ' + d.toFixed(3) + ' < ' + lim.toFixed(3) });
         }
       });
     });
@@ -878,5 +905,5 @@
       svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = out;
     }
   };
-  G.Room3D = { _bad: function () { return S && S.bad; }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
+  G.Room3D = { _bad: function () { return S && S.bad; }, _seg: function (a, b, c, d) { return segDist(a, b, c, d); }, _all: function () { return S && violations(S.plan, S.T, true); }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
 })(window);

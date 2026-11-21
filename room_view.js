@@ -899,7 +899,7 @@
       return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs, pf: l.kind === 'hydro' && hkNow ? hkNow.pf : l.pf, baked: l.baked, pid: l.kind === 'hydro' && hkNow ? hkNow.pid : l.pid };
     });
     var tk = layers.filter(function (l) { return l.kind === 'dhw' && l.fid === 'w0'; })[0], tpk = tk && DATA && DATA.PB['dhw:' + tk.key];
-    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } }
+    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; tk.dy = rotInfo.dy; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } }
     return { sig: sig + (ang && rotInfo ? '|r' + ang : ''), baseSig: sig, rot: rotInfo ? ang : 0, layers: layers, routes: routes3, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
   }
   // ── выноски показаний при включённом потоке: подача, обратка, скорость, расход по каждой системе (числа — из расчётов приложения)
@@ -1399,10 +1399,14 @@
     });
     var xd = Math.max(ends.ld || 0, ends.lr || 0);
     var dt = ZLR + RUN, dz = dt + xd - dA;            // конец трубы на глубине dt; ось бойлера — на dA + dz
+    // обратка бойлера встаёт в конец магистрали той же высоты: если патрубок ниже или выше конца магистрали на пару сантиметров, бойлер приподнимается
+    // на регулируемых ножках (они у серий STOUT и ROMMER рассчитаны на 25–40 мм), иначе между двумя фитингами остаётся обрезок трубы короче вылетов
+    var dy = 0;
+    routes.forEach(function (r) { if (r.role === 'lr' && r.d0 != null) { var dd = -r.pp[r.pp.length - 1][1] / PXM - (tp[1].pos_m[2] + tank.off[2]); if (Math.abs(dd) < 0.04) dy = dd; } });
     var out = routes.map(function (r) {
       var ld = r.role === 'ld' && r.d1 != null, lr = r.role === 'lr' && r.d0 != null;
       if (!ld && !lr) return r;
-      var k = ld ? 0 : 1, z = tp[k].pos_m[2] + tank.off[2], xt = ax, pp = r.pp, p3;
+      var k = ld ? 0 : 1, z = tp[k].pos_m[2] + tank.off[2] + dy, xt = ax, pp = r.pp, p3;
       if (ld) {
         var A0 = [pp[0][0] / PXM, -pp[0][1] / PXM, ZLD], xe = pp[1][0] / PXM;
         p3 = [A0, [xe, A0[1], ZLD], [xe, z, ZLD], [xt, z, ZLD], [xt, z, dt]];
@@ -1412,10 +1416,11 @@
       }
       var c = {};
       Object.keys(r).forEach(function (q) { c[q] = r[q]; });
+      p3 = p3.filter(function (q, i) { return i === 0 || Math.abs(q[0] - p3[i - 1][0]) + Math.abs(q[1] - p3[i - 1][1]) + Math.abs(q[2] - p3[i - 1][2]) > 1e-4; });   // нулевые участки не нужны
       c.p3 = p3; c.d0 = null; c.d1 = null;
       return c;
     });
-    return { routes: out, dz: dz, piv: dA };
+    return { routes: out, dz: dz, piv: dA, dy: dy };
   }
   // два положения: 0 — как в кадрах (патрубки влево, лицевая сторона с логотипом вправо) и 90 — патрубки к стене, лицевая сторона к зрителю
   function tankAngle() { return (A && A.state && A.state.roomViewTank === 90) ? 90 : 0; }
