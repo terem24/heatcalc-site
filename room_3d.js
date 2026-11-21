@@ -124,7 +124,7 @@
     var ctl = new lib.OC(cam, r.domElement); ctl.enableDamping = true; ctl.dampingFactor = 0.12; ctl.screenSpacePanning = true;
     ctl.minDistance = 0.25; ctl.maxDistance = 14;
     var sun = new T.DirectionalLight(0xffffff, 1.5); sun.position.set(-2.2, 3.2, 3.5); sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.radius = 4;
+    sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.012; sun.shadow.radius = 4;
     scene.add(sun); scene.add(sun.target);
     S.r = r; S.scene = scene; S.cam = cam; S.ctl = ctl; S.sun = sun; S.ray = new T.Raycaster(); S.root = new T.Group(); scene.add(S.root);
     var dl = new lib.DR(); dl.setDecoderPath(THREE_URL + 'examples/jsm/libs/draco/gltf/');
@@ -134,14 +134,13 @@
         gl.load(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb', function (g) { res({ L: Ly, g: g }); }, null, function () { res({ L: Ly, g: null }); });
       });
     });
-    // нержавеющие пресс-фитинги (угольник 90°, тройник): общие для всех стыков труб; для полипропилена остаются прежние шарики
+    // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
     var fb = (window.app && window.app.state && window.app.state.brandMode === 'rommer') ? '_r' : '';
-    S.fit = {};
-    if (spec.mat !== 'ppr') {
-      [['e', 'fitting_e90_RU'], ['t', 'fitting_tee_U']].forEach(function (f) {
-        jobs.push(new Promise(function (res) { gl.load(GLB_DIR + f[1] + fb + '.glb', function (g) { S.fit[f[0]] = g.scene; res({ L: null, g: null, fit: true }); }, null, function () { res({ L: null, g: null, fit: true }); }); }));
-      });
-    }
+    S.fit = {}; S.plan = planPipes(spec, T);
+    var keys = {}; S.plan.places.forEach(function (pl) { keys[pl.key] = 1; });
+    Object.keys(keys).forEach(function (k) {
+      jobs.push(new Promise(function (res) { gl.load(GLB_DIR + 'fitting_' + k + fb + '.glb', function (g) { S.fit[k] = g.scene; res({ L: null, g: null, fit: true }); }, null, function () { res({ L: null, g: null, fit: true }); }); }));
+    });
     return Promise.all(jobs).then(function (rs) {
       rs = rs.filter(function (x) { return !x.fit; });
       var miss = [];
@@ -209,14 +208,18 @@
   }
 
   // трубы системы по трассам плоского вида: горизонтали и вертикали на своей глубине от стены
-  function pipes() {
-    var T = S.T, spec = S.spec, ppr = spec.mat === 'ppr';
-    var rad = (ppr ? 0.0125 : 0.011);
-    var mat = new T.MeshStandardMaterial({ color: ppr ? 0x8CC57E : 0xC9CFD5, metalness: ppr ? 0.0 : 0.92, roughness: ppr ? 0.55 : 0.28 });
-    var g = new T.Group(); g.name = 'pipes';
-    var FS = 0.058, GRPS = { sup: 'h', ld: 'h', ret: 'c', lr: 'c' }, built = [], places = [], seen = {};
+  function psys(m) { return (window.RoomPipe && window.RoomPipe.sys(m)) || { od: 22, k: m === 'ppr' ? 'ppr' : 'ss' }; }
+
+  // ── план труб и фитингов. Без моделей: нужен заранее, чтобы знать, какие glb загружать.
+  // Размеры деталей и правила стыка — room_fit.js (паспорт ROMMER): угольник 90° в углу трубы, пара угольников 45° при смещении по глубине,
+  // переходной тройник на отводе другого размера, угольник меньшего размера и переходные муфты при стыке разных размеров.
+  var GRPS = { sup: 'h', ld: 'h', ret: 'c', lr: 'c' };
+  function planPipes(spec, T) {
+    var PS = psys(spec.mat), steel = PS.k === 'ss' && !!window.RoomFit, built = [], places = [], seen = {}, RF = window.RoomFit, MMV = 0.001;
     var dirv = function (a, b) { return b.clone().sub(a).normalize(); };
-    // первый проход: точки всех трасс; второй — где ставить фитинги (угол 90°, тройник, стык двух концов); третий — рисование труб с отступом от фитинга
+    var perp = function (u) { var v = new T.Vector3().crossVectors(u, Math.abs(u.x) < 0.9 ? new T.Vector3(1, 0, 0) : new T.Vector3(0, 1, 0)); return v.normalize(); };
+    // точки трассы: первый и последний участки лежат на глубине патрубка (d0, d1), остальное — на глубине своей роли;
+    // переход по глубине — в ближайшем к патрубку углу, так что труба входит в патрубок строго по его оси
     var buildPts = function (rt) {
       var zp = rt.role === 'cw' ? (rt.plane || 100) / 1000 : (ROLE_Z[rt.role] || 0.1), pp = rt.pp, n = pp.length, pts = [], V = function (i, z) { return new T.Vector3(pp[i][0] / PXM, -pp[i][1] / PXM, z); };
       var d0 = rt.d0 == null ? null : rt.d0, d1 = rt.d1 == null ? null : rt.d1;
@@ -229,80 +232,142 @@
       }
       return pts.filter(function (pt, i) { return i === 0 || pt.distanceTo(pts[i - 1]) > 1e-4; });
     };
-    spec.routes.forEach(function (rt) { built.push({ rt: rt, pts: buildPts(rt) }); built[built.length - 1].fit = []; });
-    if (S.fit && S.fit.e && S.fit.t) {
-      var addPlace = function (type, P, u, v) {
-        var key = type + P.x.toFixed(3) + '|' + P.y.toFixed(3) + '|' + P.z.toFixed(3);
-        if (seen[key]) return; seen[key] = 1; places.push({ type: type, P: P.clone(), u: u.clone(), v: v.clone() });
-      };
-      var legOk = function (r, i, j) { return r.pts[i].distanceTo(r.pts[j]) >= FS * (1 + (r.fit[j] ? 1 : 0)) + 0.01; };
+    spec.routes.forEach(function (rt) { var od = rt.od || PS.od; built.push({ rt: rt, pts: buildPts(rt), cut: [], rad: od / 2000, s: od, ok: steel && RF.ok(od) }); });
+    var put = function (key, P, u, v, tag) {
+      var k = key + '|' + P.x.toFixed(3) + '|' + P.y.toFixed(3) + '|' + P.z.toFixed(3) + (tag || '');
+      if (seen[k]) return; seen[k] = 1; places.push({ key: key, P: P.clone(), u: u.clone(), v: v.clone() });
+    };
+    // муфты на плече: от торца раструба узла наружу по направлению dir, большой раструб — к узлу или от него
+    var putArm = function (P, dir, tip, cps) {
+      cps.forEach(function (c) {
+        var cen = tip + c.from + c.len / 2, u = c.bigOut ? dir : dir.clone().negate();
+        put(c.key, P.clone().add(dir.clone().multiplyScalar(cen * MMV)), u, perp(u), '#' + cen);
+      });
+    };
+    var cutAt = function (r, i) { return r.cut[i] || 0; };
+    if (steel) {
+      // 1) смещение по глубине: пара угольников 45° вместо ножки под 90°
       built.forEach(function (r) {
-        var pts = r.pts, n = pts.length;
+        if (!r.ok) return;
+        var e45 = RF.e45(r.s), c45 = e45.cut * MMV, c90 = RF.elbow(r.s, r.s).armA.cut * MMV, pts = r.pts, i = 1, guard = 0;
+        while (i < pts.length - 1 && guard++ < 20) {
+          var P = pts[i], Q = pts[i + 1], dl = Q.clone().sub(P), D = Math.abs(dl.z), hasB = i + 2 < pts.length;
+          if (D < (2 * c45 + 0.01) / Math.SQRT2 || Math.abs(dl.x) + Math.abs(dl.y) > 0.002) { i++; continue; }
+          var ad = dirv(pts[i - 1], P), bd = hasB ? dirv(Q, pts[i + 2]) : null;
+          if (Math.abs(ad.z) > 0.02 || (bd && Math.abs(bd.z) > 0.02)) { i++; continue; }
+          var perpC = bd ? Math.abs(ad.dot(bd)) < 0.02 : true, s0 = perpC ? c90 + c45 + 0.01 : c45 + 0.02, tail = c45 + c90 + 0.01;
+          var Lb = hasB ? Q.distanceTo(pts[i + 2]) : 0, La = P.distanceTo(pts[i - 1]), J1, J2;
+          if (hasB && Lb >= s0 + D + tail) {                // сдвиг на участке после угла
+            J1 = P.clone().add(bd.clone().multiplyScalar(s0)); J2 = Q.clone().add(bd.clone().multiplyScalar(s0 + D));
+            pts.splice(i + 1, 1, J1, J2); J1.jg = 1; J2.jg = 2; i += 3;
+          } else if (La >= s0 + D + tail) {                 // сдвиг на участке перед углом
+            J1 = P.clone().sub(ad.clone().multiplyScalar(s0 + D)); J2 = Q.clone().sub(ad.clone().multiplyScalar(s0));
+            pts.splice(i, 1, J1, J2); J1.jg = 1; J2.jg = 2; i += 3;
+          } else i++;
+        }
+        pts.forEach(function (p, k) { if (p.jg) r.cut[k] = c45; });
+        pts.forEach(function (p, k) {
+          if (p.jg !== 1) return;
+          var J1p = pts[k], J2p = pts[k + 1];
+          put(e45.key, J1p, dirv(J1p, pts[k - 1]), dirv(J1p, J2p), 'a');
+          put(e45.key, J2p, dirv(J2p, J1p), dirv(J2p, pts[k + 2]), 'b');
+        });
+      });
+      // 2) углы внутри трассы: угольник 90° размера трубы
+      built.forEach(function (r) {
+        if (!r.ok) return;
+        var el = RF.elbow(r.s, r.s), c = el.armA.cut * MMV, pts = r.pts, n = pts.length;
         for (var j = 1; j < n - 1; j++) {
+          if (r.cut[j]) continue;
           var a = dirv(pts[j - 1], pts[j]), b = dirv(pts[j], pts[j + 1]);
           if (Math.abs(a.dot(b)) > 0.02) continue;
-          if (pts[j].distanceTo(pts[j - 1]) < FS * (1 + (r.fit[j - 1] ? 1 : 0)) + 0.01 || pts[j].distanceTo(pts[j + 1]) < FS + 0.01) continue;
-          r.fit[j] = true; addPlace('e', pts[j], a.clone().negate(), b);
+          if (pts[j].distanceTo(pts[j - 1]) < cutAt(r, j - 1) + c + 0.003 || pts[j].distanceTo(pts[j + 1]) < c + 0.003) continue;
+          r.cut[j] = c; put(el.key, pts[j], a.clone().negate(), b);
         }
       });
+      // 3) концы трасс: тройник на чужой трубе, угольник на стыке двух концов (при разных размерах — меньшего размера и муфты)
       built.forEach(function (r) {
-        var n = r.pts.length; if (n < 2) return;
+        var n = r.pts.length; if (n < 2 || !r.ok) return;
         [0, n - 1].forEach(function (e) {
-          if (r.fit[e]) return;
+          if (r.cut[e]) return;
           var P = r.pts[e], nb = e === 0 ? 1 : n - 2, nd = dirv(P, r.pts[nb]);
-          if (P.distanceTo(r.pts[nb]) < FS * (1 + (r.fit[nb] ? 1 : 0)) + 0.01) return;
           built.some(function (o) {
-            if (o === r || GRPS[o.rt.role] !== GRPS[r.rt.role]) return false;
-            var m = o.pts.length;
-            // конец к концу: угольник
-            for (var oe = 0; oe < 2; oe++) {
+            if (o === r || !o.ok || GRPS[o.rt.role] !== GRPS[r.rt.role]) return false;
+            var m = o.pts.length, oe, k;
+            for (oe = 0; oe < 2; oe++) {                      // конец к концу
               var oi = oe ? m - 1 : 0, onb = oe ? m - 2 : 1;
-              if (o.pts[oi].distanceTo(P) > 0.004 || o.fit[oi]) continue;
+              if (o.pts[oi].distanceTo(P) > 0.004 || o.cut[oi]) continue;
               var od = dirv(P, o.pts[onb]);
-              if (Math.abs(nd.dot(od)) > 0.02 || P.distanceTo(o.pts[onb]) < FS * (1 + (o.fit[onb] ? 1 : 0)) + 0.01) continue;
-              r.fit[e] = true; o.fit[oi] = true; addPlace('e', P, nd, od); return true;
+              if (Math.abs(nd.dot(od)) > 0.02) continue;
+              var el = RF.elbow(r.s, o.s); if (!el) continue;
+              var cr = el.armA.cut * MMV, co = el.armB.cut * MMV;
+              if (P.distanceTo(r.pts[nb]) < cr + cutAt(r, nb) + 0.003 || P.distanceTo(o.pts[onb]) < co + cutAt(o, onb) + 0.003) continue;
+              r.cut[e] = cr; o.cut[oi] = co; put(el.key, P, nd, od);
+              putArm(P, nd, el.tip, el.armA.cps); putArm(P, od, el.tip, el.armB.cps);
+              return true;
             }
-            // конец в середину чужой трубы: тройник
-            for (var k = 0; k < m - 1; k++) {
+            for (k = 0; k < m - 1; k++) {                      // конец в середину чужой трубы
               var A = o.pts[k], B = o.pts[k + 1], ab = B.clone().sub(A), L2 = ab.lengthSq(); if (L2 < 1e-8) continue;
               var t = P.clone().sub(A).dot(ab) / L2; if (t < 0.02 || t > 0.98) continue;
               var Q = A.clone().add(ab.clone().multiplyScalar(t)); if (Q.distanceTo(P) > 0.004) continue;
               var td = ab.clone().normalize(); if (Math.abs(nd.dot(td)) > 0.02) continue;
-              r.fit[e] = true; addPlace('t', P, td, nd); return true;
+              var te = RF.tee(o.s, r.s); if (!te) continue;
+              var ct = te.cut * MMV;
+              if (P.distanceTo(r.pts[nb]) < ct + cutAt(r, nb) + 0.003) continue;
+              r.cut[e] = ct; put(te.key, P, td, nd);
+              putArm(P, nd, te.tip, te.cps);
+              return true;
             }
             return false;
           });
         });
       });
     }
-    built.forEach(function (bt) {
+    return { built: built, places: places, PS: PS, steel: steel };
+  }
+
+  // трубы системы по трассам плоского вида: горизонтали и вертикали на своей глубине от стены; концы — по плану фитингов (труба входит в раструб)
+  function pipes() {
+    var T = S.T, plan = S.plan, steel = plan.steel;
+    var hex = (window.RoomPipe && window.RoomPipe.hex[plan.PS.k]) || 0xC9CFD5;
+    var mat = new T.MeshStandardMaterial({ color: hex, metalness: steel ? 0.92 : plan.PS.k === 'mp' ? 0.3 : 0.0, roughness: steel ? 0.28 : plan.PS.k === 'mp' ? 0.4 : 0.55 });
+    var g = new T.Group(); g.name = 'pipes';
+    plan.built.forEach(function (bt) {
       var rt = bt.rt, pts = bt.pts;
       var band = new T.MeshStandardMaterial({ color: ROLE_COL[rt.role] || 0x888888, metalness: 0.1, roughness: 0.5 });
       for (var i = 0; i < pts.length - 1; i++) {
-        var a0 = pts[i], b0 = pts[i + 1], dv = dirv(a0, b0), a = a0, b = b0;
+        var a0 = pts[i], b0 = pts[i + 1], dv = b0.clone().sub(a0).normalize(), a = a0, b = b0;
         if (a0.distanceTo(b0) < 1e-4) continue;
         (S.segs = S.segs || []).push({ role: rt.role, ri: S.spec.routes.indexOf(rt), a: a0.clone(), b: b0.clone() });
-        if (bt.fit[i]) a = a0.clone().add(dv.clone().multiplyScalar(FS));      // труба входит в раструб фитинга, а не торчит сквозь изгиб
-        if (bt.fit[i + 1]) b = b0.clone().sub(dv.clone().multiplyScalar(FS));
+        if (bt.cut[i]) a = a0.clone().add(dv.clone().multiplyScalar(bt.cut[i]));       // труба входит в раструб фитинга, а не торчит сквозь изгиб
+        if (bt.cut[i + 1]) b = b0.clone().sub(dv.clone().multiplyScalar(bt.cut[i + 1]));
         var len = a.distanceTo(b); if (len < 1e-4 || a.clone().sub(b).dot(dv) > 0) continue;
-        var cy = new T.Mesh(new T.CylinderGeometry(rad, rad, len, 20, 1), mat);
+        var cy = new T.Mesh(new T.CylinderGeometry(bt.rad, bt.rad, len, 20, 1), mat);
         cy.position.copy(a).add(b).multiplyScalar(0.5);
         cy.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dv);
         cy.castShadow = true; cy.receiveShadow = true; cy.userData.pipe = rt.role; g.add(cy);
         for (var d = 0.12; d < len - 0.08; d += 0.26) {          // цветные ленты-маркеры потока: красная — подача, синяя — обратка
-          var ring = new T.Mesh(new T.CylinderGeometry(rad * 1.12, rad * 1.12, 0.012, 20, 1), band);
+          var ring = new T.Mesh(new T.CylinderGeometry(bt.rad * 1.12, bt.rad * 1.12, 0.012, 20, 1), band);
           ring.position.copy(a).add(dv.clone().multiplyScalar(d)); ring.quaternion.copy(cy.quaternion); g.add(ring);
         }
       }
-      for (var j = 1; j < pts.length - 1; j++) { if (bt.fit[j]) continue; var sp = new T.Mesh(new T.SphereGeometry(rad, 20, 14), mat); sp.position.copy(pts[j]); sp.castShadow = true; g.add(sp); }
+      for (var j = 1; j < pts.length - 1; j++) { if (bt.cut[j]) continue; var sp = new T.Mesh(new T.SphereGeometry(steel ? bt.rad : bt.rad * 1.12, 20, 14), mat); sp.position.copy(pts[j]); sp.castShadow = true; g.add(sp); }
     });
-    places.forEach(function (pl) {
-      var o = (pl.type === 'e' ? S.fit.e : S.fit.t).clone(true), w = new T.Vector3().crossVectors(pl.u, pl.v);
-      o.matrixAutoUpdate = true; o.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(pl.u, pl.v, w)); o.position.copy(pl.P);
+    var n = 0;
+    plan.places.forEach(function (pl) {
+      var src = S.fit && S.fit[pl.key]; if (!src) return;
+      var o = src.clone(true), U = pl.u, V = pl.v;
+      if (/^e45_/.test(pl.key)) {              // угольник 45°: плечи в модели — вдоль +X и под 135° к нему; приводим к осям мира
+        var c = Math.cos(Math.PI / 4), Y = V.clone().add(U.clone().multiplyScalar(c)).multiplyScalar(1 / Math.sin(Math.PI / 4));
+        if (Y.lengthSq() < 1e-6) return;
+        V = Y.normalize();
+      }
+      var w = new T.Vector3().crossVectors(U, V);
+      o.matrixAutoUpdate = true; o.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(U, V, w)); o.position.copy(pl.P);
       o.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
-      g.add(o);
+      g.add(o); n++;
     });
-    S.fitCount = places.length;
+    S.fitCount = n;
     S.root.add(g); S.pipeGroup = g;
   }
 

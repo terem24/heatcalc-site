@@ -14,6 +14,25 @@
   'use strict';
   var A = null;                           // приложение: подставляется в RoomView.html(app)
   var PXM = 1500;
+  // труба обвязки по системе: наружный диаметр (как в смете: класс «22» — Ø22 нержавейка, Ø32 ППР, Ø26 металлопластик, Ø25 стабильная), вид и цвет
+  var PIPE_SYS = { ss304: { od: 22, k: 'ss' }, ss316: { od: 22, k: 'ss' }, ppr: { od: 32, k: 'ppr' }, mp: { od: 26, k: 'mp' }, mp_r: { od: 26, k: 'mp' }, stable: { od: 25, k: 'stable' }, stable_r: { od: 25, k: 'stable' } };
+  var PIPE_PAL = {
+    ss: { edge: '#7B838B', mid: '#C7CDD3', hi: '#F7F9FA', ring: '#5E666E' },
+    ppr: { edge: '#5E9453', mid: '#8CC57E', hi: '#D3EDCB', ring: '#3F6D38' },
+    mp: { edge: '#B4BCC4', mid: '#EEF1F3', hi: '#FFFFFF', ring: '#8A939B' },
+    stable: { edge: '#6B7279', mid: '#A5ABB1', hi: '#D8DCDF', ring: '#52585E' }
+  };
+  var PIPE_HEX = { ss: 0xC9CFD5, ppr: 0x8CC57E, mp: 0xEEF1F3, stable: 0xA5ABB1 };
+  function pipeSys(mat) { return PIPE_SYS[mat] || PIPE_SYS.ss316; }
+  // наружный диаметр трассы, мм: типоразмер по назначению (подводка котла, магистраль, греющий контур бойлера, ветка бака) из той же подборки, что и смета,
+  // затем физический диаметр системы (22 → Ø26 у металлопластика, Ø32 у ППР и т. д.)
+  function routeOd(sz, mat) {
+    var L = A._bpSz || null, dl = A._dhwLoad && A._dhwLoad.size, lg = null;
+    if (L) lg = sz === 'per' ? L.per : sz === 'tank' ? L.tank : sz === 'coil' ? (dl || L.per) : L.main;
+    if (!lg) return pipeSys(mat).od;
+    return (A.boilerPhysOd ? A.boilerPhysOd(mat, lg) : lg) || pipeSys(mat).od;
+  }
+  window.RoomPipe = { sys: pipeSys, hex: PIPE_HEX, od: routeOd };
   var BOILER_Z = 0.85;                    // низ корпуса настенного котла от пола, м: подключения котла на ~0,8 м от пола (каталог Meibes 2021, схема подключения котла, стр. 125)
   var YP = -0.16;                         // общая плоскость труб вдоль стены (ось патрубков коллектора)
   var REF = null;
@@ -180,20 +199,20 @@
         var lines = [];
         var minX = function (k) { return Math.min.apply(null, bs.filter(function (b) { return b[k]; }).map(function (b) { return k === 'sup' ? b.supx : k === 'mid' ? b.midx : b[k][0]; })); };
         bs.forEach(function (b) {
-          lines.push({ role: 'sup', d0: b.dS, ext0: [0, -0.23 * PXM], jog: b.jS ? [b.jS, 0.06 * PXM] : null, pts: [b.sup, [b.supx, yl.sup]] });
-          lines.push({ role: 'ret', d0: b.dR, ext0: [0, -0.23 * PXM], pts: [b.ret, [b.ret[0], yl.ret]] });
-          if (useB && b.mid) lines.push({ role: 'ld', d0: b.dM, ext0: [0, -0.23 * PXM], jog: b.jM ? [b.jM, 0.15 * PXM] : null, pts: [b.mid, [b.midx, yl.ld]] });
+          lines.push({ role: 'sup', sz: 'per', d0: b.dS, ext0: [0, -0.23 * PXM], jog: b.jS ? [b.jS, 0.06 * PXM] : null, pts: [b.sup, [b.supx, yl.sup]] });
+          lines.push({ role: 'ret', sz: 'per', d0: b.dR, ext0: [0, -0.23 * PXM], pts: [b.ret, [b.ret[0], yl.ret]] });
+          if (useB && b.mid) lines.push({ role: 'ld', sz: 'coil', d0: b.dM, ext0: [0, -0.23 * PXM], jog: b.jM ? [b.jM, 0.15 * PXM] : null, pts: [b.mid, [b.midx, yl.ld]] });
         });
         exps.forEach(function (e) {      // бак отопления врезается в обратку, бак ГВС заканчивается отводом к линии ХВС
-          if (e.role === 'ret') lines.push({ role: 'ret', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
-          else lines.push({ role: 'cw', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
+          if (e.role === 'ret') lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
+          else lines.push({ role: 'cw', sz: 'tank', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
         });
-        nhR.forEach(function (r) { lines.push({ role: 'sup', pts: [[r.sx, yl.sup], [r.sx, r.y]] }); lines.push({ role: 'ret', pts: [[r.rx, yl.ret], [r.rx, r.y]] }); });
-        lines.push({ role: 'sup', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
-        lines.push({ role: 'ret', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
+        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', pts: [[r.sx, yl.sup], [r.sx, r.y]] }); lines.push({ role: 'ret', sz: 'main', pts: [[r.rx, yl.ret], [r.rx, r.y]] }); });
+        lines.push({ role: 'sup', sz: 'main', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
+        lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
         if (useB) {
-          lines.push({ role: 'ld', d1: -tp[0].pos_m[1], ext1: [0.075 * PXM, 0], pts: [[minX('mid'), yl.ld], [xe, yl.ld], [xe, cS[1]], cS] });
-          lines.push({ role: 'lr', d0: -tp[1].pos_m[1], ext0: [0.075 * PXM, 0], pts: [cR, [xj, cR[1]], [xj, yl.ret]] });
+          lines.push({ role: 'ld', sz: 'coil', d1: -tp[0].pos_m[1], ext1: [0.075 * PXM, 0], pts: [[minX('mid'), yl.ld], [xe, yl.ld], [xe, cS[1]], cS] });
+          lines.push({ role: 'lr', sz: 'coil', d0: -tp[1].pos_m[1], ext0: [0.075 * PXM, 0], pts: [cR, [xj, cR[1]], [xj, yl.ret]] });
         }
         return { lines: lines, yl: yl };
       }
@@ -336,15 +355,30 @@
     return hz ? (Math.abs(pt[1] - a[1]) < 2 && pt[0] > Math.min(a[0], b[0]) + 2 && pt[0] < Math.max(a[0], b[0]) - 2)
               : (Math.abs(pt[0] - a[0]) < 2 && pt[1] > Math.min(a[1], b[1]) + 2 && pt[1] < Math.max(a[1], b[1]) - 2);
   }
-  // спрайты нержавеющих пресс-фитингов (img/fit_node, Blender): угольник по двум плечам, тройник по отводу; нет спрайта — прежний кружок
+  // спрайты нержавеющих пресс-фитингов (img/fit_node, Blender; размеры по паспорту, room_fit.js): угольник 90°, тройник, переходная муфта по размерам;
+  // нет спрайта или система не нержавейка — прежний обобщённый кружок. Красное кольцо ROMMER получается перекраской синего при загрузке.
   var FITS = null;
   async function loadFits() {
     var base = 'img/fit_node/';
-    var idx = await fetch(base + 'fit.json?v=1').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    var idx = await fetch(base + 'fit.json?v=2').then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
     if (!idx) return null;
     var names = Object.keys(idx), ims = await Promise.all(names.map(function (n) { return img(base + 'fit_' + n + '.webp').catch(function () { return null; }); }));
-    var o = { idx: idx, im: {} }; names.forEach(function (n, i) { if (ims[i]) o.im[n] = ims[i]; });
+    var o = { idx: idx, im: {}, col: {} }; names.forEach(function (n, i) { if (ims[i]) o.im[n] = ims[i]; });
     return o;
+  }
+  // кольцо пресс-фитинга ROMMER красное, STOUT синее: у спрайтов синее, для ROMMER меняем местами красный и синий каналы у синих пикселей
+  function spriteOf(key) {
+    var im = FITS.im[key]; if (!im) return null;
+    if (!(A.state && A.state.brandMode === 'rommer')) return im;
+    if (FITS.col[key]) return FITS.col[key];
+    var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+    var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0);
+    var d = x.getImageData(0, 0, c.width, c.height), p = d.data;
+    for (var i = 0; i < p.length; i += 4) {
+      if (p[i + 3] > 0 && p[i + 2] > p[i] * 1.5 + 25 && p[i + 2] > p[i + 1] * 1.3 + 15) { var r0 = p[i], b0 = p[i + 2]; p[i] = Math.min(255, b0 * 1.05); p[i + 1] = Math.round(p[i + 1] * 0.55); p[i + 2] = Math.round(r0 * 0.9); }
+    }
+    x.putImageData(d, 0, 0);
+    return (FITS.col[key] = c);
   }
   function dirOf(a, b) {
     var dx = b[0] - a[0], dy = b[1] - a[1];
@@ -352,21 +386,105 @@
     if (Math.abs(dx) < 1.5 && Math.abs(dy) > 1) return dy > 0 ? 'D' : 'U';
     return null;
   }
-  function fitSprite(g, pt, kind, d1, d2, mat) {
-    if (!FITS || mat === 'ppr' || !d1) return false;
-    var name = null;
-    if (kind === 'elbow') {
-      if (!d2 || d1 === d2) return false;
-      var ab = d1 + d2, hh = /[RL]/.exec(ab), vv = /[UD]/.exec(ab);
-      if (!hh || !vv || ab.length !== 2) return false;
-      name = 'e90_' + hh[0] + vv[0];
-    } else if (kind === 'tee') name = { U: 'tee_U', D: 'tee_D', R: 'tee_R', L: 'tee_L' }[d1];
-    if (!name) return false;
-    if (A.state && A.state.brandMode === 'rommer') name += '_r';
-    var im = FITS.im[name], m = FITS.idx[name];
-    if (!im || !m) return false;
+  var DVEC = { R: [1, 0], L: [-1, 0], U: [0, -1], D: [0, 1] }, DOPP = { R: 'L', L: 'R', U: 'D', D: 'U' };
+  function putSprite(g, pt, key) {
+    var m = FITS.idx[key], im = spriteOf(key); if (!m || !im) return false;
     g.drawImage(im, pt[0] - m.o[0], pt[1] - m.o[1], m.w, m.h);
     return true;
+  }
+  // план стыков плоского вида: какие спрайты где стоят и на сколько обрезать трубы (px). Возвращает { items, cuts, done } или null (не нержавейка / нет спрайтов)
+  function planFlat(R, mat) {
+    var RF = window.RoomFit, MM = PXM / 1000;
+    if (!FITS || !RF || pipeSys(mat).k !== 'ss') return null;
+    var items = [], cuts = R.map(function () { return []; }), done = {};
+    R.forEach(function (r) { r.ok = RF.ok(r.od); });
+    var has = function (k) { return !!(FITS.idx[k] && FITS.im[k]); };
+    var elbKey = function (s, d1, d2) {
+      var ab = d1 + d2, hh = /[RL]/.exec(ab), vv = /[UD]/.exec(ab);
+      return (!hh || !vv || ab.length !== 2) ? null : 'e90_' + hh[0] + vv[0] + '_' + s;
+    };
+    var putArm = function (P, dl, tip, cps) {         // переходные муфты на плече узла
+      var okAll = true, out = [];
+      cps.forEach(function (c) {
+        var cen = (tip + c.from + c.len / 2) * MM, o = c.bigOut ? dl : DOPP[dl], key = 'cp_' + o + '_' + c.big + 'x' + c.small;
+        if (!has(key)) { okAll = false; return; }
+        out.push({ key: key, pt: [P[0] + DVEC[dl][0] * cen, P[1] + DVEC[dl][1] * cen] });
+      });
+      return okAll ? out : null;
+    };
+    var armsKeys = function (el, P, nd, od) {
+      var k = elbKey(el.size, nd, od); if (!k || !has(k)) return null;
+      var a = putArm(P, nd, el.tip, el.armA.cps), b = putArm(P, od, el.tip, el.armB.cps);
+      return (a && b) ? [{ key: k, pt: P }].concat(a, b) : null;
+    };
+    // 1) углы внутри трассы
+    R.forEach(function (r, ri) {
+      if (!r.ok) return;
+      var el = RF.elbow(r.od, r.od), c = el.armA.cut * MM, n = r.pp.length;
+      for (var i = 1; i < n - 1; i++) {
+        var pt = r.pp[i], d1 = dirOf(pt, r.pp[i - 1]), d2 = dirOf(pt, r.pp[i + 1]), k = d1 && d2 && elbKey(el.size, d1, d2);
+        if (!k || !has(k)) continue;
+        if (Math.hypot(pt[0] - r.pp[i - 1][0], pt[1] - r.pp[i - 1][1]) < (cuts[ri][i - 1] || 0) + c + 3 || Math.hypot(pt[0] - r.pp[i + 1][0], pt[1] - r.pp[i + 1][1]) < c + 3) continue;
+        cuts[ri][i] = c; items.push({ key: k, pt: pt }); done[ri + ':' + i] = 1;
+      }
+    });
+    // 2) концы трасс: угольник на стыке двух концов, тройник на чужой трубе
+    R.forEach(function (r, ri) {
+      var n = r.pp.length; if (!r.ok || n < 2) return;
+      [0, n - 1].forEach(function (e) {
+        if (cuts[ri][e] || done[ri + ':' + e]) return;
+        var pt = r.pp[e], nbi = e === 0 ? 1 : n - 2, nd = dirOf(pt, r.pp[nbi]); if (!nd) return;
+        var legR = Math.hypot(pt[0] - r.pp[nbi][0], pt[1] - r.pp[nbi][1]);
+        R.some(function (o, oi) {
+          if (oi === ri || !o.ok || GRP[o.role] !== GRP[r.role]) return false;
+          var m = o.pp.length, k, oe;
+          for (oe = 0; oe < 2; oe++) {                                    // конец к концу
+            var oidx = oe ? m - 1 : 0, onb = oe ? m - 2 : 1;
+            if (Math.hypot(o.pp[oidx][0] - pt[0], o.pp[oidx][1] - pt[1]) > 3 || cuts[oi][oidx]) continue;
+            var od = dirOf(pt, o.pp[onb]); if (!od || od === nd || od === DOPP[nd] || (/[RL]/.test(nd) === /[RL]/.test(od))) continue;
+            var el = RF.elbow(r.od, o.od); if (!el) continue;
+            var cr = el.armA.cut * MM, co = el.armB.cut * MM, legO = Math.hypot(pt[0] - o.pp[onb][0], pt[1] - o.pp[onb][1]);
+            if (legR < cr + (cuts[ri][nbi] || 0) + 3 || legO < co + (cuts[oi][onb] || 0) + 3) continue;
+            var arr = armsKeys(el, pt, nd, od); if (!arr) continue;
+            cuts[ri][e] = cr; cuts[oi][oidx] = co; arr.forEach(function (q) { items.push(q); }); done[ri + ':' + e] = 1; done[oi + ':' + oidx] = 1;
+            return true;
+          }
+          for (k = 0; k < m - 1; k++) {                                   // конец в середину чужой трубы
+            if (!onSeg(pt, o.pp[k], o.pp[k + 1])) continue;
+            var hz = Math.abs(o.pp[k][1] - o.pp[k + 1][1]) < 1;
+            if ((hz && !/[UD]/.test(nd)) || (!hz && !/[RL]/.test(nd))) continue;
+            var te = RF.tee(o.od, r.od); if (!te) continue;
+            var key = 'tee_' + nd + '_' + (te.key.slice(4));
+            var ct = te.cut * MM;
+            if (!has(key) || legR < ct + (cuts[ri][nbi] || 0) + 3) continue;
+            var arm = putArm(pt, nd, te.tip, te.cps); if (!arm) continue;
+            cuts[ri][e] = ct; items.push({ key: key, pt: pt }); arm.forEach(function (q) { items.push(q); }); done[ri + ':' + e] = 1;
+            return true;
+          }
+          return false;
+        });
+      });
+    });
+    return { items: items, cuts: cuts, done: done };
+  }
+  // трубы режутся у фитингов: края труб входят в раструбы
+  function runsOf(pp, cuts) {
+    var n = pp.length, runs = [], cur = [], i, u = function (a, b) { var L = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1; return [(b[0] - a[0]) / L, (b[1] - a[1]) / L]; };
+    for (i = 0; i < n; i++) {
+      var c = cuts[i] || 0, pt = pp[i];
+      if (!c) { cur.push(pt); continue; }
+      if (i === 0) { var nx = u(pt, pp[1]); cur.push([pt[0] + nx[0] * c, pt[1] + nx[1] * c]); continue; }
+      if (i === n - 1) { var pv = u(pt, pp[n - 2]); cur.push([pt[0] + pv[0] * c, pt[1] + pv[1] * c]); continue; }
+      var a = u(pt, pp[i - 1]), b = u(pt, pp[i + 1]);
+      cur.push([pt[0] + a[0] * c, pt[1] + a[1] * c]); if (cur.length > 1) runs.push(cur);
+      cur = [[pt[0] + b[0] * c, pt[1] + b[1] * c]];
+    }
+    if (cur.length > 1) runs.push(cur);
+    return runs;
+  }
+  function pathRuns(g, runs, dx, dy) {
+    g.beginPath();
+    runs.forEach(function (run) { run.forEach(function (q, i) { if (i) g.lineTo(q[0] + dx, q[1] + dy); else g.moveTo(q[0] + dx, q[1] + dy); }); });
   }
   function fitting(g, pt, W, kind, pal) {
     var r = W * (kind === 'tee' ? 0.78 : 0.66);
@@ -381,8 +499,8 @@
     else { g.fillRect(pt[0] - 7, pt[1] - W * 0.62, 14, W * 1.24); g.strokeRect(pt[0] - 7, pt[1] - W * 0.62, 14, W * 1.24); }
   }
   function drawPipes(g, routes, x0, y0, style, mat) {
-    var scheme = style === 'scheme', glow = style.indexOf('flow') === 0, W = 22 * PXM / 1000 * (mat === 'ppr' ? 1.15 : 1);
-    var PAL = mat === 'ppr' ? { edge: '#5E9453', mid: '#8CC57E', hi: '#D3EDCB', ring: '#3F6D38' } : { edge: '#7B838B', mid: '#C7CDD3', hi: '#F7F9FA', ring: '#5E666E' };
+    var scheme = style === 'scheme', glow = style.indexOf('flow') === 0, PS = pipeSys(mat), W = PS.od * PXM / 1000;
+    var PAL = PIPE_PAL[PS.k];
     var order = { ld: 0, lr: 0, cw: 1, ret: 1, sup: 2 };                     // «глубина» от стены: змеевик ближе всех к стене, подача дальше всех
     var R = routes.map(function (r) {
       var pp = r.pts.map(function (p) { var q = r.scr ? p : proj(p); return [q[0] - x0, q[1] - y0]; });
@@ -391,24 +509,27 @@
         if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
       }
       if (r.jog && pp.length >= 2) { var t0 = pp[0], yj = t0[1] + r.jog[1], yl2 = pp[pp.length - 1][1]; pp = [t0, [t0[0], yj], [t0[0] + r.jog[0], yj], [t0[0] + r.jog[0], yl2]]; }
-      return { role: r.role, pp: pp };
+      return { role: r.role, pp: pp, od: r.od || PS.od, W: (r.od || PS.od) * PXM / 1000 };
     }).sort(function (a, b) { return order[a.role] - order[b.role]; });
     g.lineJoin = 'round'; g.lineCap = 'butt';
     var flow = [];
+    var FP = scheme ? null : planFlat(R, mat);          // стыки по размерам труб (паспорт); null — прежние кружки
+    if (FP) R.forEach(function (r, ri) { r.runs = runsOf(r.pp, FP.cuts[ri]); });
     R.forEach(function (r) {
-      var col = FLOWCOL[r.role], c = col;
+      var W = r.W, col = FLOWCOL[r.role], c = col;
       if (scheme) {
         if (r.role !== 'ld' && r.role !== 'lr') { g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = W + 16; pathOf(g, r.pp); g.stroke(); }
         g.strokeStyle = c; g.lineWidth = W; pathOf(g, r.pp); g.stroke();
         g.strokeStyle = 'rgba(255,255,255,.28)'; g.lineWidth = 6; pathOf(g, shift(r.pp, -6, -6)); g.stroke();
         return;
       }
-      if (glow) { g.strokeStyle = col; g.globalAlpha = 0.22; g.lineWidth = W * 2.3; pathOf(g, r.pp); g.stroke(); g.globalAlpha = 1; }
-      g.strokeStyle = 'rgba(15,23,42,.30)'; g.lineWidth = W + 8; pathOf(g, shift(r.pp, 8, 10)); g.stroke();       // тень на стене: труба, что ближе к зрителю, ложится на дальнюю
-      g.strokeStyle = PAL.edge; g.lineWidth = W; pathOf(g, r.pp); g.stroke();
-      g.strokeStyle = PAL.mid; g.lineWidth = W * 0.7; pathOf(g, r.pp); g.stroke();
-      g.strokeStyle = PAL.hi; g.lineWidth = W * 0.22; pathOf(g, shift(r.pp, -W * 0.16, -W * 0.16)); g.stroke();
-      segs(r.pp).forEach(function (sg) {                              // цветные ленты-маркеры потока на трубе: красная — подача, синяя — обратка
+      var RN = r.runs || [r.pp];
+      if (glow) { g.strokeStyle = col; g.globalAlpha = 0.22; g.lineWidth = W * 2.3; pathRuns(g, RN, 0, 0); g.stroke(); g.globalAlpha = 1; }
+      g.strokeStyle = 'rgba(15,23,42,.30)'; g.lineWidth = W + 8; pathRuns(g, RN, 8, 10); g.stroke();       // тень на стене: труба, что ближе к зрителю, ложится на дальнюю
+      g.strokeStyle = PAL.edge; g.lineWidth = W; pathRuns(g, RN, 0, 0); g.stroke();
+      g.strokeStyle = PAL.mid; g.lineWidth = W * 0.7; pathRuns(g, RN, 0, 0); g.stroke();
+      g.strokeStyle = PAL.hi; g.lineWidth = W * 0.22; pathRuns(g, RN, -W * 0.16, -W * 0.16); g.stroke();
+      RN.reduce(function (acc, run) { return acc.concat(segs(run)); }, []).forEach(function (sg) {   // цветные ленты-маркеры потока на трубе: красная — подача, синяя — обратка (только на видимых участках между фитингами)
         var a1 = sg[0], b1 = sg[1], L = Math.hypot(b1[0] - a1[0], b1[1] - a1[1]), hz = Math.abs(a1[1] - b1[1]) < 1;
         for (var d = 50; d < L - 30; d += 260) {
           var t = d / L, x = a1[0] + (b1[0] - a1[0]) * t, y = a1[1] + (b1[1] - a1[1]) * t;
@@ -418,10 +539,11 @@
         }
       });
       var fp = r.role === 'ret' ? r.pp.slice().reverse() : r.pp;
-      flow.push({ role: r.role, col: col, pp: fp });
+      flow.push({ role: r.role, col: col, pp: fp, W: W });
     });
     if (scheme) {
       R.forEach(function (r) {
+        var W = r.W;
         segs(r.pp).forEach(function (sg) {
           var a1 = sg[0], b1 = sg[1], L = Math.hypot(b1[0] - a1[0], b1[1] - a1[1]); if (L < 500) return;
           var mx = (a1[0] + b1[0]) / 2, my = (a1[1] + b1[1]) / 2, hz = Math.abs(a1[1] - b1[1]) < 1;
@@ -430,29 +552,30 @@
       });
       return flow;
     }
-    // фитинги: отвод — поворот линии, тройник — врезка в чужую трубу того же контура (подача или обратка), кольцо — свободный конец
+    if (FP) FP.items.forEach(function (q) { putSprite(g, q.pt, q.key); });
+    // прочие стыки (не нержавейка, нет спрайта, не хватило длины): обобщённые кружки; отвод — поворот линии, тройник — врезка, кольцо — свободный конец
     R.forEach(function (r, ri) {
-      var n = r.pp.length;
+      var n = r.pp.length, W = r.W;
       r.pp.forEach(function (pt, i) {
         var end = i === 0 || i === n - 1;
         if (!end) {
           var p0 = r.pp[i - 1], p2 = r.pp[i + 1], turn = Math.abs((pt[0] - p0[0]) * (p2[1] - pt[1]) - (pt[1] - p0[1]) * (p2[0] - pt[0])) > 100;
-          if (turn && !fitSprite(g, pt, 'elbow', dirOf(pt, p0), dirOf(pt, p2), mat)) fitting(g, pt, W, 'elbow', PAL);
+          if (turn && !(FP && FP.done[ri + ':' + i])) fitting(g, pt, W, 'elbow', PAL);
           return;
         }
-        var kind = null, od = null;
+        var kind = null, od = null, kod = r.od;
         R.forEach(function (o, oi) {
           if (oi === ri || GRP[o.role] !== GRP[r.role] || kind === 'elbow') return;
-          o.pp.forEach(function (q, qi) { if (Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 3 && (qi === 0 || qi === o.pp.length - 1)) { kind = 'elbow'; od = dirOf(pt, o.pp[qi === 0 ? 1 : o.pp.length - 2]); } });
-          if (!kind) for (var k = 0; k < o.pp.length - 1; k++) if (onSeg(pt, o.pp[k], o.pp[k + 1])) kind = 'tee';
+          o.pp.forEach(function (q, qi) { if (Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 3 && (qi === 0 || qi === o.pp.length - 1)) { kind = 'elbow'; kod = Math.max(kod, o.od); od = dirOf(pt, o.pp[qi === 0 ? 1 : o.pp.length - 2]); } });
+          if (!kind) for (var k = 0; k < o.pp.length - 1; k++) if (onSeg(pt, o.pp[k], o.pp[k + 1])) { kind = 'tee'; kod = Math.max(kod, o.od); }
           if (!kind) o.pp.forEach(function (q, qi) { if (Math.hypot(q[0] - pt[0], q[1] - pt[1]) < 3 && qi > 0 && qi < o.pp.length - 1) kind = 'tee'; });
         });
-        var nb0 = i === 0 ? r.pp[1] : r.pp[n - 2];
-        if (kind) { if (!fitSprite(g, pt, kind, dirOf(pt, nb0), od, mat)) fitting(g, pt, W, kind, PAL); }
+        if (FP && FP.done[ri + ':' + i]) return;
+        if (kind) fitting(g, pt, Math.max(W, kod * PXM / 1000), kind, PAL);
         else { var nb = i === 0 ? r.pp[1] : r.pp[n - 2]; collar(g, pt, W, Math.abs(nb[0] - pt[0]) < 2, PAL); }
       });
     });
-    if (style === 'flow') flow.forEach(function (f) { chevrons(g, f, 0, W); });
+    if (style === 'flow') flow.forEach(function (f) { chevrons(g, f, 0, f.W || W); });
     return flow;
   }
   // стрелки потока по ломаной, смещение off (пикселей) двигает их вдоль трубы
@@ -525,11 +648,13 @@
     x0 -= 60; y0 -= 60; x1 += 60; y1 += 60;
     var cv = document.createElement('canvas'); cv.width = Math.round(x1 - x0); cv.height = Math.round(y1 - y0);
     var g = cv.getContext('2d');
-    // фон кадра прозрачный (на экране под ним белая рамка, как у остальных схем); пол — тонкой линией
+    var wl = g.createLinearGradient(0, 0, 0, cv.height); wl.addColorStop(0, '#E9EBEE'); wl.addColorStop(1, '#D8DBE0');
+    g.fillStyle = wl; g.fillRect(0, 0, cv.width, cv.height);
     var tl = S.layers.filter(function (l) { return l.kind === 'dhw'; })[0], fy = tl ? tl.y + tl.h - y0 - 8 : cv.height - 120;
-    g.fillStyle = '#CBD5E1'; g.fillRect(0, fy, cv.width, 4);
+    g.fillStyle = '#C4C8CE'; g.fillRect(0, fy, cv.width, cv.height - fy); g.fillStyle = '#B4B8BF'; g.fillRect(0, fy, cv.width, 10);
     S.layers.slice().sort(function (a, b) { return b.off[1] - a.off[1] || a.off[0] - b.off[0]; }).forEach(function (l) { g.drawImage(l.im, l.x - x0, l.y - y0, l.w, l.h); });
     var mat = (A.boilerPipeSystem && A.boilerPipeSystem()) || 'ss316';
+    S.routes.forEach(function (r) { r.od = routeOd(r.sz, mat); });
     if (!FITS) { try { FITS = await loadFits(); } catch (e) { FITS = null; } }
     cv._flow = drawPipes(g, S.routes, x0, y0, style || 'scheme', mat);
     cv._mat = mat;
@@ -541,7 +666,7 @@
       if (r.ext0) pp[0] = [pp[0][0] + r.ext0[0], pp[0][1] + r.ext0[1]];
       if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
       if (r.jog && pp.length >= 2) { var t0 = pp[0], yj = t0[1] + r.jog[1], yl2 = pp[pp.length - 1][1]; pp = [t0, [t0[0], yj], [t0[0] + r.jog[0], yj], [t0[0] + r.jog[0], yl2]]; }
-      return { role: r.role, pp: pp, plane: r.planeMm || 100, d0: r.d0 == null ? null : r.d0, d1: r.d1 == null ? null : r.d1 };
+      return { role: r.role, od: r.od || null, pp: pp, plane: r.planeMm || 100, d0: r.d0 == null ? null : r.d0, d1: r.d1 == null ? null : r.d1 };
     }), cons: (S.cons || []).map(function (c) { return { kind: c.kind, kw: c.kw, sup: proj(c.sup), ret: proj(c.ret) }; }) };
     return cv;
   }
@@ -736,13 +861,7 @@
     document.addEventListener('click', function (e) {
       var fb = e.target.closest && e.target.closest('.fc-b');
       if (fb && Date.now() - FC_MOVED < 300) { e.stopPropagation(); return; }
-      // щелчок по кружку листает виджет: температура → скорость теплоносителя → закрыто
-      if (fb) {
-        var fc = fb.parentNode, m = fc.getAttribute('data-mode') || '', nx = m === '' ? 't' : m === 't' ? 'v' : '';
-        document.querySelectorAll('.rv-fc.pin').forEach(function (x) { if (x !== fc) { x.classList.remove('pin'); x.removeAttribute('data-mode'); } });
-        if (nx) { fc.classList.add('pin'); fc.setAttribute('data-mode', nx); } else { fc.classList.remove('pin'); fc.removeAttribute('data-mode'); }
-        e.stopPropagation(); return;
-      }
+      if (fb) { var fc = fb.parentNode, was = fc.classList.contains('pin'); document.querySelectorAll('.rv-fc.pin').forEach(function (x) { x.classList.remove('pin'); }); if (!was) fc.classList.add('pin'); e.stopPropagation(); return; }
       var st = e.target.closest && e.target.closest('.rv-stage[data-hl]');
       if (!st || !HL || !HL.maps.length || e.target.closest('button')) return;
       var r = st.getBoundingClientRect(), k = r.width / HL.c.w, h = findHit((e.clientX - r.left) / k, (e.clientY - r.top) / k);
@@ -794,8 +913,8 @@
       if (!pt) return;
       var ax = (pt[0] - X) / c.w * 100, ay = (pt[1] - Y) / c.h * 100, o = off || [0, 0];
       var left = saved[id] ? saved[id][0] : ax + o[0] / c.w * 100, top = saved[id] ? saved[id][1] : ay + o[1] / c.h * 100, side = left > 62 ? 'l' : 'r';
-      var rows = '<div class="fc-r" data-k="t"><i class="d s"></i>Подача<b>' + a.sup + ' °C</b></div><div class="fc-r" data-k="t"><i class="d r"></i>Обратка<b>' + a.ret + ' °C</b></div>' +
-        '<div class="fc-r" data-k="v"><i class="d v"></i>Скорость<b>' + (a.vApprox ? '≈ ' : '') + fnum(a.v, 2) + ' м/с</b></div><div class="fc-r" data-k="v"><i class="d g"></i>Расход<b>' + fnum(a.g, 2) + ' м³/ч</b></div>';
+      var rows = '<div class="fc-r"><i class="d s"></i>Подача<b>' + a.sup + ' °C</b></div><div class="fc-r"><i class="d r"></i>Обратка<b>' + a.ret + ' °C</b></div>' +
+        '<div class="fc-r"><i class="d v"></i>Скорость<b>' + (a.vApprox ? '≈ ' : '') + fnum(a.v, 2) + ' м/с</b></div><div class="fc-r"><i class="d g"></i>Расход<b>' + fnum(a.g, 2) + ' м³/ч</b></div>';
       lines.push('<line data-id="' + id + '" x1="' + ax.toFixed(2) + '%" y1="' + ay.toFixed(2) + '%" x2="' + left.toFixed(2) + '%" y2="' + top.toFixed(2) + '%"/><circle cx="' + ax.toFixed(2) + '%" cy="' + ay.toFixed(2) + '%" r="3.5"/>');
       out.push('<div class="rv-fc ' + kind + '" data-id="' + id + '" style="left:' + left.toFixed(2) + '%;top:' + top.toFixed(2) + '%" data-side="' + side + '">' +
         '<button type="button" class="fc-b" aria-label="' + esc(title) + '"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + FC_ICON[kind] + '</svg></button>' +
@@ -825,15 +944,8 @@
       '.rv{max-width:1400px;margin:0 auto;padding:6px 0 2px}' +
       '.rv-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px}' +
       '.rv-title{font:600 15px/1.2 system-ui,Arial,sans-serif;letter-spacing:.01em;opacity:.85}' +
-      '.rv-stage{position:relative;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 6px 24px rgba(0,0,0,.18)}' +
+      '.rv-stage{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 6px 24px rgba(0,0,0,.18)}' +
       '.rv-stage.zoomable{cursor:zoom-in}' +
-      // встроенный вид — в той же рамке, что и остальные схемы сметы (см. «ОБЩИЙ РАЗМЕР СХЕМ» в style.css):
-      // кадр вписывается по своим пропорциям, ширину и высоту рамки задаёт app.syncSchemeBox()
-      '.rv{max-width:100%;margin:0 auto 0 0}' +
-      '.rv-stage.zoomable{filter:var(--scheme-thumb-filter,none);width:var(--scheme-box-w,546px);height:var(--scheme-box-h,386px);max-width:100%;background:#fff;box-shadow:none;border:1px solid rgba(100,116,139,.35);border-radius:8px}' +
-      '.rv-stage.zoomable img{width:100%;height:100%;object-fit:contain}' +
-      '@media screen and (max-width:768px),screen and (max-width:1024px) and (orientation:portrait),screen and (orientation:landscape) and (max-height:500px){.rv-stage.zoomable{width:100%;height:auto;aspect-ratio:1.414}}' +
-      '@media print{.rv-stage.zoomable{width:auto;height:auto;filter:none}.rv-stage.zoomable img{height:auto}}' +
       '.rv-stage img,.rv-stage canvas{display:block;width:100%}.rv-stage canvas{position:absolute;inset:0;height:100%}.rv-ov{pointer-events:none}' +
       '.rv-tip{position:absolute;pointer-events:none;z-index:3;max-width:260px;padding:8px 11px;border-radius:10px;background:rgba(17,24,39,.94);color:#fff;font:12px/1.35 system-ui,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}' +
       '.rv-tip.on{opacity:1;transform:none}.rv-tip b{display:block;font-weight:600;font-size:13px;margin-bottom:2px}.rv-tip span{opacity:.72}' +
@@ -846,9 +958,6 @@
       '@keyframes fcp{0%{transform:scale(.8);opacity:.55}100%{transform:scale(1.45);opacity:0}}' +
       '.fc-card{position:absolute;top:50%;min-width:206px;padding:10px 12px 9px;border-radius:12px;background:rgba(15,23,42,.95);color:#fff;font:12px/1.3 system-ui,Arial,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.4);opacity:0;pointer-events:none;transform:translateY(-50%) scale(.96);transition:opacity .14s,transform .14s;backdrop-filter:blur(6px)}' +
       '.rv-fc[data-side=r] .fc-card{left:calc(100% + 10px)}.rv-fc[data-side=l] .fc-card{right:calc(100% + 10px)}' +
-      '.rv-fc[data-mode=t] .fc-r[data-k=v],.rv-fc[data-mode=v] .fc-r[data-k=t]{display:none}' +
-      '.rv-fc[data-mode=t] .fc-t::after{content:" · температура"}.rv-fc[data-mode=v] .fc-t::after{content:" · скорость теплоносителя"}' +
-      '.rv-fc[data-mode] .fc-r b{font-size:19px}.rv-fc[data-mode] .fc-card{min-width:230px}' +
       '.rv-fc:hover .fc-card,.rv-fc.pin .fc-card{opacity:1;pointer-events:auto;transform:translateY(-50%) scale(1)}.rv-fc:hover,.rv-fc.pin{z-index:6}' +
       '.fc-t{font-weight:600;font-size:13px;margin-bottom:6px}.fc-r{display:flex;align-items:center;gap:7px;padding:2px 0;opacity:.95}.fc-r b{margin-left:auto;font-weight:600;font-variant-numeric:tabular-nums;padding-left:12px}' +
       '.fc-r .d{width:8px;height:8px;border-radius:50%;flex:none}.d.s{background:#EF4444}.d.r{background:#3B82F6}.d.v{background:#22C55E}.d.g{background:#A3A3A3}' +
@@ -856,18 +965,11 @@
       '.fc-b{cursor:grab;touch-action:none}.fc-b:active{cursor:grabbing}' +
       '.fc-s{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.14);font-size:10.5px;opacity:.6}' +
       /* окно «На весь экран»: панель значков в духе Revit, одна на все виды */
-      '.rvm{position:fixed;inset:0;z-index:99990;background:rgba(15,23,42,.88);overflow:hidden;font-family:system-ui,Arial,sans-serif}' +
+      '.rvm{position:fixed;inset:0;z-index:99990;background:#E3E6EA;overflow:hidden;font-family:system-ui,Arial,sans-serif}' +
       '.rvm-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:72px 236px 22px}' +
       '.rvm-stage.is3d{padding:0}.rvm-stage.is3d .r3{position:absolute;inset:0;border-radius:0;height:100%}' +
       '.rvm-stage .rv-stage{box-shadow:0 8px 30px rgba(15,23,42,.18)}' +
-      '.rvm-pan{position:absolute;top:84px;width:208px;max-height:calc(100% - 106px);overflow:auto;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(8px);color:#fff;font:12px/1.35 system-ui,Arial,sans-serif;z-index:2}' +
-      '.rvm-pan.l{left:14px}.rvm-pan.r{right:14px}' +
-      '.rvm-pan .pn-h{font:600 13px system-ui,Arial,sans-serif;margin:0 0 6px;letter-spacing:.01em}.rvm-pan .pn-h2{margin-top:12px}.rvm-pan .pn-sub{opacity:.6;margin:-3px 0 6px}' +
-      '.rvm-pan .pn-r{display:flex;justify-content:space-between;gap:8px;padding:3px 0}.rvm-pan .pn-r span{opacity:.72}.rvm-pan .pn-r b{font-weight:600;white-space:nowrap}' +
-      '.rvm-pan .pn-c{padding:4px 0;border-top:1px solid rgba(255,255,255,.1)}.rvm-pan .pn-s{padding:0}.rvm-pan .pn-s span{font-size:11px}' +
-      '.rvm-pan b.ok{color:#4ADE80}.rvm-pan b.bad{color:#F87171}.rvm-pan .pn-n{margin-top:10px;font-size:11px;opacity:.55}' +
-      '@media (max-width:1100px){.rvm-pan{display:none}}' +
-      '.rvm-load{font:500 14px system-ui,Arial,sans-serif;color:#cbd5e1}' +
+      '.rvm-load{font:500 14px system-ui,Arial,sans-serif;color:#475569}' +
       '.rvm-bar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:2px;padding:5px;border-radius:14px;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08)}' +
       '.rvm-bar button{position:relative;width:36px;height:36px;border:0;border-radius:9px;background:transparent;color:#334155;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background .12s,color .12s}' +
       '.rvm-bar button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
@@ -970,39 +1072,6 @@
       barFull(app, st);
     }
   }
-
-  // ── боковые панели полноэкранного вида: мощность котла, температуры по контурам, расход и напор (расчётные числа приложения)
-  function sidePanels(app) {
-    var h; try { h = app.buildHydroCheckData(); } catch (e) { return ''; }
-    if (!h || !h.rows || !h.rows.length) return '';
-    var rows = h.rows, reg = app.radRegime(), sup = parseInt(reg.label, 10), ret = sup - reg.dt;
-    var ufhDT = (app._ufhBal && app._ufhBal.dT) || parseInt(app.state.ufhDT, 10) || app.UFH_DTS[0], ufhSup = app.ufhSupply(ufhDT);
-    var kw = 0, nb = 0;
-    (app.currentEquipmentList || []).forEach(function (it) {
-      if (it.isOpt || !/^Кот[её]л/i.test(it.name || '')) return;
-      var m = /([\d.,]+)\s*кВт/i.exec(it.name || ''); if (!m) return;
-      var n = Math.max(1, it.q || it.qty || 1); kw += parseFloat(m[1].replace(',', '.')) * n; nb += n;
-    });
-    var loss = 0; try { loss = app.getHouseHeatLoss(); } catch (e) { }
-    var kwTxt = kw ? fnum(kw, 1).replace(/,0$/, '') + ' кВт' + (nb > 1 ? ' (' + nb + ' котла)' : '') : '—';
-    var res = kw && loss ? Math.round((kw / loss - 1) * 100) : null;
-    var temp = [], hyd = [];
-    rows.forEach(function (r) {
-      var nm = r.id === 'boiler' ? 'Котёл' : r.id === 'rad' ? 'Радиаторы' : r.id === 'ufh' ? 'Тёплый пол' : r.id === 'dhw' ? 'Бойлер ГВС' : r.title;
-      var s1 = r.id === 'ufh' ? ufhSup : sup, r1 = r.id === 'ufh' ? ufhSup - ufhDT : ret;
-      temp.push('<div class="pn-r"><span>' + esc(nm) + '</span><b>' + s1 + ' / ' + r1 + ' °C</b></div>');
-      var ok = r.have != null && r.need != null ? r.have >= r.need : null;
-      hyd.push('<div class="pn-c"><div class="pn-r"><span>' + esc(nm) + '</span><b>' + fnum(r.flow, 2) + ' м³/ч</b></div>' +
-        '<div class="pn-r pn-s"><span>Напор: нужно / насос</span><b class="' + (ok === false ? 'bad' : ok ? 'ok' : '') + '">' + fnum(r.need, 1) + ' / ' + fnum(r.have, 1) + ' м</b></div></div>');
-    });
-    return '<div class="rvm-pan l"><div class="pn-h">Котельная</div>' +
-      '<div class="pn-r"><span>Мощность котла</span><b>' + kwTxt + '</b></div>' +
-      '<div class="pn-r"><span>Теплопотери дома</span><b>' + (loss ? fnum(loss, 1) + ' кВт' : '—') + '</b></div>' +
-      (res != null ? '<div class="pn-r"><span>Запас мощности</span><b class="' + (res < 0 ? 'bad' : 'ok') + '">' + (res > 0 ? '+' : '') + res + ' %</b></div>' : '') +
-      '<div class="pn-h pn-h2">Расход и напор</div>' + hyd.join('') + '</div>' +
-      '<div class="rvm-pan r"><div class="pn-h">Температуры по контурам</div><div class="pn-sub">подача / обратка</div>' + temp.join('') +
-      '<div class="pn-n">Числа расчётные, из режима и подбора насосов в смете</div></div>';
-  }
   function renderFull() {
     if (!FULL || !MODAL) return;
     var app = A, st = fullStyle(app), stage = MODAL.querySelector('.rvm-stage');
@@ -1032,7 +1101,7 @@
     stage.innerHTML = '<div class="rv-stage" data-style="' + st + '"' + (hl ? ' data-hl="1"' : '') + ' style="aspect-ratio:' + W + '/' + H + ';width:min(100%,calc((100vh - 94px) * ' + (W / H).toFixed(4) + '))"><img src="' + c.url + '" alt="Общий вид котельной">' +
       (st === 'flow' ? '<canvas class="rv-flow" width="' + W + '" height="' + H + '"></canvas>' : '') +
       (hl ? '<canvas class="rv-ov"></canvas>' : '') + (st === 'flow' ? flowCards(app, c) : '') + '<div class="rv-tip"></div></div>' +
-      '<svg class="rvm-lbl"></svg>' + sidePanels(app);
+      '<svg class="rvm-lbl"></svg>';
     if (st === 'flow') setTimeout(animate, 0);
     var img = stage.querySelector('img'); if (img) img.onload = drawFlatLabels;
     drawFlatLabels();
@@ -1176,7 +1245,7 @@
       var cv = document.querySelector('canvas.rv-flow');
       if (!cv || !flowData) { animOn = false; return; }
       var g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height);
-      flowData.forEach(function (f) { chev(g, f, (t - t0) / 1000 * 70, 22 * PXM / 1000); });
+      flowData.forEach(function (f) { chev(g, f, (t - t0) / 1000 * 70, f.W || (window.RoomPipe && A ? window.RoomPipe.sys(A.boilerPipeSystem()).od : 22) * PXM / 1000); });
       requestAnimationFrame(loop);
     })(t0);
   }
@@ -1187,7 +1256,7 @@
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
     var hk = app.hydroFrameKey(), dk = dhwKeys();
-    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key, dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; })]);
+    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key, dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size]);
     var c = cache[sig];
     if (c === 'wait') return null;
     if (!c) {
