@@ -102,7 +102,7 @@
   function build(host, spec) {
     css();
     var wrap = document.createElement('div'); wrap.className = 'r3';
-    wrap.innerHTML = '<div class="r3-load">Загружаю 3D-модели…</div><svg class="r3-lbl"></svg><div class="r3-cube"><div class="cb"></div></div><div class="r3-tip"></div><div class="r3-msg"></div><div class="r3-hint">Левая кнопка — вращать, правая — сдвиг, колесо — приблизить</div>';
+    wrap.innerHTML = '<div class="r3-load">Загружаю 3D-модели…</div><svg class="r3-lbl"></svg><div class="r3-cube"><div class="cb"></div></div><div class="r3-tip"></div><div class="r3-msg"></div><div class="r3-hint">Левая кнопка — вращать, зажатое колесо или правая — сдвиг, прокрутка колеса — приблизить</div>';
     var cb = wrap.querySelector('.cb');
     FACES.forEach(function (f, i) {
       var d = document.createElement('div'); d.className = 'f'; d.textContent = f[0]; d.style.transform = f[1]; d.setAttribute('data-i', i); cb.appendChild(d);
@@ -123,6 +123,10 @@
     var pm = new T.PMREMGenerator(r); scene.environment = pm.fromScene(new lib.RE(), 0.04).texture;
     var cam = new T.PerspectiveCamera(30, 1, 0.05, 60);
     var ctl = new lib.OC(cam, r.domElement); ctl.enableDamping = true; ctl.dampingFactor = 0.12; ctl.screenSpacePanning = true;
+    // как в Revit: зажатое колесо — сдвиг (листать влево-вправо, вверх-вниз), правая тоже сдвиг, колесо крутится — зум
+    ctl.mouseButtons = { LEFT: 0, MIDDLE: 2, RIGHT: 2 };
+    r.domElement.addEventListener('mousedown', function (e) { if (e.button === 1) e.preventDefault(); });   // без значка автопрокрутки браузера
+    r.domElement.addEventListener('auxclick', function (e) { if (e.button === 1) e.preventDefault(); });
     ctl.minDistance = 0.25; ctl.maxDistance = 14;
     var sun = new T.DirectionalLight(0xffffff, 1.5); sun.position.set(-2.2, 3.2, 3.5); sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.012; sun.shadow.radius = 4;
