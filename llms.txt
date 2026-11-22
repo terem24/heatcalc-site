@@ -164,6 +164,7 @@
 - [Насосная станция или скважинный насос](https://heatcalc.ru/nasosnaya-stantsiya/) — насосная станция для дома
 - [Электрический водонагреватель для дома](https://heatcalc.ru/elektricheskiy-vodonagrevatel/) — электрический водонагреватель
 - [Воздух в системе: развоздушивание и автоматика](https://heatcalc.ru/vozduh-v-sisteme-otopleniya/) — воздух в системе отопления
+- [Заказчик принёс смету конкурента: как сравнить и что ответить](https://heatcalc.ru/smeta-konkurenta-kak-sravnit/) — сравнить сметы на отопление
 
 ## Примечания для моделей
 
