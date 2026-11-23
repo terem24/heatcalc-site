@@ -663,7 +663,12 @@
   function loadPumpGlb(fam) {
     S.pumpGlb = S.pumpGlb || {};
     if (!S.pumpGlb[fam]) S.pumpGlb[fam] = new Promise(function (res) {
-      S.gl.load(PUMP_DIR + 'pump_' + fam + '.glb?v=' + GLB_V, function (g) { res(g.scene); }, null, function () { res(null); });
+      S.gl.load(PUMP_DIR + 'pump_' + fam + '.glb?v=' + GLB_V, function (g) {
+        // насос рассматривают вблизи и под углом: без анизотропной фильтрации надписи на лице мотора «плывут» и мылятся
+        var an = S.r && S.r.capabilities ? S.r.capabilities.getMaxAnisotropy() : 1;
+        g.scene.traverse(function (m) { if (m.isMesh && m.material && m.material.map) { m.material.map.anisotropy = an; m.material.map.needsUpdate = true; } });
+        res(g.scene);
+      }, null, function () { res(null); });
     });
     return S.pumpGlb[fam];
   }
@@ -736,6 +741,12 @@
         P.group.add(holder);
         var el = document.createElement('div'); el.className = 'r3-pk' + (o.cur ? ' cur' : '');
         el.innerHTML = '<b>' + esc(o.name) + '</b><span>' + (o.price ? Number(o.price).toLocaleString('ru-RU') + ' ₽' : '') + '</span><i>' + (o.cur ? 'сейчас' : 'выбрать') + '</i>';
+        // плашка — обычный элемент поверх canvas: щелчок по ней до canvas не доходит, поэтому свой обработчик
+        el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
+        el.addEventListener('pointerup', function (e) { e.stopPropagation(); });
+        el.addEventListener('click', function (e) { e.stopPropagation(); pickerChoose(i); });
+        el.addEventListener('pointerenter', function () { if (S.picker === P) P.hover = i; });
+        el.addEventListener('pointerleave', function () { if (S.picker === P && P.hover === i) P.hover = -1; });
         S.wrap.appendChild(el);
         P.items.push({ o: o, holder: holder, el: el, i: i });
       });
@@ -762,14 +773,18 @@
     for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.userData.pickIdx !== undefined) return o.userData.pickIdx; }
     return -1;
   }
-  function pickerClick(e) {
-    var P = S.picker, i = pickerHit(e);
-    if (i < 0 && e.target && e.target.closest && e.target.closest('.r3-pk')) { var el = e.target.closest('.r3-pk'); P.items.forEach(function (it) { if (it.el === el) i = it.i; }); }
-    if (i < 0) { closePicker(); return; }
+  function pickerChoose(i) {
+    var P = S.picker; if (!P) return;
     var it = P.items.filter(function (x) { return x.i === i; })[0]; if (!it) return;
     if (it.o.cur) { closePicker(); return; }
     var id = it.o.id, nm = it.o.name; closePicker();
     if (window.RoomView.pumpSwap(id)) msg('Насос заменён: ' + nm);
+    else msg('Не удалось заменить насос: в смете не найден насос группы');
+  }
+  function pickerClick(e) {
+    var i = pickerHit(e);
+    if (i < 0) { closePicker(); return; }
+    pickerChoose(i);
   }
   function pickerTick() {
     var P = S.picker, t = (performance.now() - P.t0) / 1000, cvs = S.r.domElement, w = cvs.clientWidth, h = cvs.clientHeight;
