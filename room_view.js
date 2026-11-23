@@ -133,7 +133,7 @@
     if (hkey && hi[hkey] && hp && hp.boiler.length === 2) {
       var ZC = BOILER_Z + 0.075;
       hOff = [bx + 0.35, YP - hp.boiler[0].pos_m[1], ZC];
-      layers.push({ kind: 'hydro', fid: 'h0', key: hkey, pf: hk.pf || '', baked: (/_p[a-z0-9]+$/.exec(hkey) || [''])[0], pid: hk.pid, fr: hi[hkey], off: hOff, src: A.HYDRO_DIR.replace('hydro_node', 'hydro_node_front') + 'hydro_' + hkey + '.webp' });
+      layers.push({ kind: 'hydro', fid: 'h0', key: hkey, pf: hk.pf || '', pfs: pumpFams(), baked: (/_p[a-z0-9]+$/.exec(hkey) || [''])[0], pid: hk.pid, fr: hi[hkey], off: hOff, src: A.HYDRO_DIR.replace('hydro_node', 'hydro_node_front') + 'hydro_' + hkey + '.webp' });
     } else notes.push('нет кадра коллектора');
 
     // ── бойлер: напольный (пол z = 0), справа от коллектора; кадр «…_k» — только два подключения змеевика, высоты патрубков по паспорту объёма
@@ -896,7 +896,7 @@
         var q = fr.zones[zn];
         zs.push({ root: zn.split(':')[0], x0: (q[0] * fr.w - fr.o[0]) / ax.x[0], x1: (q[2] * fr.w - fr.o[0]) / ax.x[0], z0: (fr.o[1] - q[3] * fr.h) / Math.abs(ax.z[1]), z1: (fr.o[1] - q[1] * fr.h) / Math.abs(ax.z[1]) });
       });
-      return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs, pf: l.kind === 'hydro' && hkNow ? hkNow.pf : l.pf, baked: l.baked, pid: l.kind === 'hydro' && hkNow ? hkNow.pid : l.pid };
+      return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs, pf: l.kind === 'hydro' && hkNow ? hkNow.pf : l.pf, pfs: l.kind === 'hydro' ? pumpFams() : null, baked: l.baked, pid: l.kind === 'hydro' && hkNow ? hkNow.pid : l.pid };
     });
     var tk = layers.filter(function (l) { return l.kind === 'dhw' && l.fid === 'w0'; })[0], tpk = tk && DATA && DATA.PB['dhw:' + tk.key];
     if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; tk.dy = rotInfo.dy; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } else { try { var li = tankLift(tk, tpk, S3.routes); if (li) { routes3 = li.routes; tk.dy = li.dy; } } catch (e) { console.warn('[3D] подъём бойлера не построен:', e); } } }
@@ -1363,23 +1363,48 @@
   // ── замена насоса группы прямо на 3D-виде (room_3d.js): варианты по бренду текущего насоса (STOUT: четыре, ROMMER: два), замена —
   // штатной функцией приложения, как щелчком по строке таблицы замен, поэтому пересчитываются смета, подбор и подписи
   var PUMP_FAM = { 'SPC-0011-2560180': 'default', 'SPC-0010-2560180': 'p10', 'SPC-0002-2560180': 'pmini', 'SPC-0003-2560180': 'pminipro', 'RCP-0004-2560180': 'pprofi', 'RCP-0030-2560180': 'pevo' };
-  function pumpOptions() {
+  // насосы групп слева направо: артикул каждого (основной или заменённый только в этой группе, state.pumpGroupOv) и семейство модели
+  function pumpIds() {
+    var hk = null;
+    try { hk = A && A.hydroFrameKey && A.hydroFrameKey(); } catch (e) { hk = null; }
+    if (!hk) return null;
+    var ov = (A.state && A.state.pumpGroupOv) || {}, out = [];
+    for (var i = 0; i < String(hk.g || '').length; i++) out.push(ov[i] || hk.pid);
+    return out;
+  }
+  function pumpFams() {
+    var ids = pumpIds(); if (!ids) return null;
+    return ids.map(function (id) { return PUMP_FAM[id] || 'default'; });
+  }
+  // idx — номер группы слева направо (насос, по которому щёлкнули); без него — основной насос
+  function pumpOptions(idx) {
     var hk = null;
     try { hk = A && A.hydroFrameKey && A.hydroFrameKey(); } catch (e) { hk = null; }
     if (!hk || hk.dn === 20 || hk.dn === 32) return null;               // DN20 (15/60) и DN32: замены насоса на 3D-виде нет
-    var cur = hk.pid, rm = /^RCP-/.test(cur), seen = {}, list = [];
+    var ids = pumpIds() || [], cur = (idx != null && ids[idx]) || hk.pid, rm = /^RCP-/.test(hk.pid), seen = {}, list = [];
     ((typeof catalog !== 'undefined' && catalog.pumps_dn25) || []).forEach(function (p) {
       var it = rm ? p.rommer : p;
       if (!it || seen[it.id]) return;
       seen[it.id] = 1;
       list.push({ id: it.id, name: String(it.name || '').replace(/^Насос\s+/i, ''), price: it.price, fam: PUMP_FAM[it.id] || 'default', cur: it.id === cur, desc: p.desc || '' });
     });
-    return { cur: cur, list: list };
+    return { cur: cur, list: list, n: ids.length };
   }
-  function pumpSwap(id) {
+  // idx задан и групп больше одной — заменяется насос только этой группы; иначе — во всех группах (штатная замена строки сметы)
+  function pumpSwap(id, idx) {
     var eq = (A && A.currentEquipmentList) || [];
-    var it = eq.filter(function (x) { return !x.isOpt && /^(SPC|RCP)-\d{4}-2560180$/.test(String(x.displaySku || x.id)); })[0];
+    var rows = eq.filter(function (x) { return !x.isOpt && /^(SPC|RCP)-\d{4}-2560180$/.test(String(x.displaySku || x.id)) && /^2\.4/.test(String(x.group || '')); });
+    var it = rows.filter(function (x) { return A._pumpMainOrig && x.originalId === A._pumpMainOrig; })[0] || rows[0];
     if (!it) return false;
+    var ids = pumpIds() || [];
+    if (idx != null && ids.length > 1) {
+      var base = it.displaySku || it.id, ov = Object.assign({}, A.state.pumpGroupOv || {});
+      if (id === base) delete ov[idx]; else ov[idx] = id;
+      A.state.pumpGroupOv = ov;
+      A.render(); A.saveState();
+      return true;
+    }
+    A.state.pumpGroupOv = {};
     A.selectSwapAlternative(it.originalId || it.id, id);
     return true;
   }
@@ -1448,5 +1473,5 @@
     return a;
   }
 
-  window.RoomView = { html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, tankAngle: tankAngle, tankRotate: tankRotate };
+  window.RoomView = { html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
 })();

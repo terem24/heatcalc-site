@@ -91,7 +91,7 @@
       '.r3-lbl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}' +
       '.r3-hint{position:absolute;right:12px;bottom:10px;font:11px system-ui,Arial,sans-serif;color:#64748B}' +
       '.r3-pk{position:absolute;z-index:4;transform:translate(-50%,0);min-width:120px;max-width:170px;text-align:center;padding:7px 10px;border-radius:11px;background:rgba(255,255,255,.92);color:#0F172A;font:12px/1.3 system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.2);cursor:pointer;transition:background .15s,transform .15s}' +
-      '.r3-pk b{display:block;font-weight:600;font-size:12px}.r3-pk span{display:block;opacity:.7;margin-top:1px}.r3-pk i{display:inline-block;margin-top:4px;padding:1px 9px;border-radius:99px;background:#2563EB;color:#fff;font-style:normal;font-size:11px}' +
+      '.r3-pk b{display:block;font-weight:600;font-size:12px}.r3-pk span{display:block;opacity:.7;margin-top:1px}.r3-pk i{display:inline-block;margin:4px 2px 0;padding:1px 9px;border-radius:99px;background:#2563EB;color:#fff;font-style:normal;font-size:11px}' +
       '.r3-pk.cur i{background:#16A34A}.r3-pk.hv{background:#fff;transform:translate(-50%,0) scale(1.06)}' +
       '.r3-pkbar{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:12px;background:rgba(15,23,42,.88);color:#fff;font:13px system-ui,Arial,sans-serif}' +
       '.r3-pkbar button{border:0;border-radius:8px;padding:5px 12px;background:rgba(255,255,255,.16);color:#fff;font:12px system-ui,Arial,sans-serif;cursor:pointer}.r3-pkbar button:hover{background:rgba(255,255,255,.28)}' +
@@ -672,9 +672,30 @@
     });
     return S.pumpGlb[fam];
   }
-  function bakedPump(fid) {
+  // Штатные насосы всех групп коллектора лежат в сцене одним компонентом «kit#0» (их коробки соприкасаются), а заменять надо каждый
+  // отдельно: меши делятся на насосы по положению слева направо (перекрывающиеся по X отрезки — один насос), номер = номер группы.
+  function tagPumps(fid) {
+    S.pumpN = S.pumpN || {};
+    if (S.pumpN[fid] !== undefined) return S.pumpN[fid];
+    var ms = [];
+    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay) ms.push(o); }); });
+    var iv = ms.map(function (o) { var b = new S.T.Box3().setFromObject(o); return { o: o, a: b.min.x, z: b.max.x }; }).sort(function (p, q) { return p.a - q.a; });
+    var n = -1, end = -1e9;
+    iv.forEach(function (it) {
+      if (it.a > end + 0.004) { n++; end = it.z; } else end = Math.max(end, it.z);
+      it.o.userData.pump = n;
+    });
+    S.pumpN[fid] = n + 1;
+    return n + 1;
+  }
+  function bakedOf(fid, i) {
     var out = [];
-    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay) out.push(o); }); });
+    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay && o.userData.pump === i) out.push(o); }); });
+    return out;
+  }
+  function overlayOf(fid, i) {
+    var out = [];
+    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (o.userData.overlay && o.userData.pump === i) out.push(o); }); });
     return out;
   }
   function boxOf(arr) { var T = S.T, b = new T.Box3(); arr.forEach(function (o) { b.union(new T.Box3().setFromObject(o)); }); return b; }
@@ -684,47 +705,53 @@
     root.position.add(new T.Vector3(a.getCenter(new T.Vector3()).x - b.getCenter(new T.Vector3()).x, a.min.y - b.min.y, a.min.z - b.min.z));
     root.updateMatrixWorld(true);
   }
+  // у каждой группы свой насос: вид накладывает нужную модель на место именно этого штатного насоса (а не всех сразу)
   function applyPumps() {
     if (!S || !S.ready) return;
     S.pumpOv = S.pumpOv || {};
     S.spec.layers.forEach(function (Ly) {
       if (Ly.kind !== 'hydro') return;
-      var want = famOf(Ly.pf), baked = famOf(Ly.baked), cur = S.pumpOv[Ly.fid];
-      if (cur && cur.fam === want) return;
-      var bk = bakedPump(Ly.fid); if (!bk.length) return;
-      if (cur) {
-        S.root.remove(cur.root);
-        S.comps[cur.key] = (S.comps[cur.key] || []).filter(function (o) { return !o.userData.overlay; });
-        delete S.pumpOv[Ly.fid];
-      }
-      if (want === baked) { bk.forEach(function (o) { o.visible = true; }); return; }
-      var key = bk[0].userData.comp;
-      loadPumpGlb(want).then(function (src) {
-        if (!src || !S || S.pumpOv[Ly.fid]) return;
-        var root = src.clone(true);
-        root.position.set(0, 0, 0); root.updateMatrixWorld(true);
-        seatPump(root, bk);
-        bk.forEach(function (o) { o.visible = false; });
-        root.traverse(function (m) {
-          if (!m.isMesh) return;
-          m.castShadow = true; m.receiveShadow = true; m.userData.comp = key; m.userData.overlay = 1;
-          m.userData.box = new S.T.Box3().setFromObject(m);
-          (S.comps[key] = S.comps[key] || []).push(m);
+      var baked = famOf(Ly.baked), fams = Ly.pfs || [], n = tagPumps(Ly.fid);
+      for (var i = 0; i < n; i++) (function (i) {
+        var sk = Ly.fid + '#' + i, want = fams[i] != null ? famOf(fams[i]) : famOf(Ly.pf), cur = S.pumpOv[sk];
+        if (cur && cur.fam === want) return;
+        var bk = bakedOf(Ly.fid, i); if (!bk.length) return;
+        if (cur) {
+          if (cur.root) S.root.remove(cur.root);
+          Object.keys(S.comps).forEach(function (k) { S.comps[k] = S.comps[k].filter(function (o) { return !(o.userData.overlay && o.userData.pump === i && k.indexOf('hydro|' + Ly.fid + '|') === 0); }); });
+          delete S.pumpOv[sk];
+        }
+        if (want === baked) { bk.forEach(function (o) { o.visible = true; }); return; }
+        S.pumpOv[sk] = { fam: want, pending: true };
+        loadPumpGlb(want).then(function (src) {
+          var pend = S && S.pumpOv[sk];
+          if (!src || !pend || !pend.pending || pend.fam !== want) { if (pend && pend.pending && pend.fam === want) delete S.pumpOv[sk]; return; }
+          var root = src.clone(true), key = bk[0].userData.comp;
+          root.position.set(0, 0, 0); root.updateMatrixWorld(true);
+          seatPump(root, bk);
+          bk.forEach(function (o) { o.visible = false; });
+          root.traverse(function (m) {
+            if (!m.isMesh) return;
+            m.castShadow = true; m.receiveShadow = true; m.userData.comp = key; m.userData.overlay = 1; m.userData.pump = i;
+            m.userData.box = new S.T.Box3().setFromObject(m);
+            (S.comps[key] = S.comps[key] || []).push(m);
+          });
+          S.root.add(root); S.pumpOv[sk] = { fam: want, root: root };
         });
-        S.root.add(root); S.pumpOv[Ly.fid] = { fam: want, root: root, key: key };
-      });
+      })(i);
     });
   }
 
   // ── выбор насоса: щелчок по насосу открывает «витрину» — камера подходит к группе, остальное гаснет, перед группой в ряд стоят
   // насосы-варианты (вращаются), под каждым имя и цена; щелчок по варианту заменяет насос в смете и на виде, по пустому месту — закрывает
-  function openPicker(compKey) {
-    var T = S.T, opts = window.RoomView.pumpOptions(); if (!opts || !opts.list.length) return;
-    var fid = compKey.split('|')[1], bk = bakedPump(fid), ov = S.pumpOv && S.pumpOv[fid];
-    var meshes = (ov ? (S.comps[ov.key] || []).filter(function (o) { return o.userData.overlay; }) : bk);
+  function openPicker(compKey, pumpIdx) {
+    var T = S.T, fid = compKey.split('|')[1], idx = pumpIdx != null ? pumpIdx : 0;
+    var opts = window.RoomView.pumpOptions(idx); if (!opts || !opts.list.length) return;
+    var ov = S.pumpOv && S.pumpOv[fid + '#' + idx];
+    var meshes = (ov && ov.root ? overlayOf(fid, idx) : bakedOf(fid, idx));
     if (!meshes.length) return;
     var C = boxOf(meshes).getCenter(new T.Vector3());
-    var P = { key: compKey, fid: fid, opts: opts, items: [], group: new T.Group(), saved: { p: S.cam.position.toArray(), t: S.ctl.target.toArray() }, faded: [], hover: -1, t0: performance.now(), C: C };
+    var P = { key: compKey, fid: fid, idx: idx, many: opts.n > 1, opts: opts, items: [], group: new T.Group(), saved: { p: S.cam.position.toArray(), t: S.ctl.target.toArray() }, faded: [], hover: -1, t0: performance.now(), C: C };
     var gap = 0.2, n = opts.list.length;
     S.picker = P;
     Promise.all(opts.list.map(function (o) { return loadPumpGlb(o.fam); })).then(function (srcs) {
@@ -740,11 +767,13 @@
         root.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.userData.pickIdx = i; } });
         P.group.add(holder);
         var el = document.createElement('div'); el.className = 'r3-pk' + (o.cur ? ' cur' : '');
-        el.innerHTML = '<b>' + esc(o.name) + '</b><span>' + (o.price ? Number(o.price).toLocaleString('ru-RU') + ' ₽' : '') + '</span><i>' + (o.cur ? 'сейчас' : 'выбрать') + '</i>';
+        // при нескольких группах у каждого варианта две кнопки: заменить насос только этой группы или во всех группах сразу
+        el.innerHTML = '<b>' + esc(o.name) + '</b><span>' + (o.price ? Number(o.price).toLocaleString('ru-RU') + ' ₽' : '') + '</span>' +
+          (P.many ? '<i data-s="one">' + (o.cur ? 'сейчас' : 'этой группе') + '</i><i data-s="all">всем</i>' : '<i data-s="all">' + (o.cur ? 'сейчас' : 'выбрать') + '</i>');
         // плашка — обычный элемент поверх canvas: щелчок по ней до canvas не доходит, поэтому свой обработчик
         el.addEventListener('pointerdown', function (e) { e.stopPropagation(); });
         el.addEventListener('pointerup', function (e) { e.stopPropagation(); });
-        el.addEventListener('click', function (e) { e.stopPropagation(); pickerChoose(i); });
+        el.addEventListener('click', function (e) { e.stopPropagation(); var b = e.target.closest && e.target.closest('i'); pickerChoose(i, b ? b.getAttribute('data-s') : (P.many ? 'one' : 'all')); });
         el.addEventListener('pointerenter', function () { if (S.picker === P) P.hover = i; });
         el.addEventListener('pointerleave', function () { if (S.picker === P && P.hover === i) P.hover = -1; });
         S.wrap.appendChild(el);
@@ -760,6 +789,12 @@
       setFade(k, true); P.faded.push(k);
     });
     P.covers = (S.covers || []).map(function (c) { return [c, c.visible]; }); (S.covers || []).forEach(function (c) { c.visible = false; });     // крышка открывается на время выбора
+    // насосы остальных групп на время выбора тоже убираются: витрина стоит перед группой, и они только загораживают варианты
+    P.others = [];
+    for (var j = 0, nn = tagPumps(fid); j < nn; j++) if (j !== idx) {
+      var oj = S.pumpOv && S.pumpOv[fid + '#' + j];
+      (oj && oj.root ? overlayOf(fid, j) : bakedOf(fid, j)).forEach(function (o) { if (o.visible) { o.visible = false; P.others.push(o); } });
+    }
     meshes.forEach(function (o) { o.visible = false; });                  // штатный насос уходит со своего места: варианты рядом, текущий среди них
     var bar = document.createElement('div'); bar.className = 'r3-pkbar'; bar.innerHTML = '<span>Выберите насос группы</span><button type="button">Закрыть</button>';
     bar.querySelector('button').addEventListener('click', function (e) { e.stopPropagation(); closePicker(); });
@@ -773,12 +808,14 @@
     for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.userData.pickIdx !== undefined) return o.userData.pickIdx; }
     return -1;
   }
-  function pickerChoose(i) {
+  function pickerChoose(i, scope) {
     var P = S.picker; if (!P) return;
     var it = P.items.filter(function (x) { return x.i === i; })[0]; if (!it) return;
-    if (it.o.cur) { closePicker(); return; }
-    var id = it.o.id, nm = it.o.name; closePicker();
-    if (window.RoomView.pumpSwap(id)) msg('Насос заменён: ' + nm);
+    var all = !P.many || scope === 'all';
+    if (it.o.cur && !all) { closePicker(); return; }
+    var id = it.o.id, nm = it.o.name, idx = P.idx; closePicker();
+    var ok = all ? window.RoomView.pumpSwap(id) : window.RoomView.pumpSwap(id, idx);
+    if (ok) msg('Насос заменён' + (all ? ' во всех группах' : ' в этой группе') + ': ' + nm);
     else msg('Не удалось заменить насос: в смете не найден насос группы');
   }
   function pickerClick(e) {
@@ -806,9 +843,10 @@
     P.faded.forEach(function (k) { if (S.comps[k]) setFade(k, false); });
     if (S.pipeGroup) S.pipeGroup.visible = true;
     (P.covers || []).forEach(function (q) { q[0].visible = q[1]; });
-    var ov = S.pumpOv && S.pumpOv[P.fid];
-    if (ov) (S.comps[ov.key] || []).forEach(function (o) { if (o.userData.overlay) o.visible = true; });
-    else bakedPump(P.fid).forEach(function (o) { o.visible = true; });
+    var ov = S.pumpOv && S.pumpOv[P.fid + '#' + P.idx];
+    if (ov && ov.root) overlayOf(P.fid, P.idx).forEach(function (o) { o.visible = true; });
+    else bakedOf(P.fid, P.idx).forEach(function (o) { o.visible = true; });
+    (P.others || []).forEach(function (o) { o.visible = true; });
     if (!silent) flyTo(P.saved.p, P.saved.t);
   }
 
@@ -910,6 +948,14 @@
   function coversOpen() { return !!(S && S.coversOpen); }
 
   // первая видимая деталь под курсором (насквозь через прозрачные не идём): нужна, чтобы щелчок по крышке не попадал в насос за ней
+  // номер насоса (группы слева направо) под курсором: насосы разных групп лежат в одном компоненте, различаются меткой userData.pump
+  function pumpHit(e) {
+    var T = S.T, cvs = S.r.domElement, rc = cvs.getBoundingClientRect();
+    S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);
+    var hits = S.ray.intersectObject(S.root, true);
+    for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.visible && o.userData.pump !== undefined && /^hydro\|[^|]+\|kit#/.test(o.userData.comp || '')) return o.userData.pump; }
+    return 0;
+  }
   function firstHit(e) {
     var T = S.T, cvs = S.r.domElement, rc = cvs.getBoundingClientRect();
     S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);
@@ -944,7 +990,7 @@
         var kp = pick(e);
         if (kp && /^dhw\|w0\|/.test(kp) && S.tankPivot && window.RoomView && window.RoomView.tankRotate) { if (S.tg) closeTankGizmo(); else openTankGizmo(); return; }
         if (S.tg) closeTankGizmo();
-        if (kp && /^hydro\|[^|]+\|kit#/.test(kp) && window.RoomView && window.RoomView.pumpOptions && window.RoomView.pumpOptions()) { openPicker(kp); return; }
+        if (kp && /^hydro\|[^|]+\|kit#/.test(kp) && window.RoomView && window.RoomView.pumpOptions && window.RoomView.pumpOptions()) { openPicker(kp, pumpHit(e)); return; }
         if (A.state.roomViewLabels) { var k2 = pick(e), c2 = compOf(k2); if (c2) { var ck2 = String(k2).split('#')[0]; S.pins[ck2] = !S.pins[ck2]; } }
         return;
       }
