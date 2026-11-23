@@ -211,6 +211,8 @@
       o.castShadow = true; o.receiveShadow = true;
       // передняя крышка теплоизоляции группы: закрыта по умолчанию, не часть компонентов сметы (щёлкается отдельно)
       if (/^(крышка[_ ]группы|наклейка[_ ]STOUT[_ ]на[_ ]крышке|плашка[_ ]ROMMER[_ ]на[_ ]крышке)/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.cover = Ly.fid; (S.covers = S.covers || []).push(o); o.visible = !S.coversOpen; return; }
+      // сервопривод и его ручка стоят под крышкой группы: при закрытой крышке не видны (syncServos), открылась — появились
+      if (Ly.kind === 'hydro' && /^(сервопривод|ручка|указатель|значок[_ ]|точка[_ ]|окошко)/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.servo = Ly.fid; (S.servos = S.servos || []).push(o); }
       // наклейки (логотипы, экраны, шкалы) — прозрачные плоскости в доле миллиметра над корпусом: без тени и со смещением глубины, иначе мерцают
       var m0 = Array.isArray(o.material) ? o.material[0] : o.material;
       if (m0 && m0.transparent && m0.map) { o.castShadow = false; m0.depthWrite = false; m0.polygonOffset = true; m0.polygonOffsetFactor = -2; m0.polygonOffsetUnits = -2; }
@@ -986,7 +988,7 @@
       if (S.picker) { pickerClick(e); return; }
       if (!S.mode) {
         var fh = firstHit(e);
-        if (fh && fh.userData.cover) { fh.visible = false; if (S.covers && S.covers.every(function (c) { return !c.visible; })) S.coversOpen = true; msg('Крышка открыта: щёлкните по насосу, чтобы заменить; кнопка на панели закрывает крышки'); return; }
+        if (fh && fh.userData.cover) { openCoverAt(fh); if (S.covers && S.covers.every(function (c) { return !c.visible; })) S.coversOpen = true; msg('Крышка открыта: щёлкните по насосу, чтобы заменить; кнопка на панели закрывает крышки'); return; }
         var kp = pick(e);
         if (kp && /^dhw\|w0\|/.test(kp) && S.tankPivot && window.RoomView && window.RoomView.tankRotate) { if (S.tg) closeTankGizmo(); else openTankGizmo(); return; }
         if (S.tg) closeTankGizmo();
@@ -1027,6 +1029,26 @@
     var w = S.wrap.clientWidth, h = S.wrap.clientHeight; if (!w || !h) return;
     S.r.setSize(w, h, false); S.cam.aspect = w / h; S.cam.updateProjectionMatrix();
   }
+  // крышки по группам: плита «крышка группы» задаёт полосу по X, всё, что в ней (логотип, нижняя часть, сервопривод), — та же группа
+  function coverPlates() {
+    if (S.plates) return S.plates;
+    S.plates = (S.covers || []).filter(function (c) { return /^крышка[_ ]группы$/.test(c.name.replace(/_?\d+$/, '')); }).map(function (c) {
+      var b = new S.T.Box3().setFromObject(c); return { c: c, a: b.min.x - 0.004, z: b.max.x + 0.004 };
+    });
+    return S.plates;
+  }
+  function cx(o) { var b = new S.T.Box3().setFromObject(o); return (b.min.x + b.max.x) / 2; }
+  function plateOf(o) { var x = cx(o), r = null; coverPlates().forEach(function (p) { if (x >= p.a && x <= p.z) r = p; }); return r; }
+  function syncServos() {
+    if (!S.servos) return;
+    S.servos.forEach(function (o) { var p = plateOf(o); o.visible = p ? !p.c.visible : true; });
+  }
+  // щелчок по крышке открывает группу целиком: плита, логотип и нижняя часть этой группы, соседние не трогаем
+  function openCoverAt(hit) {
+    var p = plateOf(hit);
+    if (!p) { hit.visible = false; return; }
+    (S.covers || []).forEach(function (c) { var x = cx(c); if (x >= p.a && x <= p.z) c.visible = false; });
+  }
   function loop() {
     if (!S) return;
     S.raf = requestAnimationFrame(loop);
@@ -1035,6 +1057,7 @@
     var e = S.cam.matrixWorldInverse.elements, cb = S.wrap.querySelector('.cb');
     S.cam.updateMatrixWorld();
     cb.style.transform = 'matrix3d(' + [e[0], -e[1], e[2], 0, -e[4], e[5], -e[6], 0, e[8], -e[9], e[10], 0, 0, 0, 0, 1].join(',') + ')';
+    syncServos();
     if (S.picker) pickerTick();
     if (S.tg) tankGizmoTick();
     if (S.chk) { var kp = 1 + 0.18 * Math.sin(Date.now() / 220); S.chk.children.forEach(function (m, i) { if (i % 2 === 0) m.scale.setScalar(kp); }); }

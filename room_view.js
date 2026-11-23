@@ -1402,10 +1402,12 @@
       if (id === base) delete ov[idx]; else ov[idx] = id;
       A.state.pumpGroupOv = ov;
       A.render(); A.saveState();
+      if (FULL) renderFull();             // сцена 3D не пересобирается сама: насос на виде меняется только по свежему составу (applyPumps)
       return true;
     }
     A.state.pumpGroupOv = {};
     A.selectSwapAlternative(it.originalId || it.id, id);
+    if (FULL) renderFull();
     return true;
   }
 
