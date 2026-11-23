@@ -1014,6 +1014,7 @@
     pin: '<path d="M6 3h12v18l-6-4-6 4z"/>',
     pinall: '<path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7v6M9 10h6"/>',
     undo: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+    check: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
     cover: '<rect x="5" y="3" width="14" height="18" rx="3.5"/><circle cx="9.5" cy="8" r="1.7"/><circle cx="14.5" cy="8" r="1.7"/><rect x="8" y="12" width="8" height="5" rx="1"/>',
     x: '<path d="M5 5l14 14M19 5L5 19"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
@@ -1101,7 +1102,7 @@
     h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels) + ibtn('list', 'list', 'Состав котельной: единый список позиций', !!app.state.roomViewList);
     if (pro && (st === 'real' || st === 'flow')) h += ibtn('flow', 'flow', 'Поток теплоносителя и показания', st === 'flow');
     if (st === '3d') {
-      h += '<i class="sep"></i>' + ibtn('covers', 'cover', 'Крышки теплоизоляции насосных групп: открыть или закрыть все', !!(window.Room3D && window.Room3D.coversOpen && window.Room3D.coversOpen())) + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
+      h += '<i class="sep"></i>' + ibtn('check', 'check', 'Проверка сборки: красным подсвечиваются неподключённые трубы и порты, углы без фитинга, пересечения; жёлтым — свободные порты', !!(window.Room3D && window.Room3D.checkOn && window.Room3D.checkOn())) + ibtn('covers', 'cover', 'Крышки теплоизоляции насосных групп: открыть или закрыть все', !!(window.Room3D && window.Room3D.coversOpen && window.Room3D.coversOpen())) + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
         ibtn('save', 'pin', 'Зафиксировать вид для себя') + (app.wmPreviewOn() ? ibtn('saveall', 'pinall', 'Вид по умолчанию для всех') : '') + ibtn('home', 'undo', 'Сбросить вид');
     }
     h += '<i class="sep"></i>' + ibtn('close', 'x', 'Закрыть (Esc)');
@@ -1140,7 +1141,7 @@
       if (st === '3d') barFull(app, st); else renderFull();
       return;
     }
-    if (st === '3d' && window.Room3D && (a === 'fade' || a === 'covers' || a === 'save' || a === 'saveall' || a === 'home')) {
+    if (st === '3d' && window.Room3D && (a === 'fade' || a === 'check' || a === 'covers' || a === 'save' || a === 'saveall' || a === 'home')) {
       var r = window.Room3D.cmd(a);
       if (r && r.msg) toast(r.msg);
       barFull(app, st);
@@ -1403,8 +1404,8 @@
     return { routes: out, dy: dy };
   }
   function tankRoutes(tank, tp, routes, ang) {
-    // плоскости труб те же, что у room_3d.js (ROLE_Z): подача бойлера 50 мм от стены, обратка 140 мм — иначе новый участок не стыкуется с магистралью
-    var ZLD = 0.05, ZLR = 0.14, RUN = 0.102;       // RUN: прямой участок перед патрубком = плечо угольника 22 (57 мм) + 45 мм, иначе угольник не встаёт
+    // плоскости труб те же, что у room_3d.js (ROLE_Z): подача бойлера 50 мм от стены, обратка 160 мм — иначе новый участок не стыкуется с магистралью
+    var ZLD = 0.05, ZLR = 0.16, RUN = 0.102;       // RUN: прямой участок перед патрубком = плечо угольника 22 (57 мм) + 45 мм, иначе угольник не встаёт
     var R = -tp[0].pos_m[1] - 0.05, ax = tank.off[0], dA = R + 0.05;
     var ends = {};                                    // расстояние от оси бойлера до конца трубы на патрубке — по самой трассе плоского вида (конец трубы = край переходника)
     routes.forEach(function (r) {

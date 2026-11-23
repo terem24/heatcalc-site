@@ -16,7 +16,7 @@
   var GLB_V = 8;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
-  var ROLE_Z = { sup: 0.19, ret: 0.14, ld: 0.05, lr: 0.14 };   // глубины труб от стены; разница с глубиной патрубка узла обязана быть 0 или не меньше 28 мм (пара 45° не встаёт в меньший сдвиг, труба осталась бы изогнутой без фитинга): патрубки узлов 81 и 107 мм дают 31 и 33 мм
+  var ROLE_Z = { sup: 0.19, ret: 0.16, ld: 0.05, lr: 0.16 };   // глубины труб от стены; разница с глубиной патрубка узла обязана быть 0 или не меньше 28 мм (пара 45° не встаёт в меньший сдвиг, труба осталась бы изогнутой без фитинга): патрубки узлов 81 и 107 мм дают 31 и 53 мм; обратка на 160 мм — глубина портов коллектора, труба входит в порт без сдвига
   var ROLE_COL = { cw: 0x0891B2, sup: 0xE53935, ret: 0x1E88E5, ld: 0xF57C00, lr: 0x1E88E5 };
   var L = null, loading = null;      // библиотеки
   var S = null;                      // живая сцена (одна на страницу)
@@ -95,6 +95,8 @@
       '.r3-pk.cur i{background:#16A34A}.r3-pk.hv{background:#fff;transform:translate(-50%,0) scale(1.06)}' +
       '.r3-pkbar{position:absolute;top:70px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:12px;padding:8px 14px;border-radius:12px;background:rgba(15,23,42,.88);color:#fff;font:13px system-ui,Arial,sans-serif}' +
       '.r3-pkbar button{border:0;border-radius:8px;padding:5px 12px;background:rgba(255,255,255,.16);color:#fff;font:12px system-ui,Arial,sans-serif;cursor:pointer}.r3-pkbar button:hover{background:rgba(255,255,255,.28)}' +
+      '.r3-chk{position:absolute;z-index:5;left:12px;top:70px;max-width:340px;padding:8px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
+      '.r3-chk b{display:block;margin-bottom:4px;font-size:13px}.r3-chk div{padding:2px 0 2px 14px;position:relative}.r3-chk div:before{content:"";position:absolute;left:2px;top:7px;width:8px;height:8px;border-radius:50%}.r3-chk .bad:before{background:#EF4444}.r3-chk .free:before{background:#F59E0B}' +
       '.r3-tg{position:absolute;z-index:5;transform:translate(-50%,-100%);display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
       '.r3-tg button{width:32px;height:32px;border:0;border-radius:9px;background:#2563EB;color:#fff;font-size:18px;line-height:1;cursor:pointer}.r3-tg button:hover{background:#1D4ED8}';
     document.head.appendChild(st);
@@ -148,24 +150,47 @@
     });
     // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
     var fb = (window.app && window.app.state && window.app.state.brandMode === 'rommer') ? '_r' : '';
-    S.fit = {}; S.plan = planPipes(spec, T);
-    S.bad = spec.rot ? violations(S.plan, T) : [];          // проверка сборки новых труб бойлера: пересечения, углы без фитинга, нехватка прямого участка
-    if (S.bad.length) console.warn('[3D] поворот бойлера не собирается:', S.bad.map(function (v) { return v.t + ' ' + (v.msg || ''); }));
-    var keys = {}; S.plan.places.forEach(function (pl) { keys[pl.key] = 1; });
-    Object.keys(keys).forEach(function (k) {
-      jobs.push(new Promise(function (res) { gl.load(GLB_DIR + 'fitting_' + k + fb + '.glb', function (g) { S.fit[k] = g.scene; res({ L: null, g: null, fit: true }); }, null, function () { res({ L: null, g: null, fit: true }); }); }));
-    });
+    S.fit = {};
     return Promise.all(jobs).then(function (rs) {
-      rs = rs.filter(function (x) { return !x.fit; });
       var miss = [];
       rs.forEach(function (x) { if (!x.g) { miss.push(x.L.kind + '_' + x.L.key); return; } place(x.L, x.g.scene); });
       S.miss = miss;
+      // порты узлов (устья с резьбой) известны только после загрузки моделей: по ним труба получает переходник на резьбу, а проверка — места стыка
+      S.mouths = collectMouths();
+      S.plan = planPipes(spec, T, S.mouths);
+      S.bad = spec.rot ? violations(S.plan, T) : [];          // проверка сборки новых труб бойлера: пересечения, углы без фитинга, нехватка прямого участка
+      if (S.bad.length) console.warn('[3D] поворот бойлера не собирается:', S.bad.map(function (v) { return v.t + ' ' + (v.msg || ''); }));
+      var keys = {}, fj = []; S.plan.places.forEach(function (pl) { keys[pl.key] = 1; });
+      Object.keys(keys).forEach(function (k) {
+        fj.push(new Promise(function (res) { gl.load(GLB_DIR + 'fitting_' + k + fb + '.glb', function (g) { S.fit[k] = g.scene; res(); }, null, function () { res(); }); }));
+      });
+      return Promise.all(fj);
+    }).then(function () {
+      var miss = S.miss;
       split(); applyTankRot(); pipes(); wall(); fit(true); bindUi(); S.ready = true; applyPumps();
       var ld = S.wrap.querySelector('.r3-load'); if (ld) ld.remove();
       if (miss.length) msg('Нет 3D-модели: ' + miss.join(', '));
       loop();
     });
   }
+
+  // порты узлов: устья резьбовых гнёзд «устье_<размер>[_ВР|НР]» из моделей (tools/render_*_node.py); размер без указания — G3/4
+  // (сепаратор). Положение — центр устья в мире; направление трубы берётся по самой трубе
+  function collectMouths() {
+    var T = S.T, out = [];
+    S.root.updateMatrixWorld(true);
+    S.root.traverse(function (o) {
+      if (!o.isMesh || !/^устье/.test(o.name)) return;
+      var m = /^устье_?(\d+?)?(?:_(ВР|НР))?(\d{3})?$/.exec(o.name); if (!m) return;
+      var b = new T.Box3().setFromObject(o), c = b.getCenter(new T.Vector3());
+      out.push({ P: c, size: m[1] || '34', male: m[2] === 'НР', used: false, name: o.name });
+    });
+    return out;
+  }
+  var THR_TXT = { '12': '1/2"', '34': '3/4"', '1': '1"', '114': '1 1/4"', '112': '1 1/2"' };
+  var ADP_OK = {};
+  [[22, '1', 'M'], [22, '34', 'M'], [22, '34', 'F'], [22, '12', 'M'], [22, '12', 'F'], [28, '1', 'M'], [28, '1', 'F'], [28, '34', 'M'], [28, '34', 'F'],
+   [35, '1', 'M'], [35, '1', 'F'], [35, '114', 'M'], [35, '114', 'F'], [42, '112', 'M'], [42, '112', 'F']].forEach(function (a) { ADP_OK['adp_' + a[0] + 'x' + a[1] + '_' + a[2]] = 1; });
 
   // деталь узла: на своё место, заводские патрубки скрыть, детали разложить по компонентам сметы
   function place(Ly, obj) {
@@ -238,7 +263,7 @@
   // Размеры деталей и правила стыка — room_fit.js (паспорт ROMMER): угольник 90° в углу трубы, пара угольников 45° при смещении по глубине,
   // переходной тройник на отводе другого размера, угольник меньшего размера и переходные муфты при стыке разных размеров.
   var GRPS = { sup: 'h', ld: 'h', ret: 'c', lr: 'c' };
-  function planPipes(spec, T) {
+  function planPipes(spec, T, mouths) {
     var PS = psys(spec.mat), steel = PS.k === 'ss' && !!window.RoomFit, built = [], places = [], seen = {}, RF = window.RoomFit, MMV = 0.001;
     var dirv = function (a, b) { return b.clone().sub(a).normalize(); };
     var perp = function (u) { var v = new T.Vector3().crossVectors(u, Math.abs(u.x) < 0.9 ? new T.Vector3(1, 0, 0) : new T.Vector3(0, 1, 0)); return v.normalize(); };
@@ -249,6 +274,16 @@
       var zp = rt.role === 'cw' ? (rt.plane || 100) / 1000 : (ROLE_Z[rt.role] || 0.1), pp = rt.pp, n = pp.length, pts = [], V = function (i, z) { return new T.Vector3(pp[i][0] / PXM, -pp[i][1] / PXM, z); };
       var d0 = rt.d0 == null ? null : rt.d0, d1 = rt.d1 == null ? null : rt.d1;
       pts.push(V(0, d0 == null ? zp : d0));
+      if (n === 2) {
+        // труба из двух точек с портами на другой глубине: ступень (пара 45°) делается не на самом конце, а в 5 см от него по трубе,
+        // чтобы было где встать угольникам; без этого труба промахивалась мимо порта на разницу глубин
+        var L2 = Math.hypot(pp[1][0] - pp[0][0], pp[1][1] - pp[0][1]) / PXM, ux = (pp[1][0] - pp[0][0]) / PXM / (L2 || 1), uy = -(pp[1][1] - pp[0][1]) / PXM / (L2 || 1);
+        var W = function (k, z) { return new T.Vector3(pp[0][0] / PXM + ux * k, -pp[0][1] / PXM + uy * k, z); };
+        var s0 = Math.min(0.05, L2 / 3);
+        if (d0 != null && Math.abs(d0 - zp) > 0.004) { pts[0] = W(0, d0); pts.push(W(s0, d0)); pts.push(W(s0, zp)); } else pts[0] = W(0, zp);
+        if (d1 != null && Math.abs(d1 - zp) > 0.004) { pts.push(W(L2 - s0, zp)); pts.push(W(L2 - s0, d1)); pts.push(W(L2, d1)); } else pts.push(W(L2, d1 != null ? d1 : zp));
+        return pts.filter(function (pt, i) { return i === 0 || pt.distanceTo(pts[i - 1]) > 1e-4; });
+      }
       if (d0 != null && n > 1) { pts.push(V(1, d0)); if (Math.abs(d0 - zp) > 0.004) pts.push(V(1, zp)); } else if (n > 1) pts.push(V(1, zp));
       for (var q = 2; q < n - 1; q++) pts.push(V(q, zp));
       if (n > 2) {
@@ -411,6 +446,25 @@
         });
       });
     }
+    // 4) концы труб на резьбовых портах узлов: переходник ВПр-НР (порт с гнездом ВР) или ВПр-ВР (порт с наружной резьбой) по каталогу SSS-2021/2022;
+    // переходник ввинчивается в порт, торец трубы уходит в раструб на 13 мм от плоскости устья
+    if (steel && mouths) {
+      built.forEach(function (r) {
+        if (!r.ok) return;
+        var n = r.pts.length;
+        [0, n - 1].forEach(function (e) {
+          if (r.cut[e] || n < 2) return;
+          var P = r.pts[e], mo = null, md = 0.02;
+          mouths.forEach(function (q) { var d = q.P.distanceTo(P); if (d < md && !q.used) { md = d; mo = q; } });
+          if (!mo) return;
+          var key = 'adp_' + r.s + 'x' + mo.size + '_' + (mo.male ? 'F' : 'M');
+          if (!ADP_OK[key]) return;
+          var u = dirv(P, r.pts[e === 0 ? 1 : n - 2]);
+          r.cut[e] = 0.013; mo.used = true; mo.adp = key;
+          put(key, P, u, perp(u), '#adp');
+        });
+      });
+    }
     return { built: built, places: places, PS: PS, steel: steel };
   }
 
@@ -444,8 +498,8 @@
       if (!all && !b.rt.p3) return;
       var pts = b.pts, n = pts.length, j;
       if (plan.steel && b.ok && b.rt.p3) {
-        for (j = 1; j < n - 1; j++) if (!b.cut[j]) bad.push({ t: 'corner', ri: bi, msg: 'угол без угольника, точка ' + j });
-        for (j = 0; j < n - 1; j++) { var L = pts[j].distanceTo(pts[j + 1]), need = (b.cut[j] || 0) + (b.cut[j + 1] || 0); if (L < need) bad.push({ t: 'short', ri: bi, msg: 'участок ' + j + ' короче вылетов фитингов: ' + L.toFixed(3) + ' < ' + need.toFixed(3) }); }
+        for (j = 1; j < n - 1; j++) if (!b.cut[j]) bad.push({ t: 'corner', ri: bi, p: pts[j].clone(), msg: 'Угол трубы без фитинга (труба просто изогнута)' });
+        for (j = 0; j < n - 1; j++) { var L = pts[j].distanceTo(pts[j + 1]), need = (b.cut[j] || 0) + (b.cut[j + 1] || 0); if (L < need) bad.push({ t: 'short', ri: bi, p: pts[j].clone().add(pts[j + 1]).multiplyScalar(0.5), msg: 'Участок трубы ' + Math.round(L * 1000) + ' мм короче вылетов фитингов (' + Math.round(need * 1000) + ' мм): не собрать' }); }
       }
       B.forEach(function (o, oi) {
         if (oi === bi || (all && oi < bi)) return;
@@ -455,12 +509,69 @@
           var A1 = pts[j], A2 = pts[j + 1], C1 = o.pts[k], C2 = o.pts[k + 1];
           if (ptSeg(A1, C1, C2) < 0.012 || ptSeg(A2, C1, C2) < 0.012 || ptSeg(C1, A1, A2) < 0.012 || ptSeg(C2, A1, A2) < 0.012) continue;      // стык: конец одной трубы лежит на другой
           var d = segDist(A1, A2, C1, C2), lim = b.rad + o.rad + 0.006;
-          if (d < lim) bad.push({ t: 'cross', ri: bi, other: oi, at: [j, k], msg: 'пересечение трасс ' + bi + '/' + oi + ' (участки ' + j + '/' + k + '): ' + d.toFixed(3) + ' < ' + lim.toFixed(3) });
+          if (d < lim) bad.push({ t: 'cross', ri: bi, other: oi, at: [j, k], p: A1.clone().add(A2).multiplyScalar(0.5), msg: 'Трубы пересекаются или стоят вплотную: ' + Math.round(d * 1000) + ' мм между осями, нужно не меньше ' + Math.round(lim * 1000) });
         }
       });
     });
     return bad;
   }
+
+  // ── проверка правильности сборки (кнопка «Проверка сборки»): подсветка красным мест, где собрать нельзя или нечем:
+  // труба никуда не подключена, на резьбовом порту нет переходника, угол без фитинга, труба пересекает трубу, участок короче вылетов фитингов;
+  // жёлтым — свободные порты оборудования (не ошибка, но не подключены)
+  function assemblyIssues() {
+    var T = S.T, plan = S.plan, B = plan.built, out = [], socks = [];
+    S.root.traverse(function (o) {
+      if (o.isMesh && o.visible && /^(раструб|кольцо_пресс|труба)/.test(o.name)) socks.push(new T.Box3().setFromObject(o));     // раструб переходника или труба-выпуск самого узла
+    });
+    var onPipe = function (P, skip) {
+      return B.some(function (o, oi) {
+        if (oi === skip) return false;
+        for (var k = 0; k < o.pts.length - 1; k++) if (ptSeg(P, o.pts[k], o.pts[k + 1]) < 0.012) return true;
+        return false;
+      });
+    };
+    B.forEach(function (b, bi) {
+      var n = b.pts.length;
+      [0, n - 1].forEach(function (e) {
+        var P = b.pts[e];
+        if (b.cut[e] || onPipe(P, bi)) return;                                     // фитинг или другая труба
+        if (socks.some(function (bx) { return bx.distanceToPoint(P) < 0.035; })) return;     // раструб переходника в самой модели узла
+        var mo = null; (S.mouths || []).forEach(function (q) { if (q.P.distanceTo(P) < 0.02) mo = q; });
+        if (mo) out.push({ lvl: 'bad', P: P.clone(), text: 'На порту ' + portThrText(mo) + ' нет переходника на трубу Ø' + b.s });
+        else out.push({ lvl: 'bad', P: P.clone(), text: 'Труба Ø' + b.s + ' никуда не подключена' });
+      });
+    });
+    (S.mouths || []).forEach(function (q) {
+      if (q.used) return;
+      var near = B.some(function (b) { return b.pts.some(function (p) { return p.distanceTo(q.P) < 0.03; }); });
+      if (!near) out.push({ lvl: 'free', P: q.P.clone(), text: 'Свободный порт ' + portThrText(q) });
+    });
+    violations(plan, T, true).forEach(function (v) { out.push({ lvl: 'bad', P: v.p || null, text: v.msg }); });
+    return out.filter(function (x) { return x.P; });
+  }
+  function portThrText(q) { return 'Rp ' + (THR_TXT[q.size] || q.size) + (q.male ? ' (НР)' : ' (ВР)'); }
+  function clearChk() {
+    if (S.chk) { S.root.remove(S.chk); S.chk = null; }
+    var el = S.wrap.querySelector('.r3-chk'); if (el) el.remove();
+  }
+  function showChk() {
+    var T = S.T, list = assemblyIssues(), g = new T.Group(), bad = list.filter(function (x) { return x.lvl === 'bad'; }).length;
+    list.forEach(function (it) {
+      var col = it.lvl === 'bad' ? 0xEF4444 : 0xF59E0B;
+      var m = new T.Mesh(new T.SphereGeometry(0.03, 20, 14), new T.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.5, depthTest: false }));
+      m.position.copy(it.P); m.renderOrder = 999; m.userData.chk = true; g.add(m);
+      var r = new T.Mesh(new T.TorusGeometry(0.036, 0.003, 8, 32), new T.MeshBasicMaterial({ color: col, depthTest: false }));
+      r.position.copy(it.P); r.renderOrder = 1000; g.add(r);
+    });
+    S.root.add(g); S.chk = g;
+    var el = document.createElement('div'); el.className = 'r3-chk';
+    el.innerHTML = '<b>' + (bad ? 'Замечаний: ' + bad : 'Ошибок сборки нет') + (list.length > bad ? ', свободных портов: ' + (list.length - bad) : '') + '</b>' +
+      list.slice(0, 12).map(function (x) { return '<div class="' + x.lvl + '">' + esc(x.text) + '</div>'; }).join('') + (list.length > 12 ? '<div>… ещё ' + (list.length - 12) + '</div>' : '');
+    S.wrap.appendChild(el);
+    return { msg: bad ? 'Проверка сборки: ' + bad + ' замечаний, места подсвечены красным' : 'Проверка сборки: все трубы подключены, пересечений нет' };
+  }
+  function checkOn() { return !!(S && S.chk); }
 
   // трубы системы по трассам плоского вида: горизонтали и вертикали на своей глубине от стены; концы — по плану фитингов (труба входит в раструб)
   function pipes() {
@@ -766,6 +877,10 @@
       if (!S.mode) { Object.keys(S.hid).forEach(function (k) { setFade(k, false); }); return { msg: 'Прозрачность выключена, детали возвращены' }; }
       return { msg: 'Щёлкните по детали, чтобы сделать её прозрачной; ещё раз — вернуть' };
     }
+    if (a === 'check') {
+      if (S.chk) { clearChk(); return { msg: 'Проверка сборки выключена' }; }
+      return showChk();
+    }
     if (a === 'covers') {
       if (!S.covers || !S.covers.length) return { msg: 'В этой сборке нет насосных групп' };
       S.coversOpen = !S.coversOpen; S.covers.forEach(function (o) { o.visible = !S.coversOpen; });
@@ -861,6 +976,7 @@
     cb.style.transform = 'matrix3d(' + [e[0], -e[1], e[2], 0, -e[4], e[5], -e[6], 0, e[8], -e[9], e[10], 0, 0, 0, 0, 1].join(',') + ')';
     if (S.picker) pickerTick();
     if (S.tg) tankGizmoTick();
+    if (S.chk) { var kp = 1 + 0.18 * Math.sin(Date.now() / 220); S.chk.children.forEach(function (m, i) { if (i % 2 === 0) m.scale.setScalar(kp); }); }
     S.r.render(S.scene, S.cam);
     labels();
   }
@@ -900,6 +1016,11 @@
       var v = wp.project(S.cam);
       if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return;
       items.push({ x: (v.x * 0.5 + 0.5) * W, y: (-v.y * 0.5 + 0.5) * H, text: t });
+    });
+    (S.mouths || []).forEach(function (q) {
+      var v = q.P.clone().project(S.cam);
+      if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return;
+      items.push({ x: (v.x * 0.5 + 0.5) * W, y: (-v.y * 0.5 + 0.5) * H, text: 'Порт ' + portThrText(q) });
     });
     G.RoomLabels.draw(svg, items, W, H); S.lblOn = true;
   }
@@ -956,5 +1077,5 @@
       svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = out;
     }
   };
-  G.Room3D = { _bad: function () { return S && S.bad; }, _seg: function (a, b, c, d) { return segDist(a, b, c, d); }, _all: function () { return S && violations(S.plan, S.T, true); }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
+  G.Room3D = { checkOn: checkOn, _bad: function () { return S && S.bad; }, _seg: function (a, b, c, d) { return segDist(a, b, c, d); }, _all: function () { return S && violations(S.plan, S.T, true); }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
 })(window);
