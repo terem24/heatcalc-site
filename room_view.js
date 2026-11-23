@@ -1366,7 +1366,7 @@
   function pumpOptions() {
     var hk = null;
     try { hk = A && A.hydroFrameKey && A.hydroFrameKey(); } catch (e) { hk = null; }
-    if (!hk) return null;
+    if (!hk || hk.dn === 20) return null;               // DN20: насосы 15/60 — замены на 3D-виде нет
     var cur = hk.pid, rm = /^RCP-/.test(cur), seen = {}, list = [];
     ((typeof catalog !== 'undefined' && catalog.pumps_dn25) || []).forEach(function (p) {
       var it = rm ? p.rommer : p;

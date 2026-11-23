@@ -210,7 +210,7 @@
       if (hideStub && STUB.test(o.name.replace(/_\d+$/, ''))) { o.visible = false; o.userData.stub = true; return; }
       o.castShadow = true; o.receiveShadow = true;
       // передняя крышка теплоизоляции группы: закрыта по умолчанию, не часть компонентов сметы (щёлкается отдельно)
-      if (/^крышка[_ ]группы/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.cover = Ly.fid; (S.covers = S.covers || []).push(o); o.visible = !S.coversOpen; return; }
+      if (/^(крышка[_ ]группы|наклейка[_ ]STOUT[_ ]на[_ ]крышке|плашка[_ ]ROMMER[_ ]на[_ ]крышке)/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.cover = Ly.fid; (S.covers = S.covers || []).push(o); o.visible = !S.coversOpen; return; }
       // наклейки (логотипы, экраны, шкалы) — прозрачные плоскости в доле миллиметра над корпусом: без тени и со смещением глубины, иначе мерцают
       var m0 = Array.isArray(o.material) ? o.material[0] : o.material;
       if (m0 && m0.transparent && m0.map) { o.castShadow = false; m0.depthWrite = false; m0.polygonOffset = true; m0.polygonOffsetFactor = -2; m0.polygonOffsetUnits = -2; }
