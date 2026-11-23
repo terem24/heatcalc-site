@@ -585,9 +585,9 @@
    "freq": 7200,
    "audience": "owner",
    "data_block": "состав из сметы",
-   "status": "queued",
+   "status": "published",
    "date": "2026-11-19",
-   "published_at": null,
+   "published_at": "2026-11-23",
    "words": 591
   },
   {
