@@ -260,6 +260,7 @@
       for (var gi = 0; gi < hk.g.length; gi++) {
         var oR = og[2 * gi], oS = og[2 * gi + 1];
         if (!oR || !oS) break;
+        if (/[ef]/.test(hk.g[gi])) { var oT = oR; oR = oS; oS = oT; }       // левое исполнение: подача слева, обратка справа
         cons.push({ kind: hk.g[gi] === 'd' ? 'rad' : 'floor', kw: kws[gi] || '', ret: add(oR.pos_m, hOff), sup: add(oS.pos_m, hOff) });
       }
     }
