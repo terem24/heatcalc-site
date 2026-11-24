@@ -86,7 +86,7 @@
     if (!boiler) return null;
     var s = sku(boiler).toUpperCase(), vol = parseInt(s.slice(-3), 10); if (vol === 190) vol = 200;
     // кадры бойлеров есть для трёх серий: b (OptiBase), gt (ROMMER), e (электро). Остальные берут кадр ближайшей модели того же объёма
-    var BK = { 'SWH-2110': 'b', 'RWH-2110': 'gt', 'SWH-3110': 'e', 'SWH-1110': 'b', 'SWH-4110': 'd' };
+    var BK = { 'SWH-2110': 'b', 'RWH-2110': 'gt', 'SWH-3110': 'e', 'SWH-1110': 's', 'SWH-4110': 'd' };      // SWH-1110 (300 и 500 л) — свой вид «s»; остальные объёмы берут ближайший кадр
     var di = (A.nodeIndex && DATA && DATA.DI) || {};
     var order = [BK[s.slice(0, 8)], 'b', 'gt', 'e', 'd'], tank = null, i, k;
     for (i = 0; i < order.length && !tank; i++) if (di[order[i] + vol + '_k']) tank = order[i] + vol;
