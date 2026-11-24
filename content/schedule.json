@@ -599,9 +599,9 @@
    "freq": 18600,
    "audience": "owner",
    "data_block": "сравнение затрат",
-   "status": "queued",
+   "status": "published",
    "date": "2026-11-21",
-   "published_at": null,
+   "published_at": "2026-11-24",
    "words": 529
   },
   {
