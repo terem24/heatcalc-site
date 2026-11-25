@@ -613,9 +613,9 @@
    "freq": 18200,
    "audience": "owner",
    "data_block": "расценки",
-   "status": "queued",
+   "status": "published",
    "date": "2026-11-24",
-   "published_at": null,
+   "published_at": "2026-11-25",
    "words": 518
   },
   {
