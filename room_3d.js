@@ -245,7 +245,7 @@
       return Promise.all(fj);
     }).then(function () {
       var miss = S.miss;
-      split(); applyTankRot(); pipes(); wall(); fit(true); bindUi(); S.ready = true; applyPumps();
+      split(); applyTankRot(); pipes(); wall(); fit(true); bindUi(); S.ready = true; applyPumps(); applyMixPumps();
       var ld = S.wrap.querySelector('.r3-load'); if (ld) ld.remove();
       if (miss.length) { msg('Нет 3D-модели: ' + miss.join(', ')); failBanner(miss.length === S.spec.layers.length ? 'Оборудование не загрузилось' : 'Часть оборудования не загрузилась'); }
       loop();
@@ -807,14 +807,15 @@
     S.pumpN[fid] = n + 1;
     return n + 1;
   }
+  function isKit(k, fid) { return k.indexOf('hydro|' + fid + '|kit#') === 0 || k.indexOf('ufhmix|' + fid + '|pump#') === 0; }
   function bakedOf(fid, i) {
     var out = [];
-    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay && o.userData.pump === i) out.push(o); }); });
+    Object.keys(S.comps).forEach(function (k) { if (isKit(k, fid)) S.comps[k].forEach(function (o) { if (!o.userData.overlay && o.userData.pump === i) out.push(o); }); });
     return out;
   }
   function overlayOf(fid, i) {
     var out = [];
-    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (o.userData.overlay && o.userData.pump === i) out.push(o); }); });
+    Object.keys(S.comps).forEach(function (k) { if (isKit(k, fid)) S.comps[k].forEach(function (o) { if (o.userData.overlay && o.userData.pump === i) out.push(o); }); });
     return out;
   }
   function boxOf(arr) { var T = S.T, b = new T.Box3(); arr.forEach(function (o) { b.union(new T.Box3().setFromObject(o)); }); return b; }
@@ -876,16 +877,52 @@
     });
   }
 
+  // ── насос узла подмеса SDG-0120-001000: узел продаётся без насоса (гайки G 1 1/2" на 130 мм друг от друга), насос по смете (25/60-130 STOUT или
+  // ROMMER PROFI) накладывается отдельной моделью models3d/pumps/pump_<семейство>130.glb: ось — по оси гайки клапана, низ — по низу гайки клапана
+  function applyMixPumps() {
+    if (!S || !S.ready) return;
+    S.pumpOv = S.pumpOv || {};
+    S.spec.layers.forEach(function (Ly) {
+      if (Ly.kind !== 'ufhmix') return;
+      var sk = Ly.fid + '#0', want = Ly.pf ? famOf(Ly.pf) : '', cur = S.pumpOv[sk];
+      if (cur && cur.fam === want) return;
+      if (cur) {
+        if (cur.root) S.root.remove(cur.root);
+        Object.keys(S.comps).forEach(function (k) { S.comps[k] = S.comps[k].filter(function (o) { return !(o.userData.overlay && k.indexOf('ufhmix|' + Ly.fid + '|pump#') === 0); }); });
+        delete S.pumpOv[sk];
+      }
+      if (!want) return;
+      var nut = [];
+      Object.keys(S.comps).forEach(function (k) { if (k.indexOf('ufhmix|' + Ly.fid + '|') === 0) S.comps[k].forEach(function (o) { if (/^гайка_насоса_\(клапан\)/.test(o.name)) nut.push(o); }); });
+      if (!nut.length) return;
+      S.pumpOv[sk] = { fam: want, pending: true };
+      loadPumpGlb(want).then(function (src) {
+        var pend = S && S.pumpOv[sk];
+        if (!src || !pend || !pend.pending || pend.fam !== want) { if (pend && pend.pending && pend.fam === want) delete S.pumpOv[sk]; return; }
+        var root = src.clone(true), key = 'ufhmix|' + Ly.fid + '|pump#0';
+        root.position.set(0, 0, 0); root.updateMatrixWorld(true);
+        seatPump(root, nut);
+        root.traverse(function (m) {
+          if (!m.isMesh) return;
+          m.castShadow = true; m.receiveShadow = true; m.userData.comp = key; m.userData.overlay = 1; m.userData.pump = 0;
+          m.userData.box = new S.T.Box3().setFromObject(m);
+          (S.comps[key] = S.comps[key] || []).push(m);
+        });
+        S.root.add(root); S.pumpOv[sk] = { fam: want, root: root };
+      });
+    });
+  }
+
   // ── выбор насоса: щелчок по насосу открывает «витрину» — камера подходит к группе, остальное гаснет, перед группой в ряд стоят
   // насосы-варианты (вращаются), под каждым имя и цена; щелчок по варианту заменяет насос в смете и на виде, по пустому месту — закрывает
   function openPicker(compKey, pumpIdx) {
     var T = S.T, fid = compKey.split('|')[1], idx = pumpIdx != null ? pumpIdx : 0;
-    var opts = window.RoomView.pumpOptions(idx); if (!opts || !opts.list.length) return;
+    var opts = window.RoomView.pumpOptions(idx, fid); if (!opts || !opts.list.length) return;
     var ov = S.pumpOv && S.pumpOv[fid + '#' + idx];
     var meshes = (ov && ov.root ? overlayOf(fid, idx) : bakedOf(fid, idx));
     if (!meshes.length) return;
     var C = boxOf(meshes).getCenter(new T.Vector3());
-    var P = { key: compKey, fid: fid, idx: idx, many: opts.n > 1, opts: opts, items: [], group: new T.Group(), saved: { p: S.cam.position.toArray(), t: S.ctl.target.toArray() }, faded: [], hover: -1, t0: performance.now(), C: C };
+    var P = { key: compKey, fid: fid, idx: idx, mix: /^ufhmix\|/.test(compKey), many: opts.n > 1, opts: opts, items: [], group: new T.Group(), saved: { p: S.cam.position.toArray(), t: S.ctl.target.toArray() }, faded: [], hover: -1, t0: performance.now(), C: C };
     var n = opts.list.length;
     // раскладка вариантов: в ряд на широком экране, в две колонки на телефоне стоймя (ряд из четырёх не помещался, плашки налезали друг на друга)
     var cw = S.wrap.clientWidth || 1, ch = S.wrap.clientHeight || 1, asp = cw / ch, cols = asp < 0.85 ? Math.min(2, n) : n, rows = Math.ceil(n / cols);
@@ -922,7 +959,7 @@
     if (S.pipeGroup) S.pipeGroup.visible = false;
     Object.keys(S.comps).forEach(function (k) {
       if (S.hid[k]) return;
-      if (k.indexOf('hydro|' + fid + '|kit#') === 0) return;
+      if (isKit(k, fid)) return;
       setFade(k, true); P.faded.push(k);
     });
     P.covers = (S.covers || []).map(function (c) { return [c, c.visible]; }); (S.covers || []).forEach(function (c) { c.visible = false; });     // крышка открывается на время выбора
@@ -954,8 +991,8 @@
     var all = !P.many || scope === 'all';
     if (it.o.cur && !all) { closePicker(); return; }
     var id = it.o.id, nm = it.o.name, idx = P.idx; closePicker();
-    var ok = all ? window.RoomView.pumpSwap(id) : window.RoomView.pumpSwap(id, idx);
-    if (ok) msg('Насос заменён' + (all ? ' во всех группах' : ' в этой группе') + ': ' + nm);
+    var ok = P.mix ? window.RoomView.pumpSwap(id, 0, P.fid) : (all ? window.RoomView.pumpSwap(id) : window.RoomView.pumpSwap(id, idx));
+    if (ok) msg('Насос заменён' + (P.mix ? '' : (all ? ' во всех группах' : ' в этой группе')) + ': ' + nm);
     else msg('Не удалось заменить насос: в смете не найден насос группы');
   }
   function pickerClick(e) {
@@ -1109,7 +1146,7 @@
     var T = S.T, cvs = S.r.domElement, rc = cvs.getBoundingClientRect();
     S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);
     var hits = S.ray.intersectObject(S.root, true);
-    for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.visible && o.userData.pump !== undefined && /^hydro\|[^|]+\|kit#/.test(o.userData.comp || '')) return o.userData.pump; }
+    for (var i = 0; i < hits.length; i++) { var o = hits[i].object; if (o.visible && o.userData.pump !== undefined && /^(hydro\|[^|]+\|kit#|ufhmix\|[^|]+\|pump#)/.test(o.userData.comp || '')) return o.userData.pump; }
     return 0;
   }
   function firstHit(e) {
@@ -1148,6 +1185,7 @@
         if (kp && /^dhw\|w0\|/.test(kp) && S.tankPivot && window.RoomView && window.RoomView.tankRotate) { if (S.tg) closeTankGizmo(); else openTankGizmo(); return; }
         if (S.tg) closeTankGizmo();
         if (kp && /^hydro\|[^|]+\|kit#/.test(kp) && window.RoomView && window.RoomView.pumpOptions && window.RoomView.pumpOptions()) { openPicker(kp, pumpHit(e)); return; }
+        if (kp && /^ufhmix\|[^|]+\|pump#/.test(kp) && window.RoomView && window.RoomView.pumpOptions && window.RoomView.pumpOptions(0, kp.split('|')[1])) { openPicker(kp, 0); return; }
         if (A.state.roomViewLabels) { var k2 = pick(e), c2 = compOf(k2); if (c2) { var ck2 = String(k2).split('#')[0]; S.pins[ck2] = !S.pins[ck2]; } }
         return;
       }
@@ -1283,7 +1321,7 @@
   // ── вход: сцена в окне «На весь экран»; при смене состава сметы собирается заново, при возврате в тот же вид камера та же
   function show(host, spec, app) {
     A = app; loadDefaults();
-    if (S && S.spec.sig === spec.sig && S.ready) { S.spec = spec; host.appendChild(S.wrap); resize(); applyPumps(); return; }
+    if (S && S.spec.sig === spec.sig && S.ready) { S.spec = spec; host.appendChild(S.wrap); resize(); applyPumps(); applyMixPumps(); return; }
     if (S && S.building === spec.sig) { host.appendChild(S.wrap); return; }
     // сцену надо собрать заново (другой состав, поворот бойлера): камера и прозрачные детали переходят в новую, а прежний кадр остаётся
     // на экране, пока она грузится — иначе вид мигал пустым полем с надписью «Загрузка»
