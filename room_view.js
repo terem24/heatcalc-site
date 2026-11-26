@@ -115,7 +115,14 @@
 
   // ── бойлер слева или справа от котла (state.roomViewTankSide: 'l' | 'r', по умолчанию справа, как в проектах).
   // Слева бойлер зеркален: кадр отражается по вертикали оси, патрубки змеевика смотрят на котёл; в 3D модель разворачивается на 180° вокруг оси.
-  function tankSide() { return (A && A.state && A.state.roomViewTankSide === 'l') ? 'l' : 'r'; }
+  var FORCE_R = false;                 // сторона по умолчанию из админки «слева» не собралась: этот проход строится справа
+  function tankSide() {
+    var v = A && A.state && A.state.roomViewTankSide;
+    if (FORCE_R) return 'r';
+    if (v === 'l' || v === 'r') return v;                      // выбор в смете главнее
+    var d = A && A.appSettings && A.appSettings.room_view;     // иначе сторона по умолчанию из админки (app_settings.room_view)
+    return d && d.tank === 'l' ? 'l' : 'r';
+  }
   function mirrorFr(fr) {
     var z = {}; Object.keys(fr.zones || {}).forEach(function (k) { var q = fr.zones[k]; z[k] = [1 - q[2], q[1], 1 - q[0], q[3]]; });
     var o = {}; Object.keys(fr).forEach(function (k) { o[k] = fr[k]; });
@@ -421,6 +428,10 @@
     }
     if (!hOff && typeof nhCons !== 'undefined' && nhCons && nhCons.length && nhCons[0].sup) nhCons.forEach(function (cn) { cons.push(cn); });
     var problems = checkLayout(layers, routes, xinfo);
+    if (left && problems.length && !FORCE_R && !(A.state && A.state.roomViewTankSide === 'l')) {     // слева по умолчанию, а не по выбору в смете: не собралось — остаётся справа
+      FORCE_R = true;
+      try { return await build(steps); } finally { FORCE_R = false; }
+    }
     problems.forEach(function (t) { notes.push('раскладка: ' + t); });
     return { layers: layers, routes: routes, notes: notes, cons: cons, exps: exps, problems: problems, side: left ? 'l' : 'r' };
   }
