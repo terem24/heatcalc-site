@@ -14,6 +14,71 @@
   'use strict';
   var A = null;                           // приложение: подставляется в RoomView.html(app)
   var PXM = 1500;
+  // ── фон стены: без фона (белый в светлой теме, тёмный в ночной), кирпич, серые блоки, брус; «из описания» берёт материал стены объекта
+  var WALL_KINDS = ['off', 'auto', 'brick', 'block', 'wood'];
+  var WALL_NAMES = { off: 'Без фона', auto: 'Как в описании объекта', brick: 'Кирпич', block: 'Серые блоки', wood: 'Дерево (брус)' };
+  function isDark() { return !!(document.body && document.body.classList.contains('dark-mode')); }
+  function wallFromObject(app) {
+    var s = app.state || {};
+    if (s.objectType === 'flat') return null;
+    var ls = (s.detailedRooms && s.wallLayers) || [];
+    for (var i = 0; i < ls.length; i++) {
+      var id = String(ls[i].matId || '');
+      if (/brick/.test(id)) return 'brick';
+      if (/wood/.test(id)) return 'wood';
+      if (/gas|ceramic|concrete/.test(id)) return 'block';
+    }
+    return s.mat === 1.3 ? 'wood' : s.mat === 0.8 ? 'block' : 'brick';
+  }
+  function wallKind(app) {
+    var k = (app && app.state && app.state.roomWall) || 'off';
+    if (k === 'auto') k = wallFromObject(app) || 'off';
+    return k;
+  }
+  // плитка 1024 px = 1,28 м стены, стыкуется по обеим осям: кирпич 5 в ряду x 16 рядов, блок 2 x 4, брус 8 по высоте
+  var WALL_TILES = {};
+  function wallTile(kind, dark) {
+    var key = kind + (dark ? 'd' : 'l'); if (WALL_TILES[key]) return WALL_TILES[key];
+    var S = 1024, cv = document.createElement('canvas'); cv.width = cv.height = S;
+    var g = cv.getContext('2d'), seed = kind === 'brick' ? 7 : kind === 'block' ? 11 : 5;
+    function rnd() { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; }
+    function mix(c, d) { return 'rgb(' + c.map(function (v) { return Math.max(0, Math.min(255, Math.round(v + d))); }).join(',') + ')'; }
+    if (kind === 'brick') {
+      var bw = S / 5, bh = S / 16, m = 6;
+      g.fillStyle = '#CDC6BA'; g.fillRect(0, 0, S, S);
+      for (var r = 0; r < 16; r++) for (var c = -1; c < 5; c++) {
+        var x = c * bw + (r % 2 ? bw / 2 : 0), d = (rnd() - 0.5) * 34, t = (rnd() - 0.5) * 18;
+        g.fillStyle = mix([176 + t, 84 + d * 0.6, 58 + d * 0.5], d);
+        g.fillRect(x + m / 2, r * bh + m / 2, bw - m, bh - m);
+        for (var k = 0; k < 40; k++) { g.fillStyle = 'rgba(' + (rnd() < 0.5 ? '255,235,210' : '60,25,15') + ',' + (0.05 + rnd() * 0.07).toFixed(3) + ')'; g.fillRect(x + m / 2 + rnd() * (bw - m), r * bh + m / 2 + rnd() * (bh - m), 2 + rnd() * 4, 2 + rnd() * 3); }
+      }
+    } else if (kind === 'block') {
+      var w2 = S / 2, h2 = S / 4, j = 5;
+      g.fillStyle = '#9EA2A6'; g.fillRect(0, 0, S, S);
+      for (var r2 = 0; r2 < 4; r2++) for (var c2 = -1; c2 < 2; c2++) {
+        var x2 = c2 * w2 + (r2 % 2 ? w2 / 2 : 0), d2 = (rnd() - 0.5) * 14;
+        g.fillStyle = mix([186, 189, 192], d2); g.fillRect(x2 + j / 2, r2 * h2 + j / 2, w2 - j, h2 - j);
+        for (var k2 = 0; k2 < 260; k2++) { g.fillStyle = 'rgba(' + (rnd() < 0.5 ? '255,255,255' : '70,74,80') + ',' + (0.04 + rnd() * 0.08).toFixed(3) + ')'; g.fillRect(x2 + j / 2 + rnd() * (w2 - j), r2 * h2 + j / 2 + rnd() * (h2 - j), 1 + rnd() * 3, 1 + rnd() * 3); }
+      }
+    } else {
+      var n = 8, bh3 = S / n;
+      for (var i = 0; i < n; i++) {
+        var d3 = (rnd() - 0.5) * 30, y = i * bh3;
+        var gr = g.createLinearGradient(0, y, 0, y + bh3);
+        gr.addColorStop(0, mix([206, 160, 106], d3 + 8)); gr.addColorStop(0.5, mix([196, 148, 94], d3)); gr.addColorStop(1, mix([170, 124, 76], d3 - 6));
+        g.fillStyle = gr; g.fillRect(0, y, S, bh3);
+        for (var q = 0; q < 26; q++) {      // волокна: тонкие линии, стыкуются с началом по ширине
+          var yy = y + 6 + rnd() * (bh3 - 12), x0 = rnd() * S, len = 120 + rnd() * 360, j1 = (rnd() - 0.5) * 5, j2 = (rnd() - 0.5) * 5;
+          g.strokeStyle = 'rgba(' + (rnd() < 0.6 ? '95,60,28' : '230,196,150') + ',' + (0.10 + rnd() * 0.14).toFixed(3) + ')'; g.lineWidth = 1 + rnd() * 1.6;
+          [0, -S].forEach(function (o) { g.beginPath(); g.moveTo(x0 + o, yy); g.bezierCurveTo(x0 + len / 3 + o, yy + j1, x0 + 2 * len / 3 + o, yy + j2, x0 + len + o, yy); g.stroke(); });
+        }
+        g.fillStyle = 'rgba(70,42,18,.75)'; g.fillRect(0, y, S, 4); g.fillStyle = 'rgba(255,230,190,.35)'; g.fillRect(0, y + 4, S, 2);
+      }
+    }
+    if (dark) { g.fillStyle = 'rgba(8,10,14,.55)'; g.fillRect(0, 0, S, S); }
+    WALL_TILES[key] = cv; return cv;
+  }
+
   // труба обвязки по системе: наружный диаметр (как в смете: класс «22» — Ø22 нержавейка, Ø32 ППР, Ø26 металлопластик, Ø25 стабильная), вид и цвет
   var PIPE_SYS = { ss304: { od: 22, k: 'ss' }, ss316: { od: 22, k: 'ss' }, ppr: { od: 32, k: 'ppr' }, mp: { od: 26, k: 'mp' }, mp_r: { od: 26, k: 'mp' }, stable: { od: 25, k: 'stable' }, stable_r: { od: 25, k: 'stable' } };
   var PIPE_PAL = {
@@ -694,10 +759,16 @@
     x0 -= Math.max(150, fsd * 3.4); y0 -= 60; x1 += 60; y1 += Math.max(130, fsd * 2.8);   // слева и снизу запас под габаритные размеры: подпись высоты (повёрнута) и ширины входят в кадр целиком
     var cv = document.createElement('canvas'); cv.width = Math.round(x1 - x0); cv.height = Math.round(y1 - y0);
     var g = cv.getContext('2d');
-    var wl = g.createLinearGradient(0, 0, 0, cv.height); wl.addColorStop(0, '#E9EBEE'); wl.addColorStop(1, '#D8DBE0');
-    g.fillStyle = wl; g.fillRect(0, 0, cv.width, cv.height);
+    // фон: светлая тема - ровный белый, ночная - ровный тёмный; стена из материала - по выбору (wallKind)
+    var dk = isDark(), wk = wallKind(A);
+    g.fillStyle = dk ? '#24272C' : '#FFFFFF'; g.fillRect(0, 0, cv.width, cv.height);
     var tl = S.layers.filter(function (l) { return l.kind === 'dhw'; })[0], fy = tl ? tl.y + tl.h - y0 - 8 : cv.height - 120;
-    g.fillStyle = '#C4C8CE'; g.fillRect(0, fy, cv.width, cv.height - fy); g.fillStyle = '#B4B8BF'; g.fillRect(0, fy, cv.width, 10);
+    if (wk !== 'off') {
+      var pt = g.createPattern(wallTile(wk, dk), 'repeat'), kz = PXM * 1.28 / 1024;
+      if (pt.setTransform && window.DOMMatrix) pt.setTransform(new DOMMatrix().scale(kz));
+      g.fillStyle = pt; g.fillRect(0, 0, cv.width, fy);
+    }
+    g.fillStyle = dk ? '#1B1D21' : '#EEF0F3'; g.fillRect(0, fy, cv.width, cv.height - fy); g.fillStyle = dk ? '#121417' : '#D9DDE2'; g.fillRect(0, fy, cv.width, 8);
     S.layers.slice().sort(function (a, b) { return b.off[1] - a.off[1] || a.off[0] - b.off[0]; }).forEach(function (l) { g.drawImage(l.im, l.x - x0, l.y - y0, l.w, l.h); });
     var mat = (A.boilerPipeSystem && A.boilerPipeSystem()) || 'ss316';
     S.routes.forEach(function (r) { r.od = routeOd(r.sz, mat); });
@@ -997,6 +1068,7 @@
       '.rv-stage{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 6px 24px rgba(0,0,0,.18)}' +
       '.rv-stage.zoomable{cursor:zoom-in}' +
       '.rv-dims{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}' +
+      '.rv-hr{display:flex;gap:8px;align-items:center}.rv-wall{font:600 12px/1 system-ui,Arial,sans-serif;padding:6px 8px;border-radius:999px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer;max-width:190px}' +
       '.rv-dimbtn{font:600 12px/1 system-ui,Arial,sans-serif;padding:7px 12px;border-radius:999px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer}.rv-dimbtn.on{background:#1D4ED8;border-color:#1D4ED8;color:#fff}' +
       '.rv-dimnote{margin:8px 0 0;font:13px/1.45 system-ui,Arial,sans-serif;opacity:.85}' +
       '.rv-stage img,.rv-stage canvas{display:block;width:100%}.rv-stage canvas{position:absolute;inset:0;height:100%}.rv-ov{pointer-events:none}' +
@@ -1020,7 +1092,7 @@
       /* окно «На весь экран»: панель значков в духе Revit, одна на все виды */
       '.rv-gap{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.55);font:13px/1.45 system-ui,Arial,sans-serif}.rv-gap b{font-weight:600}' +
       /* выше нижней навигации приложения (z-index 10000002): раньше она лежала поверх 3D и закрывала нижнюю часть сцены; touch-action: щепоткой масштабирует сцена, а не страница (иначе панель уезжала за край экрана) */
-      '.rvm{position:fixed;inset:0;z-index:10000010;background:#E3E6EA;overflow:hidden;font-family:system-ui,Arial,sans-serif;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none}' +
+      '.rvm{position:fixed;inset:0;z-index:10000010;background:#fff;overflow:hidden;font-family:system-ui,Arial,sans-serif;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none}' +
       'body.rv-open .mobile-bottom-nav,body.rv-open .ai-parse-fab{display:none!important}' +
       '.rvm-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:72px 236px 22px}' +
       '.rvm-stage.is3d{padding:0}.rvm-stage.is3d .r3{position:absolute;inset:0;border-radius:0;height:100%}' +
@@ -1068,6 +1140,7 @@
     hl: '<path d="M5 3l14 7-6 2-2 6z"/>',
     tag: '<path d="M3 12l9-9h8v8l-9 9z"/><circle cx="16" cy="8" r="1.3"/>',
     ghost: '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5" opacity=".55"/>',
+    wall: '<path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/>',
     pin: '<path d="M6 3h12v18l-6-4-6 4z"/>',
     pinall: '<path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7v6M9 10h6"/>',
     undo: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
@@ -1181,6 +1254,15 @@
     var d = c && c.dims; if (!d) return '';
     return '<div class="rv-dimnote">Габарит оборудования с обвязкой: ширина <b>' + mmTxt(d.mW) + '</b>, высота <b>' + mmTxt(d.mH) + '</b> (от пола до верха самого высокого узла). Котельная должна быть не меньше этого, плюс проходы для монтажа и обслуживания.</div>';
   }
+
+  function wallSet(k) {
+    if (!A) return; if (WALL_KINDS.indexOf(k) < 0) k = 'off';
+    A.state.roomWall = k; A.saveState();
+    if (window.Room3D && window.Room3D.wallRefresh) window.Room3D.wallRefresh();
+    if (FULL) renderFull();
+    A.render();
+  }
+  try { new MutationObserver(function () { if (A) { if (window.Room3D && window.Room3D.wallRefresh) window.Room3D.wallRefresh(); A.render(); } }).observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) { }
   function toggleDims() {
     if (!A) return;
     A.state.roomViewDims = !A.state.roomViewDims; A.saveState();
@@ -1193,7 +1275,8 @@
     css();
     var dOn = dimsOn(app) && c.dims;
     return '<div class="rv"><div class="rv-head"><div class="rv-title">Общий вид котельной</div>' +
-      '<button type="button" class="rv-dimbtn' + (dOn ? ' on' : '') + '" onclick="RoomView.toggleDims()" title="Габаритные размеры котельной по ширине и высоте">Размеры</button></div>' +
+      '<span class="rv-hr"><select class="rv-wall" onchange="RoomView.wallSet(this.value)" title="Фон за оборудованием">' + WALL_KINDS.map(function (k) { return '<option value="' + k + '"' + ((app.state.roomWall || 'off') === k ? ' selected' : '') + '>' + (k === 'off' ? 'Фон: нет' : 'Фон: ' + WALL_NAMES[k].toLowerCase()) + '</option>'; }).join('') + '</select>' +
+      '<button type="button" class="rv-dimbtn' + (dOn ? ' on' : '') + '" onclick="RoomView.toggleDims()" title="Габаритные размеры котельной по ширине и высоте">Размеры</button></span></div>' +
       '<div class="rv-stage zoomable" data-style="' + st + '" onclick="RoomView.openFull()" title="Открыть на весь экран"><img src="' + c.url + '" alt="Общий вид котельной">' + (dOn ? dimsSvg(c) : '') +
       '<button type="button" class="scheme-zoom-btn" aria-label="На весь экран">⛶ На весь экран</button></div>' + (dOn ? dimsNote(c) : '') + gapHtml(app) + '</div>';
   }
@@ -1209,6 +1292,7 @@
   function barFull(app, st) {
     var pro = proOf(app), h = '';
     if (pro) h += ibtn('v:scheme', 'scheme', 'Схема', st === 'scheme') + ibtn('v:real', 'real', 'Реалистично', st === 'real' || st === 'flow') + ibtn('v:3d', 'cube', '3D: вращение и приближение', st === '3d') + '<i class="sep"></i>';
+    h += ibtn('wall', 'wall', 'Фон за оборудованием: нет, как в описании объекта, кирпич, серые блоки, дерево. Сейчас: ' + WALL_NAMES[app.state.roomWall || 'off'].toLowerCase(), (app.state.roomWall || 'off') !== 'off') + '<i class="sep"></i>';
     h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels) + ibtn('list', 'list', 'Состав котельной: единый список позиций', !!app.state.roomViewList) + (st !== '3d' ? ibtn('dims', 'dims', 'Габаритные размеры котельной: ширина и высота', dimsOn(app)) : '');
     if (pro && (st === 'real' || st === 'flow')) h += ibtn('flow', 'flow', 'Поток теплоносителя и показания', st === 'flow');
     if (st === '3d') {
@@ -1271,6 +1355,7 @@
     if (a === 'flow') { app.state.roomViewFlow = !app.state.roomViewFlow; app.state.roomViewStyle = 'real'; app.saveState(); renderFull(); return; }
     if (a === 'dims') { toggleDims(); return; }
     if (a === 'list') { app.state.roomViewList = !app.state.roomViewList; app.saveState(); barFull(app, st); drawList(); return; }
+    if (a === 'wall') { var cur = WALL_KINDS.indexOf(app.state.roomWall || 'off'), nk = WALL_KINDS[(cur + 1) % WALL_KINDS.length]; toast('Фон: ' + WALL_NAMES[nk].toLowerCase() + (nk === 'auto' ? ' (' + (WALL_NAMES[wallFromObject(app) || 'off'] || '').toLowerCase() + ')' : '')); wallSet(nk); return; }
     if (a === 'hl' || a === 'lbl') {
       var k = a === 'hl' ? 'roomViewHl' : 'roomViewLabels';
       app.state[k] = !app.state[k]; app.saveState();
@@ -1468,7 +1553,7 @@
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
     var hk = app.hydroFrameKey(), dk = dhwKeys();
-    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null]);
+    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null, wallKind(app), isDark()]);
     var c = cache[sig];
     if (c === 'wait') return null;
     if (!c) {
@@ -1664,5 +1749,5 @@
     var el = old || document.createElement('div'); el.className = 'rvm-move'; el.innerHTML = h; if (!old) MODAL.appendChild(el);
   }
 
-  window.RoomView = { toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
+  window.RoomView = { wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
 })();

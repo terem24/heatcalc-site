@@ -122,7 +122,7 @@
     if (document.getElementById('rv3d_css')) return;
     var st = document.createElement('style'); st.id = 'rv3d_css';
     st.textContent =
-      '.r3{position:relative;width:100%;height:100%;background:#E3E6EA;overflow:hidden;border-radius:14px;touch-action:none}' +
+      '.r3{position:relative;width:100%;height:100%;background:#fff;overflow:hidden;border-radius:14px;touch-action:none}' +
       '.r3 canvas{display:block;width:100%;height:100%;outline:none}' +
       '.r3.full{position:fixed;inset:0;z-index:99999;border-radius:0;height:100vh}' +
       '.r3-bar{position:absolute;left:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;max-width:calc(100% - 120px)}' +
@@ -133,7 +133,7 @@
       '.r3-msg.on{opacity:1}' +
       '.r3-tip{position:absolute;pointer-events:none;z-index:3;max-width:280px;padding:8px 11px;border-radius:10px;background:rgba(17,24,39,.94);color:#fff;font:12px/1.35 system-ui,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);opacity:0;transition:opacity .1s}' +
       '.r3-tip.on{opacity:1}.r3-tip b{display:block;font-weight:600;font-size:13px;margin-bottom:2px}.r3-tip span{opacity:.72}' +
-      '.r3-load{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;font:500 14px system-ui,Arial,sans-serif;color:#475569;background:#E3E6EA}' +
+      '.r3-load{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;font:500 14px system-ui,Arial,sans-serif;color:#475569;background:#fff}' +
       '.r3-load img,.r3-busy img{width:44px;height:44px;object-fit:contain;animation:r3pulse 1.6s ease-in-out infinite}' +
       '@keyframes r3pulse{0%,100%{transform:scale(.88);opacity:.55}50%{transform:scale(1);opacity:1}}' +
       /* пересборка сцены (замена оборудования, поворот бойлера): прежний кадр остаётся на экране, поверх — маленький значок загрузки, без мигания */
@@ -205,7 +205,7 @@
     r.outputColorSpace = T.SRGBColorSpace; r.toneMapping = T.ACESFilmicToneMapping; r.toneMappingExposure = 1.0;
     r.shadowMap.enabled = true; r.shadowMap.type = T.PCFSoftShadowMap;
     wrap.insertBefore(r.domElement, wrap.firstChild);
-    var scene = new T.Scene(); scene.background = new T.Color(0xE3E6EA);
+    var scene = new T.Scene(); scene.background = new T.Color(bgNow());
     var pm = new T.PMREMGenerator(r); scene.environment = pm.fromScene(new lib.RE(), 0.04).texture;
     var cam = new T.PerspectiveCamera(30, 1, 0.05, 60);
     var ctl = new lib.OC(cam, r.domElement); ctl.enableDamping = true; ctl.dampingFactor = 0.12; ctl.screenSpacePanning = true;
@@ -712,6 +712,23 @@
   }
 
   // стена и пол: светло-серый фон по размеру сцены, как на кадрах
+  // фон: светлая тема - белый, ночная - тёмный; стена из материала (кирпич, блоки, брус) - выбор в RoomView (state.roomWall)
+  function bgNow() { return (window.RoomView && window.RoomView.isDark && window.RoomView.isDark()) ? 0x24272C : 0xFFFFFF; }
+  function applyWall() {
+    if (!S || !S.wallMesh) return;
+    var T = S.T, RV = window.RoomView, dk = !!(RV && RV.isDark && RV.isDark()), kind = (RV && RV.wallKind && A) ? RV.wallKind(A) : 'off';
+    S.scene.background = new T.Color(bgNow());
+    var wm = S.wallMesh, fl = S.floor, ww = wm.geometry.parameters.width, wh = wm.geometry.parameters.height;
+    if (wm.material.map) wm.material.map.dispose(); wm.material.dispose();
+    var o = { roughness: 0.95, metalness: 0, toneMapped: false };
+    if (kind !== 'off' && RV && RV.wallTile) {
+      var tx = new T.CanvasTexture(RV.wallTile(kind, dk)); tx.colorSpace = T.SRGBColorSpace; tx.wrapS = tx.wrapT = T.RepeatWrapping;
+      tx.repeat.set(ww / 1.28, wh / 1.28); tx.anisotropy = 8; o.map = tx; o.color = 0xC8C8C8;
+    } else o.color = dk ? 0x24272C : 0xFFFFFF;
+    wm.material = new T.MeshStandardMaterial(o);
+    fl.material.dispose(); fl.material = new T.MeshStandardMaterial({ color: dk ? 0x1B1D21 : 0xEEF0F3, roughness: 0.9, metalness: 0, toneMapped: false });
+    S.wrap.style.background = '#' + ('000000' + bgNow().toString(16)).slice(-6);
+  }
   function wall() {
     var T = S.T, b = new T.Box3().setFromObject(S.root), sz = b.getSize(new T.Vector3()), c = b.getCenter(new T.Vector3());
     var w = sz.x + 2.2, h = sz.y + 1.4;
@@ -721,7 +738,7 @@
     wm.position.set(c.x, b.min.y - 0.08 + wh / 2, -0.004); wm.receiveShadow = true; S.root.add(wm);
     var fl = new T.Mesh(new T.PlaneGeometry(ww, 40), new T.MeshStandardMaterial({ color: 0xC4C8CE, roughness: 0.9, metalness: 0 }));
     fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, b.min.y - 0.08, 20); fl.receiveShadow = true; S.root.add(fl);
-    S.box = b; S.floor = fl; S.wallMesh = wm;
+    S.box = b; S.floor = fl; S.wallMesh = wm; applyWall();
     S.sun.position.set(c.x - 1.6, b.max.y + 2.4, 3.2); S.sun.target.position.set(c.x, c.y, 0);
     var sc = S.sun.shadow.camera; sc.left = -w / 2; sc.right = w / 2; sc.top = h / 2 + 1; sc.bottom = -h / 2 - 1; sc.near = 0.5; sc.far = 12; sc.updateProjectionMatrix();
   }
@@ -1022,7 +1039,7 @@
   // ── интерфейс
   // постоянная плашка с причиной (короткое сообщение в углу гасло за 2,6 с и на телефоне его не успевали прочесть)
   function failBanner(head) {
-    var d = document.createElement('div'); d.className = 'r3-load'; d.style.cssText = 'background:rgba(227,230,234,.92);text-align:center;padding:16px;cursor:pointer';
+    var d = document.createElement('div'); d.className = 'r3-load'; d.style.cssText = 'background:rgba(255,255,255,.94);text-align:center;padding:16px;cursor:pointer';
     d.innerHTML = '<span><b>' + head + '</b><br>' + esc(S.why || 'нет ответа') + '<br>Проверьте вход в аккаунт «Профи» и связь, затем откройте вид снова. Нажмите, чтобы закрыть.</span>';
     d.onclick = function () { d.remove(); }; S.wrap.appendChild(d);
   }
@@ -1324,5 +1341,5 @@
       svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = out;
     }
   };
-  G.Room3D = { checkOn: checkOn, _bad: function () { return S && S.bad; }, _seg: function (a, b, c, d) { return segDist(a, b, c, d); }, _all: function () { return S && violations(S.plan, S.T, true); }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
+  G.Room3D = { wallRefresh: applyWall, checkOn: checkOn, _bad: function () { return S && S.bad; }, _seg: function (a, b, c, d) { return segDist(a, b, c, d); }, _all: function () { return S && violations(S.plan, S.T, true); }, show: show, hide: hide, cmd: cmd, isFade: isFade, coversOpen: coversOpen, _scene: function () { return S; } };   // _scene — для проверок стыковки
 })(window);
