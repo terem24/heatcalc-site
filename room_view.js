@@ -690,7 +690,8 @@
     });
     S.routes.forEach(function (r) { r.pts.forEach(function (p) { var q = r.scr ? p : proj(p); x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }); });
     (S.cons || []).forEach(function (c) { var a = proj(c.sup), b = proj(c.ret); y0 = Math.min(y0, Math.min(a[1], b[1]) - 150 - 150 * (Math.abs(a[0] - b[0]) / 64) - 60); x0 = Math.min(x0, Math.min(a[0], b[0]) - 200); x1 = Math.max(x1, Math.max(a[0], b[0]) + 200); });
-    x0 -= 150; y0 -= 60; x1 += 60; y1 += 130;   // слева и снизу запас под габаритные размеры
+    var fsd = Math.max(24, (x1 - x0 + 210) / 60);
+    x0 -= Math.max(150, fsd * 3.4); y0 -= 60; x1 += 60; y1 += Math.max(130, fsd * 2.8);   // слева и снизу запас под габаритные размеры: подпись высоты (повёрнута) и ширины входят в кадр целиком
     var cv = document.createElement('canvas'); cv.width = Math.round(x1 - x0); cv.height = Math.round(y1 - y0);
     var g = cv.getContext('2d');
     var wl = g.createLinearGradient(0, 0, 0, cv.height); wl.addColorStop(0, '#E9EBEE'); wl.addColorStop(1, '#D8DBE0');
@@ -1165,7 +1166,7 @@
   function dimsOn(app) { return !!(app && app.state && app.state.roomViewDims); }
   function dimsSvg(c) {
     var d = c && c.dims; if (!d) return '';
-    var W = c.w, H = c.h, fs = Math.round(Math.max(24, W / 60)), col = '#1D4ED8', ay = Math.min(H - fs * 0.6, d.floor + fs * 1.9), ax = Math.max(fs * 0.9, d.l - fs * 2.2), a = fs * 0.45;
+    var W = c.w, H = c.h, fs = Math.round(Math.max(24, W / 60)), col = '#111827', ay = Math.min(H - fs * 0.6, d.floor + fs * 1.9), ax = Math.max(fs * 0.9, d.l - fs * 2.2), a = fs * 0.45;
     var arrow = function (x, y, dx, dy) { return '<path d="M' + x + ' ' + y + 'l' + (dx * a * 1.6 + dy * a * 0.5) + ' ' + (dy * a * 1.6 + dx * a * 0.5) + 'M' + x + ' ' + y + 'l' + (dx * a * 1.6 - dy * a * 0.5) + ' ' + (dy * a * 1.6 - dx * a * 0.5) + '"/>'; };
     var tx = function (x, y, str, rot) { return '<text x="' + x + '" y="' + y + '" text-anchor="middle"' + (rot ? ' transform="rotate(-90 ' + x + ' ' + y + ')"' : '') + '>' + str + '</text>'; };
     return '<svg class="rv-dims" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
@@ -1173,7 +1174,7 @@
       '<path stroke-dasharray="' + fs / 3 + ' ' + fs / 4 + '" opacity=".55" d="M' + d.l + ' ' + d.floor + 'V' + (ay + a) + 'M' + d.r + ' ' + d.floor + 'V' + (ay + a) + 'M' + d.l + ' ' + d.t + 'H' + (ax - a) + 'M' + d.l + ' ' + d.floor + 'H' + (ax - a) + '"/>' +
       '<path d="M' + d.l + ' ' + ay + 'H' + d.r + 'M' + ax + ' ' + d.t + 'V' + d.floor + '"/>' +
       arrow(d.l, ay, 1, 0) + arrow(d.r, ay, -1, 0) + arrow(ax, d.t, 0, 1) + arrow(ax, d.floor, 0, -1) + '</g>' +
-      '<g font-family="system-ui,Arial,sans-serif" font-weight="700" font-size="' + fs + '" fill="' + col + '" stroke="#fff" stroke-width="' + fs / 5 + '" paint-order="stroke" stroke-linejoin="round">' +
+      '<g font-family="Inter,system-ui,Arial,sans-serif" font-weight="600" font-size="' + fs + '" fill="' + col + '" stroke="#fff" stroke-width="' + fs / 6 + '" paint-order="stroke" stroke-linejoin="round">' +
       tx((d.l + d.r) / 2, ay - fs * 0.35, 'Ширина ' + mmTxt(d.mW)) + tx(ax - fs * 0.35, (d.t + d.floor) / 2, 'Высота ' + mmTxt(d.mH), true) + '</g></svg>';
   }
   function dimsNote(c) {
