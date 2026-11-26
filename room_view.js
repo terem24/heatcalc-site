@@ -275,13 +275,16 @@
         var topZ = tankOff[2] + frT.o[1] / Math.abs(frT.ax.z[1]), zOrig = topZ + 0.12 - 0.046;   // низ клапана бака на 0,12 м выше верха бойлера
         [['exh', 'h', cfgE.tankHeating, xe0 - SGN * 0.38, 'Расширительный бак отопления', 'ret'], ['exw', 't', cfgE.tankDhw, xe0 - SGN * 0.06, 'Расширительный бак ГВС', 'cw']].forEach(function (e) {
           // модели баков есть на 12, 18 и 24 л; на другой объём (35, 50, 80, 100 л) бак показывается ближайшей по объёму моделью, подпись остаётся с настоящим объёмом
-          var vv = null; [12, 18, 24].forEach(function (v) { if (di[e[1] + v] && PB['dhw:' + e[1] + v] && (vv === null || Math.abs(v - e[2]) < Math.abs(vv - e[2]))) vv = v; });
-          var key = e[1] + (e[2] ? vv : e[2]), pp = PB['dhw:' + key];
+          // настенные баки (12, 18, 24 л) висят патрубком вниз над бойлером; бак отопления больше 24 л стоит на полу на ножках (35-300 л, подключение сверху)
+          var flo = e[1] === 'h' && e[2] > 24, vv = null;
+          (flo ? [35, 50, 80, 100, 150, 200, 300] : [12, 18, 24]).forEach(function (v) { var k0 = (flo ? 'f' : e[1]) + v; if (di[k0] && PB['dhw:' + k0] && (vv === null || Math.abs(v - e[2]) < Math.abs(vv - e[2]))) vv = v; });
+          var key = (flo ? 'f' : e[1]) + (e[2] ? vv : e[2]), pp = PB['dhw:' + key];
           if (!e[2] || !vv || !di[key] || !pp) { notes.push('нет кадра бака ' + e[1] + e[2]); return; }
           if (vv !== e[2]) notes.push('бак ' + e[2] + ' л показан моделью на ' + vv + ' л');
-          var off = [e[3], YP - pp[0].pos_m[1], zOrig];
+          var Rf = di[key].w / 2 / PXM, axT = Math.abs(frT.ax.x[0]), edge = SGN === 1 ? tankOff[0] - frT.o[0] / axT : tankOff[0] + (frT.w - frT.o[0]) / axT;    // бак на полу вплотную к бойлеру со стороны магистралей
+          var off = flo ? [edge - SGN * (0.15 + Rf), 0, 0] : [e[3], YP - pp[0].pos_m[1], zOrig];
           layers.push({ kind: 'dhw', fid: e[0], key: key, fr: di[key], off: off, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + key + '.webp' });
-          exps.push({ fid: e[0], key: key, role: e[5], text: e[4] + ' ' + e[2] + ' л', port: proj(add(pp[0].pos_m, off)), depth: -pp[0].pos_m[1] });
+          exps.push({ fid: e[0], key: key, role: e[5], text: e[4] + ' ' + e[2] + ' л', port: proj(add(pp[0].pos_m, off)), depth: -pp[0].pos_m[1], floor: flo, side: flo ? (di[key].w / 2 / PXM + 0.05) * PXM : 0 });
         });
       }
     } else if (dk) notes.push('нет кадра бойлера ' + tkey);
@@ -316,7 +319,8 @@
               var sx0 = xcur + 0.06 * PXM, pp = PB['ufhmix:' + nn], zmin = Math.min(pp[0].pos_m[2], pp[1].pos_m[2]);       // подача — угольник слева, возврат — нижний порт справа
               var pU = posOf('u' + k);
               var offU = [sx0 / PXM - pp[0].pos_m[0] + pU[0], YP - pp[0].pos_m[1], ZLOW - zmin + pU[1]];
-              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), pf: mixPumpFam(), fr: DATA.UI[String(nn)], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + '.webp?v=2' });
+              var fsx = mixPumpFam() === 'pprofi130' && DATA.UI[nn + '_r'] ? '_r' : '';        // кадр узла с насосом ROMMER
+              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), pf: mixPumpFam(), fr: DATA.UI[String(nn) + fsx], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + fsx + '.webp?v=3' });
               cn.sup = add(pp[0].pos_m, offU); cn.ret = add(pp[1].pos_m, offU); cn.noIcon = true; cn.N = nn;
               nhR.push({ rx: proj(cn.ret)[0], sx: proj(cn.sup)[0], y: yTop, ys: proj(cn.sup)[1], yr: proj(cn.ret)[1], d1: -pp[0].pos_m[1] });
               xcur = sx0 + (0.2985 + 0.05 * nn + 0.12) * PXM;
@@ -359,7 +363,10 @@
           if (useB && b.mid) lines.push({ role: 'ld', sz: 'coil', d0: b.dM, ext0: [0, -0.23 * PXM], jog: b.jM ? [b.jM, 0.15 * PXM] : null, pts: [b.mid, [b.midx, yl.ld]] });
         });
         exps.forEach(function (e) {      // бак отопления врезается в обратку, бак ГВС заканчивается отводом к линии ХВС
-          if (e.role === 'ret') lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
+          if (e.role === 'ret' && e.floor) {          // напольный бак: на плоском виде труба идёт вбок от патрубка и вниз мимо бака, в 3D - вверх, назад к стене и вниз за баком
+            var x3 = e.port[0] / PXM, y3 = -e.port[1] / PXM, yr3 = -yl.ret / PXM;
+            lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0] - e.side, e.port[1]], [e.port[0] - e.side, yl.ret]], p3: [[x3, y3, e.depth], [x3, y3 + 0.10, e.depth], [x3, y3 + 0.10, 0.07], [x3, yr3, 0.07]] });
+          } else if (e.role === 'ret') lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
           else lines.push({ role: 'cw', sz: 'tank', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
         });
         // стояки радиаторов на насосе котла уходят в стену (глубина конца 0), а не заканчиваются в воздухе у значка потребителя; у узла подмеса конец - на порту (глубина порта d1)
@@ -891,7 +898,7 @@
       if (r.ext0) pp[0] = [pp[0][0] + r.ext0[0], pp[0][1] + r.ext0[1]];
       if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
       if (r.jog && pp.length >= 2) { var t0 = pp[0], yj = t0[1] + r.jog[1], yl2 = pp[pp.length - 1][1]; pp = [t0, [t0[0], yj], [t0[0] + r.jog[0], yj], [t0[0] + r.jog[0], yl2]]; }
-      return { role: r.role, od: r.od || null, nom: r.nom || null, pp: pp, plane: r.planeMm || 100, d0: r.d0 == null ? null : r.d0, d1: r.d1 == null ? null : r.d1 };
+      return { role: r.role, od: r.od || null, nom: r.nom || null, p3: r.p3 || undefined, pp: pp, plane: r.planeMm || 100, d0: r.d0 == null ? null : r.d0, d1: r.d1 == null ? null : r.d1 };
     }), cons: (S.cons || []).map(function (c) { return { kind: c.kind, kw: c.kw, sup: proj(c.sup), ret: proj(c.ret) }; }) };
     return cv;
   }
@@ -904,7 +911,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=6'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=2').catch(function () { return null; })])
+    Promise.all([j('img/room_ports.json?v=7'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=5'), j('img/ufhmix_node_front/ufhmix.json?v=3').catch(function () { return null; })])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
@@ -1672,7 +1679,7 @@
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
     var hk = app.hydroFrameKey(), dk = dhwKeys();
-    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null, tankSide(), wallKind(app), isDark()]);
+    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null, mixPumpFam(), tankSide(), wallKind(app), isDark()]);
     var c = cache[sig];
     if (c === 'wait') return null;
     if (!c) {

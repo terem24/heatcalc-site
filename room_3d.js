@@ -15,7 +15,7 @@
   // Тяжёлые модели лежат не на сайте (лимит GitHub Pages 1 ГБ), а в публичном репозитории моделей и отдаются через jsDelivr.
   // Новая выгрузка = новый тег репозитория: поднять MODELS_TAG здесь. Новые разделы (тёплый пол, радиаторы...) — новые ключи карты,
   // при нехватке места — другой репозиторий. Для проверки с диска: ?models=local (нужна папка models3d/room рядом с сайтом).
-  var MODELS_TAG = 'v4';
+  var MODELS_TAG = 'v5';
   var MODEL_HOSTS = { room: 'https://cdn.jsdelivr.net/gh/terem24/heatcalc-models@' + MODELS_TAG + '/room/' };
   var GLB_DIR = (/[?&]models=local/.test(location.search) || /^(localhost|127.0.0.1)$/.test(location.hostname)) ? 'models3d/room/' : MODEL_HOSTS.room;     // на localhost — открытые файлы из папки сайта
   // Модели на CDN зашифрованы (AES-256-GCM: «HCM1» + 12 байт вектора + шифртекст с меткой). Ключ — app.modelKey('room'): его выдаёт база
@@ -59,7 +59,7 @@
       return cryptoKey('room').then(function (k) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 4, 12) }, k, new Uint8Array(buf, 16)); });
     }).then(function (buf) { gl.parse(buf, '', ok, err); }).catch(function (e) { if (err) err(e); });
   }
-  var GLB_V = 11;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
+  var GLB_V = 12;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
   var ROLE_Z = { sup: 0.19, ret: 0.16, ld: 0.05, lr: 0.16 };   // глубины труб от стены; разница с глубиной патрубка узла обязана быть 0 или не меньше 28 мм (пара 45° не встаёт в меньший сдвиг, труба осталась бы изогнутой без фитинга): патрубки узлов 81 и 107 мм дают 31 и 53 мм; обратка на 160 мм — глубина портов коллектора, труба входит в порт без сдвига
@@ -704,6 +704,37 @@
       }
       for (var j = 1; j < pts.length - 1; j++) { if (bt.cut[j]) continue; var sp = new T.Mesh(new T.SphereGeometry(steel ? bt.rad : bt.rad * 1.12, 20, 14), mat); sp.position.copy(pts[j]); sp.castShadow = true; g.add(sp); }
     });
+    // ППР, металлопластик, стабильная труба: у угла и у отвода от магистрали фитинг виден муфтой-раструбом на каждом плече (штатные детали этих систем
+    // отдельных моделей не имеют): на углу - по муфте на оба плеча, у отвода - муфта на магистрали и на самом отводе
+    if (!steel) {
+      var hexN = (window.RoomPipe && window.RoomPipe.hex[plan.PS.k]) || 0xC9CFD5;
+      var cm = new T.MeshStandardMaterial({ color: hexN, metalness: plan.PS.k === 'mp' ? 0.35 : 0.0, roughness: plan.PS.k === 'mp' ? 0.35 : 0.5 });
+      var collar = function (P, dir, len, r, centered) {
+        var c = new T.Mesh(new T.CylinderGeometry(r, r, len, 24, 1), cm);
+        c.position.copy(P).add(dir.clone().multiplyScalar(centered ? 0 : len / 2));
+        c.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), dir.clone().normalize());
+        c.castShadow = true; c.receiveShadow = true; g.add(c);
+      };
+      plan.built.forEach(function (bt, bi) {
+        var pts = bt.pts, n2 = pts.length, rc = bt.rad * 1.22, j2;
+        for (j2 = 1; j2 < n2 - 1; j2++) {
+          if (bt.cut[j2]) continue;
+          collar(pts[j2], pts[j2 - 1].clone().sub(pts[j2]).normalize(), 0.04, rc);
+          collar(pts[j2], pts[j2 + 1].clone().sub(pts[j2]).normalize(), 0.04, rc);
+        }
+        [0, n2 - 1].forEach(function (e) {
+          if (n2 < 2 || bt.cut[e]) return;
+          var P = pts[e], hit = null;
+          plan.built.forEach(function (o, oi) {
+            if (hit || oi === bi) return;
+            for (var k = 0; k < o.pts.length - 1; k++) if (o.pts[k].distanceTo(P) > 0.01 && o.pts[k + 1].distanceTo(P) > 0.01 && ptSeg(P, o.pts[k], o.pts[k + 1]) < 0.012) { hit = { o: o, k: k }; return; }
+          });
+          if (!hit) return;
+          collar(P, hit.o.pts[hit.k + 1].clone().sub(hit.o.pts[hit.k]).normalize(), 0.07, hit.o.rad * 1.22, true);
+          collar(P, pts[e === 0 ? 1 : n2 - 2].clone().sub(P).normalize(), 0.045, rc);
+        });
+      });
+    }
     var n = 0;
     plan.places.forEach(function (pl) {
       var src = S.fit && S.fit[pl.key]; if (!src) return;
