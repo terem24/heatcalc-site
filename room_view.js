@@ -201,7 +201,7 @@
     var hp = hb ? PH[hb] : null;
     var hOff = null;
     if (hkey && hi[hkey] && hp && hp.boiler.length === 2) {
-      var ZC = ZLOW - hp.boiler[0].pos_m[2], pH = posOf('h0');          // входы коллектора от котла — на нижнем уровне подключений
+      var ZC = BOILER_Z + 0.075, pH = posOf('h0');          // входы коллектора от котла — на нижнем уровне подключений
       hOff = [bx + 0.35 + pH[0], YP - hp.boiler[0].pos_m[1], ZC + pH[1]];
       layers.push({ kind: 'hydro', fid: 'h0', key: hkey, pf: hk.pf || '', pfs: pumpFams(), baked: (/_p[a-z0-9]+$/.exec(hkey) || [''])[0], pid: hk.pid, fr: hi[hkey], off: hOff, src: A.HYDRO_DIR.replace('hydro_node', 'hydro_node_front') + 'hydro_' + hkey + '.webp' });
     } else notes.push('нет кадра коллектора');
