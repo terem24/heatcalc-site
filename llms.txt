@@ -168,6 +168,7 @@
 - [Комнатный термостат: проводной или беспроводной](https://heatcalc.ru/komnatnyy-termostat/) — комнатный термостат для котла
 - [Воздух-вода или геотермальный](https://heatcalc.ru/vozduh-voda-ili-geotermalnyy/) — тепловой насос воздух вода
 - [Инсталляция унитаза: что нужно учесть](https://heatcalc.ru/installyatsiya-unitaza/) — инсталляция для унитаза
+- [Себестоимость рабочего дня бригады: как посчитать](https://heatcalc.ru/sebestoimost-chasa-brigady/) — себестоимость работ монтажника
 
 ## Примечания для моделей
 
