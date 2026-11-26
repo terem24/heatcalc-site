@@ -691,8 +691,8 @@
     var wh = h + 3, ww = Math.max(w, sz.x + 6);
     var wm = new T.Mesh(new T.PlaneGeometry(ww, wh), new T.MeshStandardMaterial({ color: 0xE9EBEE, roughness: 0.95, metalness: 0 }));
     wm.position.set(c.x, b.min.y - 0.08 + wh / 2, -0.004); wm.receiveShadow = true; S.root.add(wm);
-    var fl = new T.Mesh(new T.PlaneGeometry(ww, 9), new T.MeshStandardMaterial({ color: 0xC4C8CE, roughness: 0.9, metalness: 0 }));
-    fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, b.min.y - 0.08, 4.5); fl.receiveShadow = true; S.root.add(fl);
+    var fl = new T.Mesh(new T.PlaneGeometry(ww, 40), new T.MeshStandardMaterial({ color: 0xC4C8CE, roughness: 0.9, metalness: 0 }));
+    fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, b.min.y - 0.08, 20); fl.receiveShadow = true; S.root.add(fl);
     S.box = b; S.floor = fl; S.wallMesh = wm;
     S.sun.position.set(c.x - 1.6, b.max.y + 2.4, 3.2); S.sun.target.position.set(c.x, c.y, 0);
     var sc = S.sun.shadow.camera; sc.left = -w / 2; sc.right = w / 2; sc.top = h / 2 + 1; sc.bottom = -h / 2 - 1; sc.near = 0.5; sc.far = 12; sc.updateProjectionMatrix();
@@ -745,11 +745,14 @@
   }
   // Штатные насосы всех групп коллектора лежат в сцене одним компонентом «kit#0» (их коробки соприкасаются), а заменять надо каждый
   // отдельно: меши делятся на насосы по положению слева направо (перекрывающиеся по X отрезки — один насос), номер = номер группы.
+  // детали самого насоса в кадре группы; соседние детали того же компонента (нижняя половина, полка, ребро, гайка и гнездо крана) насосу не принадлежат:
+  // раньше они уходили вместе с ним, а их нижняя точка на 6,5 см ниже гайки насоса сдвигала новый насос вниз
+  var PUMP_PART = /^(гайка_насоса|корпус_патрубки|улитка|мотор|лицо_мотора|клеммная_коробка|рёбра_крышки|кабельный_ввод|винт_крышки|хвостовик_под_насос)/;
   function tagPumps(fid) {
     S.pumpN = S.pumpN || {};
     if (S.pumpN[fid] !== undefined) return S.pumpN[fid];
     var ms = [];
-    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay) ms.push(o); }); });
+    Object.keys(S.comps).forEach(function (k) { if (k.indexOf('hydro|' + fid + '|kit#') === 0) S.comps[k].forEach(function (o) { if (!o.userData.overlay && PUMP_PART.test(o.name)) ms.push(o); }); });
     var iv = ms.map(function (o) { var b = new S.T.Box3().setFromObject(o); return { o: o, a: b.min.x, z: b.max.x }; }).sort(function (p, q) { return p.a - q.a; });
     var n = -1, end = -1e9;
     iv.forEach(function (it) {
