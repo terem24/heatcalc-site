@@ -980,7 +980,9 @@
       '.fc-s{margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.14);font-size:10.5px;opacity:.6}' +
       /* окно «На весь экран»: панель значков в духе Revit, одна на все виды */
       '.rv-gap{margin:10px 0 0;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.55);font:13px/1.45 system-ui,Arial,sans-serif}.rv-gap b{font-weight:600}' +
-      '.rvm{position:fixed;inset:0;z-index:99990;background:#E3E6EA;overflow:hidden;font-family:system-ui,Arial,sans-serif}' +
+      /* выше нижней навигации приложения (z-index 10000002): раньше она лежала поверх 3D и закрывала нижнюю часть сцены; touch-action: щепоткой масштабирует сцена, а не страница (иначе панель уезжала за край экрана) */
+      '.rvm{position:fixed;inset:0;z-index:10000010;background:#E3E6EA;overflow:hidden;font-family:system-ui,Arial,sans-serif;touch-action:none;overscroll-behavior:none;-webkit-user-select:none;user-select:none}' +
+      'body.rv-open .mobile-bottom-nav,body.rv-open .ai-parse-fab{display:none!important}' +
       '.rvm-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:72px 236px 22px}' +
       '.rvm-stage.is3d{padding:0}.rvm-stage.is3d .r3{position:absolute;inset:0;border-radius:0;height:100%}' +
       '.rvm-stage .rv-stage{box-shadow:0 8px 30px rgba(15,23,42,.18)}' +
@@ -992,7 +994,7 @@
       '.rvm-bar .sep{width:1px;height:22px;margin:0 5px;background:rgba(15,23,42,.14)}' +
       '.rvm-bar button[data-a=close]:hover{background:rgba(220,38,38,.12);color:#B91C1C}' +
       '.rvm-bar [data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#0F172A;color:#fff;font:12px system-ui,Arial,sans-serif;padding:5px 9px;border-radius:7px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}' +
-      '.rvm-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:8px 14px;border-radius:9px;background:rgba(17,24,39,.9);color:#fff;font:12.5px system-ui,Arial,sans-serif;opacity:0;pointer-events:none;transition:opacity .2s;z-index:6;white-space:nowrap}.rvm-toast.on{opacity:1}' +
+      '.rvm-toast{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 28px);text-align:center;padding:8px 14px;border-radius:9px;background:rgba(17,24,39,.9);color:#fff;font:12.5px/1.35 system-ui,Arial,sans-serif;opacity:0;pointer-events:none;transition:opacity .2s;z-index:6}.rvm-toast.on{opacity:1}' +
       '.rvm-list{position:absolute;right:14px;top:70px;bottom:18px;width:318px;z-index:4;overflow:auto;padding:12px 12px 10px;border-radius:14px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);box-shadow:0 8px 28px rgba(15,23,42,.2);border:1px solid rgba(15,23,42,.08);color:#0f172a;font:12.5px/1.35 system-ui,Arial,sans-serif}' +
       '.rvm-list h4{margin:0 0 2px;font:600 14px system-ui,Arial,sans-serif}.rvm-list .sub{opacity:.6;font-size:11.5px;margin-bottom:8px}' +
       '.rvm-list .grp{margin:10px 0 4px;font:600 11px system-ui,Arial,sans-serif;letter-spacing:.05em;text-transform:uppercase;opacity:.55}' +
@@ -1001,7 +1003,16 @@
       '.rvm-list .t{flex:1}.rvm-list .q{opacity:.55;white-space:nowrap}.rvm-list .n{display:block;font-size:11px;opacity:.6}' +
       '.rvm-list .sum{margin-top:10px;padding-top:8px;border-top:1px solid rgba(15,23,42,.12);font-size:11.5px;opacity:.75}' +
       '.rvm-lbl{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}' +
-      '@media (max-width:900px){.rvm-stage{padding:68px 120px 16px}}';
+      '@media (max-width:900px){.rvm-stage{padding:68px 120px 16px}}' +
+      /* телефон: панель значков во всю ширину и переносится на вторую строку, все кнопки на виду (прокрутка прятала «Крышки», «Прозрачность» и «Сброс вида»);
+         разделители на телефоне не нужны; под панелью — сцена */
+      '@media (max-width:700px){' +
+      '.rvm-stage{padding:64px 8px 8px}.rvm-stage.is3d{padding:0}' +
+      '.rvm-bar{left:8px;right:8px;top:8px;transform:none;justify-content:center;flex-wrap:wrap;gap:2px;padding:4px}' +
+      '.rvm-bar button{flex:none;width:40px;height:40px}.rvm-bar .sep{display:none}' +
+      '.rvm-bar [data-tip]:hover::after{display:none}' +
+      '.rvm-list{left:8px;right:8px;top:104px;bottom:8px;width:auto}' +
+      '}';
     document.head.appendChild(st);
   }
   var IC = {
@@ -1117,16 +1128,27 @@
       MODAL.innerHTML = '<div class="rvm-bar"></div><div class="rvm-stage"></div><div class="rvm-list" style="display:none"></div><div class="rvm-toast"></div>';
       MODAL.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.rvm-bar button'); if (b) act(b.getAttribute('data-a')); });
       document.addEventListener('keydown', function (e) { if (FULL && e.key === 'Escape') closeFull(); });
+      ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { document.addEventListener(n, function (e) { if (FULL) e.preventDefault(); }, { passive: false }); });   // iOS Safari: щепотка не масштабирует страницу
       window.addEventListener('resize', function () { if (FULL) drawFlatLabels(); });
     }
     document.body.appendChild(MODAL); document.body.style.overflow = 'hidden';
+    document.body.classList.add('rv-open'); lockZoom(true);
     renderFull();
+  }
+  // щепоткой двумя пальцами масштабируется сцена (OrbitControls), а не страница: иначе панель кнопок уезжала за край экрана и вернуть её было нечем
+  var VP_OLD = null;
+  function lockZoom(on) {
+    try {
+      var m = document.querySelector('meta[name=viewport]'); if (!m) return;
+      if (on) { if (VP_OLD === null) VP_OLD = m.getAttribute('content') || ''; m.setAttribute('content', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'); }
+      else if (VP_OLD !== null) { m.setAttribute('content', VP_OLD); VP_OLD = null; }
+    } catch (e) { }
   }
   function closeFull() {
     FULL = false; HL = null; CUR = null;
     if (window.Room3D) window.Room3D.hide();
     if (MODAL && MODAL.parentNode) MODAL.remove();
-    document.body.style.overflow = '';
+    document.body.style.overflow = ''; document.body.classList.remove('rv-open'); lockZoom(false);
     if (A) A.render();
   }
   function act(a) {

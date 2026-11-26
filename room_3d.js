@@ -47,6 +47,8 @@
   var S = null;                      // живая сцена (одна на страницу)
   var A = null;
   var DEF = null, defLoading = false;   // виды по умолчанию, заданные администратором (app_settings.room3d_views)
+  var SNAP = null;                   // последний кадр прежней сцены: на время пересборки лежит поверх новой, чтобы картинка не пропадала
+  var KEEP = { cov: 0 };             // состояние теплоизоляции групп между пересборками сцены: 0 — закрыта, 1 — крышки сняты, 2 — сняты и задние половины
 
   // ── библиотеки с CDN: three и расширения подключаются blob-адресами, import map не нужен (как в plan_3d.js)
   function blobModule(path, fix) {
@@ -108,8 +110,14 @@
       '.r3-msg.on{opacity:1}' +
       '.r3-tip{position:absolute;pointer-events:none;z-index:3;max-width:280px;padding:8px 11px;border-radius:10px;background:rgba(17,24,39,.94);color:#fff;font:12px/1.35 system-ui,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);opacity:0;transition:opacity .1s}' +
       '.r3-tip.on{opacity:1}.r3-tip b{display:block;font-weight:600;font-size:13px;margin-bottom:2px}.r3-tip span{opacity:.72}' +
-      '.r3-load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:500 14px system-ui,Arial,sans-serif;color:#475569;background:#E3E6EA}' +
-      '.r3-cube{position:absolute;right:16px;top:16px;width:84px;height:84px;perspective:420px;cursor:pointer;user-select:none}' +
+      '.r3-load{position:absolute;inset:0;z-index:7;display:flex;flex-direction:column;gap:10px;align-items:center;justify-content:center;font:500 14px system-ui,Arial,sans-serif;color:#475569;background:#E3E6EA}' +
+      '.r3-load img,.r3-busy img{width:44px;height:44px;object-fit:contain;animation:r3pulse 1.6s ease-in-out infinite}' +
+      '@keyframes r3pulse{0%,100%{transform:scale(.88);opacity:.55}50%{transform:scale(1);opacity:1}}' +
+      /* пересборка сцены (замена оборудования, поворот бойлера): прежний кадр остаётся на экране, поверх — маленький значок загрузки, без мигания */
+      '.r3 canvas.r3-snap{position:absolute;inset:0;z-index:1;transition:opacity .35s ease-out;pointer-events:none}' +
+      '.r3-busy{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:8;display:flex;align-items:center;gap:8px;padding:6px 14px 6px 8px;border-radius:99px;background:rgba(15,23,42,.88);color:#fff;font:12.5px system-ui,Arial,sans-serif;pointer-events:none}' +
+      '.r3-busy img{width:26px;height:26px}' +
+      '.r3-cube{position:absolute;z-index:2;right:16px;top:16px;width:84px;height:84px;perspective:420px;cursor:pointer;user-select:none}' +
       '.r3-cube .cb{position:absolute;left:21px;top:21px;width:42px;height:42px;transform-style:preserve-3d}' +
       '.r3-cube .f{position:absolute;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.92);border:1px solid #94A3B8;color:#334155;font:600 8.5px system-ui,Arial,sans-serif;letter-spacing:.02em;backface-visibility:hidden;transition:background .1s}' +
       '.r3-cube .f:hover{background:#BFDBFE}' +
@@ -123,7 +131,17 @@
       '.r3-chk{position:absolute;z-index:5;left:12px;top:70px;max-width:340px;padding:8px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
       '.r3-chk b{display:block;margin-bottom:4px;font-size:13px}.r3-chk div{padding:2px 0 2px 14px;position:relative}.r3-chk div:before{content:"";position:absolute;left:2px;top:7px;width:8px;height:8px;border-radius:50%}.r3-chk .bad:before{background:#EF4444}.r3-chk .free:before{background:#F59E0B}' +
       '.r3-tg{position:absolute;z-index:5;transform:translate(-50%,-100%);display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
-      '.r3-tg button{width:32px;height:32px;border:0;border-radius:9px;background:#2563EB;color:#fff;font-size:18px;line-height:1;cursor:pointer}.r3-tg button:hover{background:#1D4ED8}';
+      '.r3-tg button{width:32px;height:32px;border:0;border-radius:9px;background:#2563EB;color:#fff;font-size:18px;line-height:1;cursor:pointer}.r3-tg button:hover{background:#1D4ED8}' +
+      '.r3-msg{max-width:calc(100% - 24px);white-space:normal;text-align:center}' +
+      /* телефон: панель значков в окне занимает верхние ~60 px, куб ракурсов и плашки опускаются под неё, плашки выбора насоса компактнее */
+      '@media (max-width:700px){' +
+      '.r3-cube{top:104px;right:8px;width:68px;height:68px;perspective:340px}.r3-cube .cb{left:13px;top:13px}' +
+      '.r3-pkbar{top:104px;left:8px;right:84px;transform:none;gap:8px;padding:7px 10px;font-size:12.5px}.r3-pkbar span{flex:1;min-width:0}' +
+      '.r3-chk{left:8px;top:104px;right:84px;max-width:none}' +
+      '.r3-pk{min-width:104px;max-width:148px;padding:6px 8px;font-size:11.5px}.r3-pk i{padding:3px 10px;margin:3px 2px 0;font-size:11px}' +
+      '.r3-tg{max-width:calc(100% - 16px)}' +
+      '.r3-hint{display:none}' +
+      '}';
     document.head.appendChild(st);
   }
 
@@ -136,12 +154,18 @@
   function build(host, spec) {
     css();
     var wrap = document.createElement('div'); wrap.className = 'r3';
-    wrap.innerHTML = '<div class="r3-load">Загружаю 3D-модели…</div><svg class="r3-lbl"></svg><div class="r3-cube"><div class="cb"></div></div><div class="r3-tip"></div><div class="r3-msg"></div><div class="r3-hint">Левая кнопка — вращать, зажатое колесо или правая — сдвиг, прокрутка колеса — приблизить</div>';
+    var snap = SNAP; SNAP = null;
+    var LOGO = '<img src="img/logo_hc_flame.png" alt="">';
+    // первая загрузка — полноэкранная заставка с логотипом; пересборка поверх готового вида — прежний кадр и значок в углу, картинка не пропадает
+    wrap.innerHTML = (snap ? '<div class="r3-busy">' + LOGO + '<span>Обновляю 3D…</span></div>' : '<div class="r3-load">' + LOGO + '<span>Загружаю 3D-модели…</span></div>') +
+      '<svg class="r3-lbl"></svg><div class="r3-cube"><div class="cb"></div></div><div class="r3-tip"></div><div class="r3-msg"></div><div class="r3-hint">Левая кнопка — вращать, зажатое колесо или правая — сдвиг, прокрутка колеса — приблизить</div>';
+    if (snap) { snap.className = 'r3-snap'; wrap.appendChild(snap); }
+    try { if (window.matchMedia && matchMedia('(pointer:coarse)').matches) wrap.querySelector('.r3-hint').textContent = 'Один палец — вращать, два — сдвиг и приближение'; } catch (e) { }
     var cb = wrap.querySelector('.cb');
     FACES.forEach(function (f, i) {
       var d = document.createElement('div'); d.className = 'f'; d.textContent = f[0]; d.style.transform = f[1]; d.setAttribute('data-i', i); cb.appendChild(d);
     });
-    S = { spec: spec, wrap: wrap, host: host, T: null, hid: {}, comps: {}, mode: false, ready: false, raf: 0, pins: {}, lhover: null };
+    S = { spec: spec, wrap: wrap, host: host, T: null, hid: {}, comps: {}, mode: false, ready: false, raf: 0, pins: {}, lhover: null, coversOpen: KEEP.cov > 0, backOff: KEEP.cov > 1 };
     return loadLibs().then(function (lib) { return setup(lib); });
   }
 
@@ -157,6 +181,7 @@
     var pm = new T.PMREMGenerator(r); scene.environment = pm.fromScene(new lib.RE(), 0.04).texture;
     var cam = new T.PerspectiveCamera(30, 1, 0.05, 60);
     var ctl = new lib.OC(cam, r.domElement); ctl.enableDamping = true; ctl.dampingFactor = 0.12; ctl.screenSpacePanning = true;
+    ctl.touches = { ONE: T.TOUCH.ROTATE, TWO: T.TOUCH.DOLLY_PAN };      // палец — вращать, два пальца — приблизить и сдвинуть
     // как в Revit: зажатое колесо — сдвиг (листать влево-вправо, вверх-вниз), правая тоже сдвиг, колесо крутится — зум
     ctl.mouseButtons = { LEFT: 0, MIDDLE: 2, RIGHT: 2 };
     r.domElement.addEventListener('mousedown', function (e) { if (e.button === 1) e.preventDefault(); });   // без значка автопрокрутки браузера
@@ -170,7 +195,7 @@
     var gl = new lib.GL(); gl.setDRACOLoader(dl); S.gl = gl;
     var jobs = spec.layers.map(function (Ly, i) {
       return new Promise(function (res) {
-        loadGlb(gl, GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, function () { res({ L: Ly, g: null }); });
+        loadGlb(gl, GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, function (e) { console.warn('[3D] модель не загрузилась:', Ly.kind + '_' + Ly.key, e && e.message || e); res({ L: Ly, g: null }); });
       });
     });
     // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
@@ -196,6 +221,12 @@
       var ld = S.wrap.querySelector('.r3-load'); if (ld) ld.remove();
       if (miss.length) msg('Нет 3D-модели: ' + miss.join(', '));
       loop();
+      // прежний кадр уходит плавно, когда новый уже нарисован (первый кадр — в следующем rAF)
+      var sn = S.wrap.querySelector('.r3-snap'), bz = S.wrap.querySelector('.r3-busy');
+      if (sn || bz) requestAnimationFrame(function () { requestAnimationFrame(function () {
+        if (sn) { sn.style.opacity = '0'; setTimeout(function () { sn.remove(); }, 420); }
+        if (bz) bz.remove();
+      }); });
     });
   }
 
@@ -236,6 +267,13 @@
       o.castShadow = true; o.receiveShadow = true;
       // передняя крышка теплоизоляции группы: закрыта по умолчанию, не часть компонентов сметы (щёлкается отдельно)
       if (/^(крышка[_ ]группы|наклейка[_ ]STOUT[_ ]на[_ ]крышке|плашка[_ ]ROMMER[_ ]на[_ ]крышке)/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.cover = Ly.fid; (S.covers = S.covers || []).push(o); o.visible = !S.coversOpen; return; }
+      // задняя половина теплоизоляции группы (задняя стенка, боковины, дно, верх): снимается отдельно от крышки, вторым щелчком / вторым нажатием кнопки.
+      // Материал свой, со сдвигом глубины назад: на стыках с крышкой и подложкой поверхности лежат в долях миллиметра друг от друга и мерцали
+      if (Ly.kind === 'hydro' && /^кожух[_ ](задняя[_ ]стенка|боковая[_ ]стенка|верх|дно)/.test(o.name.replace(/_?\d+$/, ''))) {
+        o.userData.shell = Ly.fid; (S.shells = S.shells || []).push(o); o.visible = !S.backOff;
+        var shm = (Array.isArray(o.material) ? o.material : [o.material]).map(function (m) { var c = m.clone(); c.polygonOffset = true; c.polygonOffsetFactor = 1; c.polygonOffsetUnits = 1; return c; });
+        o.material = Array.isArray(o.material) ? shm : shm[0];
+      }
       // сервопривод и его ручка стоят под крышкой группы: при закрытой крышке не видны (syncServos), открылась — появились
       if (Ly.kind === 'hydro' && /^(сервопривод|ручка|указатель|значок[_ ]|точка[_ ]|окошко)/.test(o.name.replace(/_?\d+$/, ''))) { o.userData.servo = Ly.fid; (S.servos = S.servos || []).push(o); }
       // наклейки (логотипы, экраны, шкалы) — прозрачные плоскости в доле миллиметра над корпусом: без тени и со смещением глубины, иначе мерцают
@@ -649,10 +687,12 @@
   function wall() {
     var T = S.T, b = new T.Box3().setFromObject(S.root), sz = b.getSize(new T.Vector3()), c = b.getCenter(new T.Vector3());
     var w = sz.x + 2.2, h = sz.y + 1.4;
-    var wm = new T.Mesh(new T.PlaneGeometry(w, h), new T.MeshStandardMaterial({ color: 0xE9EBEE, roughness: 0.95, metalness: 0 }));
-    wm.position.set(c.x, b.min.y - 0.08 + h / 2, -0.004); wm.receiveShadow = true; S.root.add(wm);
-    var fl = new T.Mesh(new T.PlaneGeometry(w, 2.6), new T.MeshStandardMaterial({ color: 0xC4C8CE, roughness: 0.9, metalness: 0 }));
-    fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, b.min.y - 0.08, 1.3); fl.receiveShadow = true; S.root.add(fl);
+    // стена выше и шире, пол глубже: на телефоне стоймя в кадр попадает много пустого места над и под сценой, край стены не должен быть виден
+    var wh = h + 3, ww = Math.max(w, sz.x + 6);
+    var wm = new T.Mesh(new T.PlaneGeometry(ww, wh), new T.MeshStandardMaterial({ color: 0xE9EBEE, roughness: 0.95, metalness: 0 }));
+    wm.position.set(c.x, b.min.y - 0.08 + wh / 2, -0.004); wm.receiveShadow = true; S.root.add(wm);
+    var fl = new T.Mesh(new T.PlaneGeometry(ww, 9), new T.MeshStandardMaterial({ color: 0xC4C8CE, roughness: 0.9, metalness: 0 }));
+    fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, b.min.y - 0.08, 4.5); fl.receiveShadow = true; S.root.add(fl);
     S.box = b; S.floor = fl; S.wallMesh = wm;
     S.sun.position.set(c.x - 1.6, b.max.y + 2.4, 3.2); S.sun.target.position.set(c.x, c.y, 0);
     var sc = S.sun.shadow.camera; sc.left = -w / 2; sc.right = w / 2; sc.top = h / 2 + 1; sc.bottom = -h / 2 - 1; sc.near = 0.5; sc.far = 12; sc.updateProjectionMatrix();
@@ -664,8 +704,12 @@
     var sv = initial ? savedView(S.spec.sig) : null;
     var asp = Math.max(0.3, S.wrap.clientWidth / Math.max(1, S.wrap.clientHeight));
     var fov = S.cam.fov * Math.PI / 180;
-    var dist = Math.max(sz.y / 2 / Math.tan(fov / 2), sz.x / 2 / (Math.tan(fov / 2) * asp)) * 1.12 + 0.3;
-    S.home = { p: [c.x, c.y, dist + 0.2], t: [c.x, c.y, 0.05] };
+    // Вид спереди: ближние к камере детали (патрубки, выступающие агрегаты) выглядят крупнее, чем у центра сцены, поэтому дистанция
+    // считается до плоскости самого переднего угла габарита, а не до центра. На телефоне стоймя запас по краям меньше: модель крупнее.
+    var narrow = asp < 0.8, th = Math.tan(fov / 2), mg = narrow ? 1.05 : 1.12, need = Math.max(sz.x / 2 / (th * asp), sz.y / 2 / th) * mg;
+    var dist = need + Math.max(0, b.max.z - c.z) + 0.04;
+    S.home = { p: [c.x, c.y, c.z + dist], t: [c.x, c.y, 0.05] };
+    S.ctl.maxDistance = Math.max(14, dist * 1.6);                     // широкая сцена на телефоне стоймя требует больше 14 м: прежний предел обрезал вид по краям
     var v = sv || S.home;
     S.cam.position.set(v.p[0], v.p[1], v.p[2]); S.ctl.target.set(v.t[0], v.t[1], v.t[2]); S.ctl.update();
     if (sv && sv.hid) { sv.hid.forEach(function (k) { setFade(k, true); }); }
@@ -726,10 +770,25 @@
     return out;
   }
   function boxOf(arr) { var T = S.T, b = new T.Box3(); arr.forEach(function (o) { b.union(new T.Box3().setFromObject(o)); }); return b; }
-  // встать на место штатного насоса: по центру X, низ и задняя плоскость совпадают (гайки и литой корпус у всех насосов одинаковые)
+  // ось подключения насоса: центр нижнего среза (накидная гайка и литой корпус осесимметричны и у всех насосов одинаковые) и нижняя точка.
+  // Раньше насос вставал по центру габарита: у моторов с клеммной коробкой сбоку, у P10 и EVO габарит несимметричен, и насос садился
+  // мимо патрубков на 3–15 мм (замер по моделям: ось у всех на x = 0, центры габаритов −0,015…0).
+  function axisOf(arr) {
+    var T = S.T, b = boxOf(arr), lim = b.min.y + 0.012, sl = new T.Box3(), v = new T.Vector3(), any = false;
+    arr.forEach(function (o) {
+      var p = o.geometry && o.geometry.attributes && o.geometry.attributes.position; if (!p) return;
+      o.updateWorldMatrix(true, false);
+      for (var i = 0; i < p.count; i++) { v.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (v.y < lim) { sl.expandByPoint(v); any = true; } }
+    });
+    var c = (any ? sl : b).getCenter(new T.Vector3());
+    return { x: c.x, z: c.z, y: b.min.y };
+  }
+  // встать на место штатного насоса: ось на ось, низ на низ
   function seatPump(root, baked) {
-    var T = S.T, a = boxOf(baked), b = new T.Box3().setFromObject(root);
-    root.position.add(new T.Vector3(a.getCenter(new T.Vector3()).x - b.getCenter(new T.Vector3()).x, a.min.y - b.min.y, a.min.z - b.min.z));
+    var T = S.T, ms = [];
+    root.traverse(function (m) { if (m.isMesh) ms.push(m); });
+    var a = axisOf(baked), b = axisOf(ms);
+    root.position.add(new T.Vector3(a.x - b.x, a.y - b.y, a.z - b.z));
     root.updateMatrixWorld(true);
   }
   // у каждой группы свой насос: вид накладывает нужную модель на место именно этого штатного насоса (а не всех сразу)
@@ -779,7 +838,10 @@
     if (!meshes.length) return;
     var C = boxOf(meshes).getCenter(new T.Vector3());
     var P = { key: compKey, fid: fid, idx: idx, many: opts.n > 1, opts: opts, items: [], group: new T.Group(), saved: { p: S.cam.position.toArray(), t: S.ctl.target.toArray() }, faded: [], hover: -1, t0: performance.now(), C: C };
-    var gap = 0.2, n = opts.list.length;
+    var n = opts.list.length;
+    // раскладка вариантов: в ряд на широком экране, в две колонки на телефоне стоймя (ряд из четырёх не помещался, плашки налезали друг на друга)
+    var cw = S.wrap.clientWidth || 1, ch = S.wrap.clientHeight || 1, asp = cw / ch, cols = asp < 0.85 ? Math.min(2, n) : n, rows = Math.ceil(n / cols);
+    var gapX = cols < n ? 0.26 : 0.2, gapY = 0.34;
     S.picker = P;
     Promise.all(opts.list.map(function (o) { return loadPumpGlb(o.fam); })).then(function (srcs) {
       if (!S || S.picker !== P) return;
@@ -790,7 +852,7 @@
         var cc = new T.Box3().setFromObject(root).getCenter(new T.Vector3());
         root.position.set(-cc.x, -cc.y, -cc.z);                       // вращение вокруг своего центра
         holder.add(root);
-        holder.position.set(C.x + (i - (n - 1) / 2) * gap, C.y + 0.02, C.z + 0.36);
+        holder.position.set(C.x + ((i % cols) - (cols - 1) / 2) * gapX, C.y + 0.02 + ((rows - 1) / 2 - Math.floor(i / cols)) * gapY, C.z + 0.36);
         root.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.userData.pickIdx = i; } });
         P.group.add(holder);
         var el = document.createElement('div'); el.className = 'r3-pk' + (o.cur ? ' cur' : '');
@@ -826,7 +888,10 @@
     var bar = document.createElement('div'); bar.className = 'r3-pkbar'; bar.innerHTML = '<span>Выберите насос группы</span><button type="button">Закрыть</button>';
     bar.querySelector('button').addEventListener('click', function (e) { e.stopPropagation(); closePicker(); });
     S.wrap.appendChild(bar); P.bar = bar;
-    flyTo([C.x, C.y + 0.05, C.z + 1.7], [C.x, C.y + 0.02, C.z]);
+    // дистанция камеры: все варианты и их плашки в кадре при любой пропорции окна
+    var th = Math.tan(S.cam.fov * Math.PI / 360), needW = ((cols - 1) * gapX + 0.26) * 1.15, needH = ((rows - 1) * gapY + 0.5) * 1.2;
+    var dd = Math.max(needW / (2 * th * asp), needH / (2 * th), 0.9);
+    flyTo([C.x, C.y - 0.02, C.z + 0.36 + dd], [C.x, C.y - 0.02, C.z + 0.36]);
   }
   function pickerHit(e) {
     var T = S.T, cvs = S.r.domElement, rc = cvs.getBoundingClientRect();
@@ -962,14 +1027,24 @@
       return showChk();
     }
     if (a === 'covers') {
+      // теплоизоляция группы из двух половин: лицевая крышка и задняя часть. Нажатия по кругу: закрыта → крышки сняты → сняты обе → закрыта
       if (!S.covers || !S.covers.length) return { msg: 'В этой сборке нет насосных групп' };
-      S.coversOpen = !S.coversOpen; S.covers.forEach(function (o) { o.visible = !S.coversOpen; });
-      return { msg: S.coversOpen ? 'Крышки открыты: видны насосы и арматура' : 'Крышки закрыты' };
+      syncCovState();
+      var hasBack = !!(S.shells && S.shells.length);
+      if (!S.coversOpen) { S.covers.forEach(function (o) { o.visible = false; }); syncCovState(); return { msg: 'Лицевые крышки сняты: видны насосы и арматура' + (hasBack ? '. Ещё раз — снять и заднюю часть' : '') }; }
+      if (hasBack && !S.backOff) { S.shells.forEach(function (o) { o.visible = false; }); syncCovState(); return { msg: 'Задняя часть теплоизоляции снята' }; }
+      S.covers.forEach(function (o) { o.visible = true; }); (S.shells || []).forEach(function (o) { o.visible = true; }); syncCovState();
+      return { msg: 'Теплоизоляция групп закрыта' };
     }
     if (a === 'save') { lsSet('rv3d:' + S.spec.sig, curView()); return { msg: 'Вид сохранён у вас: вернётся при следующем открытии' }; }
     if (a === 'saveall') { saveAll().then(function (r) { if (S && S.onMsg) S.onMsg(r.msg); }); return { msg: 'Сохраняю вид для всех…' }; }
     if (a === 'home') { flyTo(S.home.p, S.home.t); Object.keys(S.hid).forEach(function (k) { setFade(k, false); }); try { localStorage.removeItem('rv3d:' + S.spec.sig); } catch (e) { } delete MEM[S.spec.sig]; return { msg: 'Вид сброшен' }; }
     return null;
+  }
+  // состояние теплоизоляции по факту: крышки сняты у всех групп / сняты и задние половины
+  function syncCovState() {
+    S.coversOpen = !!(S.covers && S.covers.length) && S.covers.every(function (c) { return !c.visible; });
+    S.backOff = !!(S.shells && S.shells.length) && S.shells.every(function (c) { return !c.visible; });
   }
   function isFade() { return !!(S && S.mode); }
   function coversOpen() { return !!(S && S.coversOpen); }
@@ -1013,7 +1088,8 @@
       if (S.picker) { pickerClick(e); return; }
       if (!S.mode) {
         var fh = firstHit(e);
-        if (fh && fh.userData.cover) { openCoverAt(fh); if (S.covers && S.covers.every(function (c) { return !c.visible; })) S.coversOpen = true; msg('Крышка открыта: щёлкните по насосу, чтобы заменить; кнопка на панели закрывает крышки'); return; }
+        if (fh && fh.userData.cover) { openCoverAt(fh); syncCovState(); msg('Крышка снята: щёлкните по насосу, чтобы заменить, или по задней части, чтобы снять и её; кнопка на панели закрывает всё'); return; }
+        if (fh && fh.userData.shell && S.covers && S.covers.length) { removeShellAt(fh); syncCovState(); msg('Задняя часть теплоизоляции снята; кнопка на панели возвращает всё на место'); return; }
         var kp = pick(e);
         if (kp && /^dhw\|w0\|/.test(kp) && S.tankPivot && window.RoomView && window.RoomView.tankRotate) { if (S.tg) closeTankGizmo(); else openTankGizmo(); return; }
         if (S.tg) closeTankGizmo();
@@ -1074,6 +1150,21 @@
     if (!p) { hit.visible = false; return; }
     (S.covers || []).forEach(function (c) { var x = cx(c); if (x >= p.a && x <= p.z) c.visible = false; });
   }
+  // Ближняя и дальняя плоскости камеры по расстоянию до сцены. С постоянными 0,05–60 м буфер глубины на телефонах (часто 16 бит) не
+  // различает поверхности ближе миллиметра: тонкие наклейки и стыки теплоизоляции на расстоянии 1,5–2 м мерцают («зависшие» полосы
+  // текстур). Диапазон сжат до самой сцены — точность вырастает на порядок.
+  function depthRange() {
+    var T = S.T, cam = S.cam;
+    if (!S.bc) { S.bc = S.box.getCenter(new T.Vector3()); S.br = S.box.getSize(new T.Vector3()).length() / 2 + 0.6; }
+    var dc = cam.position.distanceTo(S.bc), near = Math.max(0.03, dc - S.br * 1.1), far = dc + S.br * 1.3 + 1;
+    if (Math.abs(near - cam.near) > cam.near * 0.04 || Math.abs(far - cam.far) > cam.far * 0.04) { cam.near = near; cam.far = far; cam.updateProjectionMatrix(); }
+  }
+  // щелчок по задней половине снимает её у этой группы целиком (все детали задней части в полосе плиты), соседние группы не трогаем
+  function removeShellAt(hit) {
+    var p = plateOf(hit);
+    if (!p) { hit.visible = false; return; }
+    (S.shells || []).forEach(function (o) { var x = cx(o); if (x >= p.a && x <= p.z) o.visible = false; });
+  }
   function loop() {
     if (!S) return;
     S.raf = requestAnimationFrame(loop);
@@ -1083,6 +1174,7 @@
     S.cam.updateMatrixWorld();
     cb.style.transform = 'matrix3d(' + [e[0], -e[1], e[2], 0, -e[4], e[5], -e[6], 0, e[8], -e[9], e[10], 0, 0, 0, 0, 1].join(',') + ')';
     syncServos();
+    depthRange();
     if (S.picker) pickerTick();
     if (S.tg) tankGizmoTick();
     if (S.chk) { var kp = 1 + 0.18 * Math.sin(Date.now() / 220); S.chk.children.forEach(function (m, i) { if (i % 2 === 0) m.scale.setScalar(kp); }); }
@@ -1139,7 +1231,10 @@
     A = app; loadDefaults();
     if (S && S.spec.sig === spec.sig && S.ready) { S.spec = spec; host.appendChild(S.wrap); resize(); applyPumps(); return; }
     if (S && S.building === spec.sig) { host.appendChild(S.wrap); return; }
-    if (S && S.ready && carryNext) { try { MEM[spec.sig] = curView(); } catch (e) { } }
+    // сцену надо собрать заново (другой состав, поворот бойлера): камера и прозрачные детали переходят в новую, а прежний кадр остаётся
+    // на экране, пока она грузится — иначе вид мигал пустым полем с надписью «Загрузка»
+    SNAP = null;
+    if (S && S.ready) { try { MEM[spec.sig] = curView(); } catch (e) { } try { SNAP = snapshot(); } catch (e) { SNAP = null; } }
     carryNext = false;
     if (S) dispose();
     S = null;
@@ -1151,17 +1246,23 @@
       if (S && S.wrap) S.wrap.innerHTML = '<div class="r3-load">3D недоступно: ' + esc(e.message || e) + '. Откройте «Схему» или «Реалистично».</div>';
     });
   }
+  function snapshot() {
+    var src = S.r.domElement; S.r.render(S.scene, S.cam);                 // drawImage сразу после render: буфер ещё не сброшен
+    var c = document.createElement('canvas'); c.width = src.width; c.height = src.height;
+    c.getContext('2d').drawImage(src, 0, 0);
+    return c;
+  }
   function dispose() {
     if (!S) return;
     if (S.picker) closePicker(true);
     closeTankGizmo();
-    try { if (S.ready) MEM[S.spec.sig] = curView(); } catch (e) { }
+    try { if (S.ready) { MEM[S.spec.sig] = curView(); syncCovState(); KEEP.cov = S.backOff ? 2 : S.coversOpen ? 1 : 0; } } catch (e) { }
     cancelAnimationFrame(S.raf); if (S.ro) S.ro.disconnect();
     try { S.r.dispose(); } catch (e) { }
     if (S.wrap.parentNode) S.wrap.remove();
     S = null;
   }
-  function hide() { dispose(); }
+  function hide() { KEEP.cov = 0; SNAP = null; dispose(); }
 
   var LBLCTX = null;
   function textW(t) { LBLCTX = LBLCTX || document.createElement('canvas').getContext('2d'); LBLCTX.font = '500 12px system-ui, Arial, sans-serif'; return LBLCTX.measureText(t).width; }
