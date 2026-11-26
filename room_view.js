@@ -797,7 +797,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=5'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=1').catch(function () { return null; })])
+    Promise.all([j('img/room_ports.json?v=6'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=1').catch(function () { return null; })])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
