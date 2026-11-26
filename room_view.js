@@ -146,7 +146,8 @@
       tp = PB['dhw:' + tkey];
       var mixExtra = 0;                                 // широкие узлы подмеса вместо значков: потребителям нужно больше места до бойлера
       if (!hOff) plainCons().forEach(function (cn) { var nn = mixN(cn); if (nn) mixExtra += mixW(nn) / PXM - 0.42; });
-      tankOff = [(hOff ? hOff[0] + maxX + 0.40 : bx + 1.5 + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
+      var spanM = A.boilerTankSpanM ? A.boilerTankSpanM(plainCons().length) : 1.5;   // расстояние котёл – бойлер: то же число, что в смете (app.boilerTankSpanM)
+      tankOff = [(hOff ? hOff[0] + maxX + 0.40 : bx + spanM + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
       layers.push({ kind: 'dhw', fid: 'w0', key: tkey, fr: di[tkey], off: tankOff, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + tkey + '.webp' });
       // расширительные баки парой на стене слева от бойлера, выше его верха, на одной высоте; слева красный (отопления), справа белый (ГВС)
       if (needExp) {
@@ -683,7 +684,7 @@
     });
     S.routes.forEach(function (r) { r.pts.forEach(function (p) { var q = r.scr ? p : proj(p); x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }); });
     (S.cons || []).forEach(function (c) { var a = proj(c.sup), b = proj(c.ret); y0 = Math.min(y0, Math.min(a[1], b[1]) - 150 - 150 * (Math.abs(a[0] - b[0]) / 64) - 60); x0 = Math.min(x0, Math.min(a[0], b[0]) - 200); x1 = Math.max(x1, Math.max(a[0], b[0]) + 200); });
-    x0 -= 60; y0 -= 60; x1 += 60; y1 += 60;
+    x0 -= 150; y0 -= 60; x1 += 60; y1 += 130;   // слева и снизу запас под габаритные размеры
     var cv = document.createElement('canvas'); cv.width = Math.round(x1 - x0); cv.height = Math.round(y1 - y0);
     var g = cv.getContext('2d');
     var wl = g.createLinearGradient(0, 0, 0, cv.height); wl.addColorStop(0, '#E9EBEE'); wl.addColorStop(1, '#D8DBE0');
@@ -698,6 +699,7 @@
     cv._mat = mat;
     drawCons(g, S.cons || [], x0, y0);
     cv._notes = S.notes;
+    cv._dims = dimsOf(S.layers, ims, x0, y0, tl);
     cv._geom = { x0: x0, y0: y0, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, off: l.off, fid: l.fid, fr: l.fr, x: l.x, y: l.y, w: l.w, h: l.h }; }) };
     cv._s3 = { exp: (S.exps || []).map(function (e) { return { fid: e.fid, text: e.text }; }), mat: mat, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr, pf: l.pf, baked: l.baked, pid: l.pid }; }), routes: S.routes.map(function (r) {
       var pp = r.pts.map(function (p) { return r.scr ? p.slice() : proj(p); });
@@ -987,6 +989,9 @@
       '.rv-title{font:600 15px/1.2 system-ui,Arial,sans-serif;letter-spacing:.01em;opacity:.85}' +
       '.rv-stage{position:relative;border-radius:14px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 6px 24px rgba(0,0,0,.18)}' +
       '.rv-stage.zoomable{cursor:zoom-in}' +
+      '.rv-dims{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}' +
+      '.rv-dimbtn{font:600 12px/1 system-ui,Arial,sans-serif;padding:7px 12px;border-radius:999px;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;cursor:pointer}.rv-dimbtn.on{background:#1D4ED8;border-color:#1D4ED8;color:#fff}' +
+      '.rv-dimnote{margin:8px 0 0;font:13px/1.45 system-ui,Arial,sans-serif;opacity:.85}' +
       '.rv-stage img,.rv-stage canvas{display:block;width:100%}.rv-stage canvas{position:absolute;inset:0;height:100%}.rv-ov{pointer-events:none}' +
       '.rv-tip{position:absolute;pointer-events:none;z-index:3;max-width:260px;padding:8px 11px;border-radius:10px;background:rgba(17,24,39,.94);color:#fff;font:12px/1.35 system-ui,Arial,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35);opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}' +
       '.rv-tip.on{opacity:1;transform:none}.rv-tip b{display:block;font-weight:600;font-size:13px;margin-bottom:2px}.rv-tip span{opacity:.72}' +
@@ -1056,6 +1061,7 @@
     check: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
     cover: '<rect x="5" y="3" width="14" height="18" rx="3.5"/><circle cx="9.5" cy="8" r="1.7"/><circle cx="14.5" cy="8" r="1.7"/><rect x="8" y="12" width="8" height="5" rx="1"/>',
     x: '<path d="M5 5l14 14M19 5L5 19"/>',
+    dims: '<path d="M3 7v10M21 7v10M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
   };
   function ibtn(a, ic, tip, on) { return '<button type="button" data-a="' + a + '" data-tip="' + tip + '" aria-label="' + tip + '" class="' + (on ? 'on' : '') + '"><svg viewBox="0 0 24 24">' + IC[ic] + '</svg></button>'; }
@@ -1120,12 +1126,62 @@
       '. Они есть в смете и в таблице, на схему не попали.</div>';
   }
 
+
+  // ── габариты котельной: прозрачные поля кадров не считаются — берём по непрозрачным пикселям каждого слоя (оборудование, без труб)
+  function opaqueBox(im, w, h) {
+    var K = 4, cw = Math.max(1, Math.round(im.width / K)), ch = Math.max(1, Math.round(im.height / K));
+    var cv = document.createElement('canvas'); cv.width = cw; cv.height = ch;
+    var g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(im, 0, 0, cw, ch);
+    var d = g.getImageData(0, 0, cw, ch).data, x0 = cw, y0 = ch, x1 = -1, y1 = -1, x, y;
+    for (y = 0; y < ch; y++) for (x = 0; x < cw; x++) if (d[4 * (y * cw + x) + 3] > 40) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) return null;
+    return { l: x0 / cw * w, r: (x1 + 1) / cw * w, t: y0 / ch * h, b: (y1 + 1) / ch * h };
+  }
+  function dimsOf(layers, ims, x0, y0, tank) {
+    var l = 1e9, r = -1e9, t = 1e9, b = -1e9, fl = null;
+    layers.forEach(function (ly, i) {
+      var bb = opaqueBox(ims[i], ly.w, ly.h); if (!bb) return;
+      l = Math.min(l, ly.x + bb.l); r = Math.max(r, ly.x + bb.r); t = Math.min(t, ly.y + bb.t); b = Math.max(b, ly.y + bb.b);
+      if (ly === tank) fl = ly.y + bb.b;
+    });
+    if (r < l) return null;
+    var fb = fl === null ? b : fl;
+    return { l: l - x0, r: r - x0, t: t - y0, floor: fb - y0, mW: (r - l) / Math.abs(REF.x[0]), mH: (fb - t) / Math.hypot(REF.z[0], REF.z[1]) };
+  }
+  function mmTxt(m) { var v = Math.round(m * 100) * 10; return String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' мм'; }
+  function dimsOn(app) { return !!(app && app.state && app.state.roomViewDims); }
+  function dimsSvg(c) {
+    var d = c && c.dims; if (!d) return '';
+    var W = c.w, H = c.h, fs = Math.round(Math.max(24, W / 60)), col = '#1D4ED8', ay = Math.min(H - fs * 0.6, d.floor + fs * 1.9), ax = Math.max(fs * 0.9, d.l - fs * 2.2), a = fs * 0.45;
+    var arrow = function (x, y, dx, dy) { return '<path d="M' + x + ' ' + y + 'l' + (dx * a * 1.6 + dy * a * 0.5) + ' ' + (dy * a * 1.6 + dx * a * 0.5) + 'M' + x + ' ' + y + 'l' + (dx * a * 1.6 - dy * a * 0.5) + ' ' + (dy * a * 1.6 - dx * a * 0.5) + '"/>'; };
+    var tx = function (x, y, str, rot) { return '<text x="' + x + '" y="' + y + '" text-anchor="middle"' + (rot ? ' transform="rotate(-90 ' + x + ' ' + y + ')"' : '') + '>' + str + '</text>'; };
+    return '<svg class="rv-dims" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true">' +
+      '<g fill="none" stroke="' + col + '" stroke-width="' + Math.max(2, fs / 14) + '" stroke-linecap="round">' +
+      '<path stroke-dasharray="' + fs / 3 + ' ' + fs / 4 + '" opacity=".55" d="M' + d.l + ' ' + d.floor + 'V' + (ay + a) + 'M' + d.r + ' ' + d.floor + 'V' + (ay + a) + 'M' + d.l + ' ' + d.t + 'H' + (ax - a) + 'M' + d.l + ' ' + d.floor + 'H' + (ax - a) + '"/>' +
+      '<path d="M' + d.l + ' ' + ay + 'H' + d.r + 'M' + ax + ' ' + d.t + 'V' + d.floor + '"/>' +
+      arrow(d.l, ay, 1, 0) + arrow(d.r, ay, -1, 0) + arrow(ax, d.t, 0, 1) + arrow(ax, d.floor, 0, -1) + '</g>' +
+      '<g font-family="system-ui,Arial,sans-serif" font-weight="700" font-size="' + fs + '" fill="' + col + '" stroke="#fff" stroke-width="' + fs / 5 + '" paint-order="stroke" stroke-linejoin="round">' +
+      tx((d.l + d.r) / 2, ay - fs * 0.35, 'Ширина ' + mmTxt(d.mW)) + tx(ax - fs * 0.35, (d.t + d.floor) / 2, 'Высота ' + mmTxt(d.mH), true) + '</g></svg>';
+  }
+  function dimsNote(c) {
+    var d = c && c.dims; if (!d) return '';
+    return '<div class="rv-dimnote">Габарит оборудования с обвязкой: ширина <b>' + mmTxt(d.mW) + '</b>, высота <b>' + mmTxt(d.mH) + '</b> (от пола до верха самого высокого узла). Котельная должна быть не меньше этого, плюс проходы для монтажа и обслуживания.</div>';
+  }
+  function toggleDims() {
+    if (!A) return;
+    A.state.roomViewDims = !A.state.roomViewDims; A.saveState();
+    if (FULL) renderFull();
+    A.render();
+  }
+
   // ── встроенный вид: всегда плоская картинка в размер рендера, как у остальных листов; управление — в окне «На весь экран»
   function inlineView(app, c, st) {
     css();
-    return '<div class="rv"><div class="rv-head"><div class="rv-title">Общий вид котельной</div></div>' +
-      '<div class="rv-stage zoomable" data-style="' + st + '" onclick="RoomView.openFull()" title="Открыть на весь экран"><img src="' + c.url + '" alt="Общий вид котельной">' +
-      '<button type="button" class="scheme-zoom-btn" aria-label="На весь экран">⛶ На весь экран</button></div>' + gapHtml(app) + '</div>';
+    var dOn = dimsOn(app) && c.dims;
+    return '<div class="rv"><div class="rv-head"><div class="rv-title">Общий вид котельной</div>' +
+      '<button type="button" class="rv-dimbtn' + (dOn ? ' on' : '') + '" onclick="RoomView.toggleDims()" title="Габаритные размеры котельной по ширине и высоте">Размеры</button></div>' +
+      '<div class="rv-stage zoomable" data-style="' + st + '" onclick="RoomView.openFull()" title="Открыть на весь экран"><img src="' + c.url + '" alt="Общий вид котельной">' + (dOn ? dimsSvg(c) : '') +
+      '<button type="button" class="scheme-zoom-btn" aria-label="На весь экран">⛶ На весь экран</button></div>' + (dOn ? dimsNote(c) : '') + gapHtml(app) + '</div>';
   }
 
   // ── окно «На весь экран»
@@ -1139,7 +1195,7 @@
   function barFull(app, st) {
     var pro = proOf(app), h = '';
     if (pro) h += ibtn('v:scheme', 'scheme', 'Схема', st === 'scheme') + ibtn('v:real', 'real', 'Реалистично', st === 'real' || st === 'flow') + ibtn('v:3d', 'cube', '3D: вращение и приближение', st === '3d') + '<i class="sep"></i>';
-    h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels) + ibtn('list', 'list', 'Состав котельной: единый список позиций', !!app.state.roomViewList);
+    h += ibtn('hl', 'hl', 'Подсветка деталей и строк сметы', !!app.state.roomViewHl) + ibtn('lbl', 'tag', 'Подписи позиций', !!app.state.roomViewLabels) + ibtn('list', 'list', 'Состав котельной: единый список позиций', !!app.state.roomViewList) + (st !== '3d' ? ibtn('dims', 'dims', 'Габаритные размеры котельной: ширина и высота', dimsOn(app)) : '');
     if (pro && (st === 'real' || st === 'flow')) h += ibtn('flow', 'flow', 'Поток теплоносителя и показания', st === 'flow');
     if (st === '3d') {
       h += '<i class="sep"></i>' + ibtn('check', 'check', 'Проверка сборки: красным подсвечиваются неподключённые трубы и порты, углы без фитинга, пересечения; жёлтым — свободные порты', !!(window.Room3D && window.Room3D.checkOn && window.Room3D.checkOn())) + ibtn('covers', 'cover', 'Крышки теплоизоляции насосных групп: открыть или закрыть все', !!(window.Room3D && window.Room3D.coversOpen && window.Room3D.coversOpen())) + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
@@ -1185,6 +1241,7 @@
     if (a === 'close') { closeFull(); return; }
     if (a.indexOf('v:') === 0) { app.state.roomViewStyle = a.slice(2); app.saveState(); renderFull(); return; }
     if (a === 'flow') { app.state.roomViewFlow = !app.state.roomViewFlow; app.state.roomViewStyle = 'real'; app.saveState(); renderFull(); return; }
+    if (a === 'dims') { toggleDims(); return; }
     if (a === 'list') { app.state.roomViewList = !app.state.roomViewList; app.saveState(); barFull(app, st); drawList(); return; }
     if (a === 'hl' || a === 'lbl') {
       var k = a === 'hl' ? 'roomViewHl' : 'roomViewLabels';
@@ -1224,7 +1281,7 @@
     bind(app);
     flowData = st === 'flow' ? c.flow : null;
     stage.className = 'rvm-stage';
-    stage.innerHTML = '<div class="rv-stage" data-style="' + st + '"' + (hl ? ' data-hl="1"' : '') + ' style="aspect-ratio:' + W + '/' + H + ';width:min(100%,calc((100vh - 94px) * ' + (W / H).toFixed(4) + '))"><img src="' + c.url + '" alt="Общий вид котельной">' +
+    stage.innerHTML = '<div class="rv-stage" data-style="' + st + '"' + (hl ? ' data-hl="1"' : '') + ' style="aspect-ratio:' + W + '/' + H + ';width:min(100%,calc((100vh - 94px) * ' + (W / H).toFixed(4) + '))"><img src="' + c.url + '" alt="Общий вид котельной">' + (dimsOn(app) ? dimsSvg(c) : '') +
       (st === 'flow' ? '<canvas class="rv-flow" width="' + W + '" height="' + H + '"></canvas>' : '') +
       (hl ? '<canvas class="rv-ov"></canvas>' : '') + (st === 'flow' ? flowCards(app, c) : '') + '<div class="rv-tip"></div></div>' +
       '<svg class="rvm-lbl"></svg>';
@@ -1389,7 +1446,7 @@
       cache[sig] = 'wait';
       canvasOf(3, kk).then(function (cv) {
         if (!cv) { cache[sig] = { none: true }; return; }
-        var ready = function (u) { cache[sig] = { url: u, w: cv.width, h: cv.height, geom: cv._geom, flow: cv._flow, s3: cv._s3 }; app.render(); if (FULL) renderFull(); };
+        var ready = function (u) { cache[sig] = { url: u, w: cv.width, h: cv.height, dims: cv._dims, geom: cv._geom, flow: cv._flow, s3: cv._s3 }; app.render(); if (FULL) renderFull(); };
         if (cv.toBlob) cv.toBlob(function (b) { ready(b ? URL.createObjectURL(b) : cv.toDataURL('image/png')); }, 'image/png'); else ready(cv.toDataURL('image/png'));
       }).catch(function (e) { console.warn('[вид котельной] не собран:', e); cache[sig] = { none: true }; });
       return null;
@@ -1526,5 +1583,5 @@
     return a;
   }
 
-  window.RoomView = { html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
+  window.RoomView = { toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
 })();
