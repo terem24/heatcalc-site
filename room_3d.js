@@ -413,10 +413,10 @@
       });
       spec.routes = out;
     })();
-    spec.routes.forEach(function (rt) { var od = rt.od || PS.od; built.push({ rt: rt, pts: buildPts(rt), cut: [], rad: od / 2000, s: od, ok: steel && RF.ok(od) }); });
-    var put = function (key, P, u, v, tag) {
+    spec.routes.forEach(function (rt) { var od = rt.od || PS.od; built.push({ rt: rt, pts: buildPts(rt), cut: [], rad: od / 2000, s: od, nom: rt.nom || od, ok: steel && RF.ok(od) }); });
+    var put = function (key, P, u, v, tag, sc) {
       var k = key + '|' + P.x.toFixed(3) + '|' + P.y.toFixed(3) + '|' + P.z.toFixed(3) + (tag || '');
-      if (seen[k]) return; seen[k] = 1; places.push({ key: key, P: P.clone(), u: u.clone(), v: v.clone() });
+      if (seen[k]) return; seen[k] = 1; places.push({ key: key, P: P.clone(), u: u.clone(), v: v.clone(), sc: sc || 1 });
     };
     // муфты на плече: от торца раструба узла наружу по направлению dir, большой раструб — к узлу или от него
     var putArm = function (P, dir, tip, cps) {
@@ -549,16 +549,19 @@
     }
     // 4) концы труб на резьбовых портах узлов: переходник ВПр-НР (порт с гнездом ВР) или ВПр-ВР (порт с наружной резьбой) по каталогу SSS-2021/2022;
     // переходник ввинчивается в порт, торец трубы уходит в раструб на 13 мм от плоскости устья
-    if (steel && mouths) {
+    // у ППР, металлопластика и стабильной трубы трубы толще (22 -> Ø32, Ø26, Ø25): переходник на порту берётся по логическому типоразмеру трассы
+    // (модель одна на все системы), остальные стыки этих систем остаются без фитингов (угол - скруглённый изгиб)
+    if (RF && mouths) {
       built.forEach(function (r) {
-        if (!r.ok) return;
+        var nm = r.nom || r.s;
+        if (!(r.ok || (!steel && RF.ok(nm)))) return;
         var n = r.pts.length;
         [0, n - 1].forEach(function (e) {
           if (r.cut[e] || n < 2) return;
           var P = r.pts[e], mo = null, md = 0.02;
           mouths.forEach(function (q) { var d = q.P.distanceTo(P); if (d < md && !q.used) { md = d; mo = q; } });
           if (!mo) return;
-          var key = 'adp_' + r.s + 'x' + mo.size + '_' + (mo.male ? 'F' : 'M');
+          var key = 'adp_' + nm + 'x' + mo.size + '_' + (mo.male ? 'F' : 'M');
           if (!ADP_OK[key]) return;
           var u = dirv(P, r.pts[e === 0 ? 1 : n - 2]);
           r.cut[e] = 0.013; mo.used = true; mo.adp = key;
@@ -712,6 +715,7 @@
       }
       var w = new T.Vector3().crossVectors(U, V);
       o.matrixAutoUpdate = true; o.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(U, V, w)); o.position.copy(pl.P);
+      if (pl.sc && pl.sc !== 1) o.scale.setScalar(pl.sc);
       o.traverse(function (m) { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
       g.add(o); n++;
     });

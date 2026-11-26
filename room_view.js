@@ -97,7 +97,13 @@
     if (!lg) return pipeSys(mat).od;
     return (A.boilerPhysOd ? A.boilerPhysOd(mat, lg) : lg) || pipeSys(mat).od;
   }
-  window.RoomPipe = { sys: pipeSys, hex: PIPE_HEX, od: routeOd };
+  // типоразмер (логический, 22/28/35/42) трассы: у нержавейки равен наружному диаметру, у ППР, металлопластика и стабильной трубы наружный диаметр больше (22 -> Ø32, Ø26, Ø25)
+  function routeNom(sz, mat) {
+    var L = A._bpSz || null, dl = A._dhwLoad && A._dhwLoad.size, lg = null;
+    if (L) lg = sz === 'per' ? L.per : sz === 'tank' ? L.tank : sz === 'coil' ? (dl || L.per) : L.main;
+    return lg || pipeSys(mat).od;
+  }
+  window.RoomPipe = { sys: pipeSys, hex: PIPE_HEX, od: routeOd, nom: routeNom };
   var BOILER_Z = 0.85;                    // низ корпуса настенного котла от пола, м: подключения котла на ~0,8 м от пола (каталог Meibes 2021, схема подключения котла, стр. 125)
   var YP = -0.16;                         // общая плоскость труб вдоль стены (ось патрубков коллектора)
   // Коллекторы висят низко, как в проектах и по практике монтажа (низ коллектора не ниже 300 мм от пола, оптимум около 500; в документах STOUT и СП цифры нет):
@@ -353,8 +359,8 @@
           if (e.role === 'ret') lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
           else lines.push({ role: 'cw', sz: 'tank', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
         });
-        // стояки радиаторов на насосе котла уходят в стену (глубина конца 0), а не заканчиваются в воздухе у значка потребителя
-        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', d1: 0, pts: [[r.sx, yl.sup], [r.sx, r.ys || r.y]] }); lines.push({ role: 'ret', sz: 'main', d1: 0, pts: [[r.rx, yl.ret], [r.rx, r.yr || r.y]] }); });
+        // стояки радиаторов на насосе котла уходят в стену (глубина конца 0), а не заканчиваются в воздухе у значка потребителя; у узла подмеса конец - на порту (глубина порта d1)
+        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', d1: r.d1 != null ? r.d1 : 0, pts: [[r.sx, yl.sup], [r.sx, r.ys || r.y]] }); lines.push({ role: 'ret', sz: 'main', d1: r.d1 != null ? r.d1 : 0, pts: [[r.rx, yl.ret], [r.rx, r.yr || r.y]] }); });
         lines.push({ role: 'sup', sz: 'main', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
         if (left && useB) lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[xj, yl.ret], [pR[0], yl.ret], pR] : [[xj, yl.ret], [pR[0], yl.ret]] });     // бойлер слева: обратка начинается у спуска змеевика и идёт через котлы к коллектору
         else lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
@@ -869,7 +875,7 @@
     g.fillStyle = dk ? '#34383F' : '#E3E6EA'; g.fillRect(0, fy, cv.width, 4);
     S.layers.slice().sort(function (a, b) { return b.off[1] - a.off[1] || a.off[0] - b.off[0]; }).forEach(function (l) { g.drawImage(l.im, l.x - x0, l.y - y0, l.w, l.h); });
     var mat = (A.boilerPipeSystem && A.boilerPipeSystem()) || 'ss316';
-    S.routes.forEach(function (r) { r.od = routeOd(r.sz, mat); });
+    S.routes.forEach(function (r) { r.od = routeOd(r.sz, mat); r.nom = routeNom(r.sz, mat); });
     if (!FITS) { try { FITS = await loadFits(); } catch (e) { FITS = null; } }
     cv._flow = drawPipes(g, S.routes, x0, y0, style || 'scheme', mat);
     cv._mat = mat;
@@ -882,7 +888,7 @@
       if (r.ext0) pp[0] = [pp[0][0] + r.ext0[0], pp[0][1] + r.ext0[1]];
       if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
       if (r.jog && pp.length >= 2) { var t0 = pp[0], yj = t0[1] + r.jog[1], yl2 = pp[pp.length - 1][1]; pp = [t0, [t0[0], yj], [t0[0] + r.jog[0], yj], [t0[0] + r.jog[0], yl2]]; }
-      return { role: r.role, od: r.od || null, pp: pp, plane: r.planeMm || 100, d0: r.d0 == null ? null : r.d0, d1: r.d1 == null ? null : r.d1 };
+      return { role: r.role, od: r.od || null, nom: r.nom || null, pp: pp, plane: r.planeMm || 100, d0: r.d0 == null ? null : r.d0, d1: r.d1 == null ? null : r.d1 };
     }), cons: (S.cons || []).map(function (c) { return { kind: c.kind, kw: c.kw, sup: proj(c.sup), ret: proj(c.ret) }; }) };
     return cv;
   }
