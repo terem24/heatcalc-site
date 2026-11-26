@@ -21,9 +21,19 @@
   // Модели на CDN зашифрованы (AES-256-GCM: «HCM1» + 12 байт вектора + шифртекст с меткой). Ключ — app.modelKey('room'): его выдаёт база
   // только тарифу «Профи». Расшифровка в браузере; открытый файл (glTF, режим ?models=local) читается как есть.
   var KEYS = {};
+  // Ключ берётся из базы (Supabase). На мобильном интернете база бывает недоступна или отвечает минутами — тогда вид оставался
+  // без оборудования. Поэтому: ожидание ограничено 12 с, а полученный ключ помнится на этом устройстве 3 дня (без обращения к базе).
+  var KEY_TTL = 3 * 24 * 3600 * 1000;
+  function keyCached(name) { try { var o = JSON.parse(localStorage.getItem('hc_mk_' + name)); return o && o.k && Date.now() - o.t < KEY_TTL ? o.k : null; } catch (e) { return null; } }
+  function keyStore(name, hex) { try { localStorage.setItem('hc_mk_' + name, JSON.stringify({ k: hex, t: Date.now() })); } catch (e) { } }
   function cryptoKey(name) {
     if (!KEYS[name]) {
-      KEYS[name] = Promise.resolve(window.app && window.app.modelKey ? window.app.modelKey(name) : Promise.reject(new Error('нет приложения'))).then(function (hex) {
+      var hit = keyCached(name);
+      var src = hit ? Promise.resolve(hit) : Promise.race([
+        Promise.resolve(window.app && window.app.modelKey ? window.app.modelKey(name) : Promise.reject(new Error('нет приложения'))),
+        new Promise(function (_, rej) { setTimeout(function () { rej(new Error('база не ответила за 12 с')); }, 12000); })
+      ]).then(function (hex) { keyStore(name, hex); return hex; });
+      KEYS[name] = src.then(function (hex) {
         var raw = new Uint8Array(hex.match(/../g).map(function (h) { return parseInt(h, 16); }));
         return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
       }).catch(function (e) { delete KEYS[name]; throw e; });
@@ -213,7 +223,7 @@
     var gl = new lib.GL(); gl.setDRACOLoader(dl); S.gl = gl;
     var jobs = spec.layers.map(function (Ly, i) {
       return new Promise(function (res) {
-        loadGlb(gl, GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, function (e) { console.warn('[3D] модель не загрузилась:', Ly.kind + '_' + Ly.key, e && e.message || e); res({ L: Ly, g: null }); });
+        loadGlb(gl, GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, function (e) { console.warn('[3D] модель не загрузилась:', Ly.kind + '_' + Ly.key, e && e.message || e); S.why = S.why || String(e && e.message || e); res({ L: Ly, g: null }); });
       });
     });
     // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
@@ -237,7 +247,7 @@
       var miss = S.miss;
       split(); applyTankRot(); pipes(); wall(); fit(true); bindUi(); S.ready = true; applyPumps();
       var ld = S.wrap.querySelector('.r3-load'); if (ld) ld.remove();
-      if (miss.length) msg('Нет 3D-модели: ' + miss.join(', '));
+      if (miss.length) { msg('Нет 3D-модели: ' + miss.join(', ')); failBanner(miss.length === S.spec.layers.length ? 'Оборудование не загрузилось' : 'Часть оборудования не загрузилась'); }
       loop();
       // прежний кадр уходит плавно, когда новый уже нарисован (первый кадр — в следующем rAF)
       var sn = S.wrap.querySelector('.r3-snap'), bz = S.wrap.querySelector('.r3-busy');
@@ -1010,6 +1020,12 @@
   var carryNext = false;
 
   // ── интерфейс
+  // постоянная плашка с причиной (короткое сообщение в углу гасло за 2,6 с и на телефоне его не успевали прочесть)
+  function failBanner(head) {
+    var d = document.createElement('div'); d.className = 'r3-load'; d.style.cssText = 'background:rgba(227,230,234,.92);text-align:center;padding:16px;cursor:pointer';
+    d.innerHTML = '<span><b>' + head + '</b><br>' + esc(S.why || 'нет ответа') + '<br>Проверьте вход в аккаунт «Профи» и связь, затем откройте вид снова. Нажмите, чтобы закрыть.</span>';
+    d.onclick = function () { d.remove(); }; S.wrap.appendChild(d);
+  }
   function msg(t) { var m = S.wrap.querySelector('.r3-msg'); m.textContent = t; m.classList.add('on'); clearTimeout(S.mt); S.mt = setTimeout(function () { m.classList.remove('on'); }, 2600); }
   function bar() { }                       // панель значков — в окне «На весь экран» (room_view.js), здесь только сцена
   function curView() {
