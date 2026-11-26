@@ -12,7 +12,12 @@
   'use strict';
 
   var THREE_URL = 'https://cdn.jsdelivr.net/npm/three@0.160.0/';
-  var GLB_DIR = 'models3d/room/';
+  // Тяжёлые модели лежат не на сайте (лимит GitHub Pages 1 ГБ), а в публичном репозитории моделей и отдаются через jsDelivr.
+  // Новая выгрузка = новый тег репозитория: поднять MODELS_TAG здесь. Новые разделы (тёплый пол, радиаторы...) — новые ключи карты,
+  // при нехватке места — другой репозиторий. Для проверки с диска: ?models=local (нужна папка models3d/room рядом с сайтом).
+  var MODELS_TAG = 'v1';
+  var MODEL_HOSTS = { room: 'https://cdn.jsdelivr.net/gh/terem24/heatcalc-models@' + MODELS_TAG + '/room/' };
+  var GLB_DIR = /[?&]models=local/.test(location.search) ? 'models3d/room/' : MODEL_HOSTS.room;
   var GLB_V = 10;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
