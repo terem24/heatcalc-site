@@ -274,8 +274,11 @@
         var frT = di[tkey], xb = tankOff[0] + tp[0].pos_m[0], xe0 = xb - SGN * 260 / PXM;
         var topZ = tankOff[2] + frT.o[1] / Math.abs(frT.ax.z[1]), zOrig = topZ + 0.12 - 0.046;   // низ клапана бака на 0,12 м выше верха бойлера
         [['exh', 'h', cfgE.tankHeating, xe0 - SGN * 0.38, 'Расширительный бак отопления', 'ret'], ['exw', 't', cfgE.tankDhw, xe0 - SGN * 0.06, 'Расширительный бак ГВС', 'cw']].forEach(function (e) {
-          var key = e[1] + e[2], pp = PB['dhw:' + key];
-          if (!e[2] || !di[key] || !pp) { notes.push('нет кадра бака ' + key); return; }
+          // модели баков есть на 12, 18 и 24 л; на другой объём (35, 50, 80, 100 л) бак показывается ближайшей по объёму моделью, подпись остаётся с настоящим объёмом
+          var vv = null; [12, 18, 24].forEach(function (v) { if (di[e[1] + v] && PB['dhw:' + e[1] + v] && (vv === null || Math.abs(v - e[2]) < Math.abs(vv - e[2]))) vv = v; });
+          var key = e[1] + (e[2] ? vv : e[2]), pp = PB['dhw:' + key];
+          if (!e[2] || !vv || !di[key] || !pp) { notes.push('нет кадра бака ' + e[1] + e[2]); return; }
+          if (vv !== e[2]) notes.push('бак ' + e[2] + ' л показан моделью на ' + vv + ' л');
           var off = [e[3], YP - pp[0].pos_m[1], zOrig];
           layers.push({ kind: 'dhw', fid: e[0], key: key, fr: di[key], off: off, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + key + '.webp' });
           exps.push({ fid: e[0], key: key, role: e[5], text: e[4] + ' ' + e[2] + ' л', port: proj(add(pp[0].pos_m, off)), depth: -pp[0].pos_m[1] });
