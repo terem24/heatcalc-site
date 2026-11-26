@@ -107,11 +107,33 @@
   function posOf(fid) { var P = (A && A.state && A.state.roomViewPos) || {}, q = P[fid]; return q ? [+q[0] || 0, +q[1] || 0] : [0, 0]; }
   var REF = null;
 
+  // ── бойлер слева или справа от котла (state.roomViewTankSide: 'l' | 'r', по умолчанию справа, как в проектах).
+  // Слева бойлер зеркален: кадр отражается по вертикали оси, патрубки змеевика смотрят на котёл; в 3D модель разворачивается на 180° вокруг оси.
+  function tankSide() { return (A && A.state && A.state.roomViewTankSide === 'l') ? 'l' : 'r'; }
+  function mirrorFr(fr) {
+    var z = {}; Object.keys(fr.zones || {}).forEach(function (k) { var q = fr.zones[k]; z[k] = [1 - q[2], q[1], 1 - q[0], q[3]]; });
+    var o = {}; Object.keys(fr).forEach(function (k) { o[k] = fr[k]; });
+    o.o = [fr.w - fr.o[0], fr.o[1]]; o.zones = z; o.mir = true;
+    return o;
+  }
+  function mirrorPorts(pp) {
+    return pp.map(function (p) { var q = {}; Object.keys(p).forEach(function (k) { q[k] = p[k]; }); q.pos_m = [-p.pos_m[0], p.pos_m[1], p.pos_m[2]]; if (p.dir) q.dir = [-p.dir[0], p.dir[1], p.dir[2]]; return q; });
+  }
   // картинки слоёв декодируются один раз: при сдвиге коллектора сцена пересобирается, а слои те же
   var IMGC = {};
   function img(src) {
     if (IMGC[src]) return IMGC[src];
-    var pr = new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; });
+    var pr;
+    if (src.indexOf('mirror:') === 0) {         // зеркальное отражение кадра слева направо (классы деталей _id.png сохраняют цвет: отражение по целым пикселям)
+      pr = img(src.slice(7)).then(function (im) {
+        var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+        var g = c.getContext('2d'); g.imageSmoothingEnabled = false; g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(im, 0, 0);
+        return new Promise(function (res, rej) {
+          var o = new Image(); o.onload = function () { o._orig = im.src; res(o); }; o.onerror = rej;
+          if (c.toBlob) c.toBlob(function (bl) { o.src = bl ? URL.createObjectURL(bl) : c.toDataURL('image/png'); }, 'image/png'); else o.src = c.toDataURL('image/png');
+        });
+      });
+    } else pr = new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; });
     IMGC[src] = pr; pr.catch(function () { if (IMGC[src] === pr) delete IMGC[src]; });
     return pr;
   }
@@ -189,10 +211,26 @@
     var layers = [], routes = [], notes = [];
 
     // ── котлы: на стене, низ корпуса на BOILER_Z, патрубки котла приводятся в общую плоскость труб YP (стена на кадре не рисуется)
+    // бойлер слева от котла: он стоит первым у левого края (зеркальный кадр, патрубки змеевика справа), котлы и всё правее сдвигаются так,
+    // чтобы между бойлером и котлом встали колонки подъёма змеевика (260 и 140 px от конца патрубков) и расширительные баки
+    var dk = dhwKeys(), left = false, LT = null, tkey0 = dk ? dk.tank + '_k' : null, SGN = 1;
+    if (tankSide() === 'l' && tkey0 && DATA.DI[tkey0] && PB['dhw:' + tkey0]) {
+      var frL = DATA.DI[tkey0], axL = Math.abs(frL.ax.x[0]), tpL = mirrorPorts(PB['dhw:' + tkey0]), cfgL = null;
+      try { cfgL = A.buildSchemeConfig ? A.buildSchemeConfig() : null; } catch (e) { }
+      var off0 = 0.25 + (frL.w - frL.o[0]) / axL, xPort = off0 + tpL[0].pos_m[0];
+      LT = { fr: mirrorFr(frL), tp: tpL, off0: off0, right: Math.max(off0 + frL.o[0] / axL, xPort), need: xPort + 260 / PXM + 0.12 };
+      LT.body = LT.right + 0.10;                        // корпус котла правее корпуса бойлера
+      if (cfgL && (cfgL.tankHeating || cfgL.tankDhw)) LT.body = Math.max(LT.body, xPort + 0.553 + 0.16 + 0.10);   // и правее пары расширительных баков над бойлером (красный стоит в 0,553 м от патрубков, радиус бака до 0,16 м)
+      left = true; SGN = -1;
+    }
     var bx = 0.25, bports = [];
     bf.forEach(function (f) {
       var q = PB['boiler:' + baseKey(f.key)];
       if (!q) { notes.push('нет портов котла ' + f.key); return; }
+      if (left && !bports.length) {        // первый котёл: порты правее колонок змеевика, корпус правее корпуса бойлера
+        var minP = Math.min.apply(null, q.map(function (p) { return p.pos_m[0]; })), bodyL = -f.fr.o[0] / Math.abs(f.fr.ax.x[0]);
+        bx = Math.max(LT.need - minP, LT.body - bodyL, 0.25);
+      }
       var off = [bx, YP - q[0].pos_m[1], BOILER_Z];
       layers.push({ kind: 'boiler', fid: f.id, key: f.key, fr: f.fr, off: off, src: f.path + '.webp', stand: f.stand });
       var P = q.map(function (p) { return add(p.pos_m, off); });
@@ -214,21 +252,22 @@
     // ── бойлер: напольный (пол z = 0), справа от коллектора; кадр «…_k» — только два подключения змеевика, высоты патрубков по паспорту объёма
     var cfgE = null; try { cfgE = A.buildSchemeConfig ? A.buildSchemeConfig() : null; } catch (e) { }
     var needExp = !!(cfgE && (cfgE.tankHeating || cfgE.tankDhw)), exps = [];
-    var dk = dhwKeys(), tankOff = null, tp = null;
+    var tankOff = null, tp = null;
     var tkey = dk ? dk.tank + '_k' : null;
     if (tkey && di[tkey] && PB['dhw:' + tkey]) {
       var maxX = hp ? Math.max.apply(null, hp.outlets.map(function (o) { return o.pos_m[0]; })) : 0.3;
-      tp = PB['dhw:' + tkey];
+      tp = left ? LT.tp : PB['dhw:' + tkey];
       var mixExtra = 0;                                 // широкие узлы подмеса вместо значков: потребителям нужно больше места до бойлера
-      if (!hOff) plainCons().forEach(function (cn) { var nn = mixN(cn); if (nn) mixExtra += mixW(nn) / PXM - 0.42; });
-      var spanM = A.boilerTankSpanM ? A.boilerTankSpanM(plainCons().length) : 1.5;   // расстояние котёл – бойлер: то же число, что в смете (app.boilerTankSpanM)
-      tankOff = [(hOff ? hOff[0] - posOf('h0')[0] + maxX + 0.40 : bx + spanM + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
-      layers.push({ kind: 'dhw', fid: 'w0', key: tkey, fr: di[tkey], off: tankOff, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + tkey + '.webp' });
-      // расширительные баки парой на стене слева от бойлера, выше его верха, на одной высоте; слева красный (отопления), справа белый (ГВС)
+      if (!hOff && !left) plainCons().forEach(function (cn) { var nn = mixN(cn); if (nn) mixExtra += mixW(nn) / PXM - 0.42; });
+      var spanM = (!left && A.boilerTankSpanM) ? A.boilerTankSpanM(plainCons().length) : 1.5;   // расстояние котёл – бойлер: то же число, что в смете (app.boilerTankSpanM)
+      tankOff = left ? [LT.off0, YP - tp[0].pos_m[1], 0] : [(hOff ? hOff[0] - posOf('h0')[0] + maxX + 0.40 : bx + spanM + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
+      layers.push({ kind: 'dhw', fid: 'w0', key: tkey, fr: left ? LT.fr : di[tkey], fr0: di[tkey], mir: left, off: tankOff, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + tkey + '.webp' });
+      // расширительные баки парой на стене у колонок змеевика, выше верха бойлера, на одной высоте; красный (отопления) дальше от бойлера, белый (ГВС) ближе.
+      // Справа от котла пара стоит слева от бойлера, слева от котла — зеркально, справа от него
       if (needExp) {
-        var frT = di[tkey], xb = tankOff[0] + tp[0].pos_m[0], xe0 = xb - 260 / PXM;
+        var frT = di[tkey], xb = tankOff[0] + tp[0].pos_m[0], xe0 = xb - SGN * 260 / PXM;
         var topZ = tankOff[2] + frT.o[1] / Math.abs(frT.ax.z[1]), zOrig = topZ + 0.12 - 0.046;   // низ клапана бака на 0,12 м выше верха бойлера
-        [['exh', 'h', cfgE.tankHeating, xe0 - 0.38, 'Расширительный бак отопления', 'ret'], ['exw', 't', cfgE.tankDhw, xe0 - 0.06, 'Расширительный бак ГВС', 'cw']].forEach(function (e) {
+        [['exh', 'h', cfgE.tankHeating, xe0 - SGN * 0.38, 'Расширительный бак отопления', 'ret'], ['exw', 't', cfgE.tankDhw, xe0 - SGN * 0.06, 'Расширительный бак ГВС', 'cw']].forEach(function (e) {
           var key = e[1] + e[2], pp = PB['dhw:' + key];
           if (!e[2] || !di[key] || !pp) { notes.push('нет кадра бака ' + key); return; }
           var off = [e[3], YP - pp[0].pos_m[1], zOrig];
@@ -240,6 +279,7 @@
 
     // ── трубы: на картинке только горизонтали и вертикали (вид спереди, как на эталоне владельца). Считаем в пикселях кадра.
     //    Три линии котлов: подача, обратка, подача на змеевик; порядок высот подбирается по числу пересечений.
+    var xinfo = null;
     if (bports.length && (hOff || (tankOff && tp))) {
       var pL = null, pR = null, dL = null, dRr = null;
       if (hOff) {
@@ -251,12 +291,14 @@
       var cS = haveTank ? proj(add(tp[0].pos_m, tankOff)) : null, cR = haveTank ? proj(add(tp[1].pos_m, tankOff)) : null;
       // без коллектора подача отопления уходит открытым концом левее подъёма змеевика, обратка принимает возврат бойлера
       var nhCons = [], nhR = [];
+      var retEnd = 0;                                    // бойлер слева, коллектора нет: правый конец обратки (дальний порт котла или потребитель)
       if (!hOff) {
-        pL = [cS[0] - 400, 0]; pR = [cS[0] - 140, 0];
+        var xPortMax = Math.max.apply(null, bports.map(function (b) { return Math.max(proj(b.sup)[0], proj(b.ret)[0], b.mid ? proj(b.mid)[0] : 0); }));
+        pL = [left ? xPortMax + 0.30 * PXM : cS[0] - 400, 0]; pR = [cS[0] - 140 * SGN, 0]; retEnd = xPortMax;
         nhCons = plainCons();
         if (nhCons.length) {
-          var xr0 = Math.max.apply(null, bports.map(function (b) { return Math.max(proj(b.sup)[0], proj(b.ret)[0], b.mid ? proj(b.mid)[0] : 0); })) + 0.30 * PXM;
-          var xlim = cS[0] - 260 - (exps.length ? 0.62 : 0.18) * PXM, SEP = 0.125 * PXM, PAIR = Math.min(0.42 * PXM, (xlim - xr0 - SEP) / nhCons.length);
+          var xr0 = xPortMax + 0.30 * PXM;
+          var xlim = left ? 1e9 : cS[0] - 260 - (exps.length ? 0.62 : 0.18) * PXM, SEP = 0.125 * PXM, PAIR = Math.min(0.42 * PXM, (xlim - xr0 - SEP) / nhCons.length);
           var yTop = proj([0, YP, BOILER_Z + 0.20])[1];
           var xcur = xr0;
           nhCons.forEach(function (cn, k) {                  // у каждой пары: обратка слева, подача справа — как выходы групп коллектора
@@ -277,7 +319,9 @@
             }
           });
           pL = [nhR[nhR.length - 1].sx, 0];
+          nhR.forEach(function (r) { retEnd = Math.max(retEnd, r.rx); });
         }
+        if (left) pR = [retEnd, 0];
       }
       var loadPump = !!(A.buildSchemeConfig && (A.buildSchemeConfig() || {}).loadPump);
       var useB = haveTank && !loadPump && bports.some(function (b) { return b.mid; });
@@ -296,9 +340,10 @@
       var STEP = 90, Y0 = Math.max(yEnd + 45, haveTank ? cR[1] - STEP + 70 : 0);   // ret ниже порта обратки бойлера минимум на шаг: спуск обратки виден, а не «ступенька» в 20 px
       function build(perm) {
         var yl = {}; roles.forEach(function (r, i) { yl[r] = Y0 + STEP * perm[i]; });
-        var xe = haveTank ? cS[0] - 260 : 0, xj = haveTank ? cS[0] - 140 : 0;   // подъём подачи змеевика левее спуска его обратки: без пересечения
+        var xe = haveTank ? cS[0] - 260 * SGN : 0, xj = haveTank ? cS[0] - 140 * SGN : 0;   // подъём подачи змеевика дальше от бойлера, чем спуск его обратки: без пересечения (слева от котла — зеркально)
         var lines = [];
         var minX = function (k) { return Math.min.apply(null, bs.filter(function (b) { return b[k]; }).map(function (b) { return k === 'sup' ? b.supx : k === 'mid' ? b.midx : b[k][0]; })); };
+        var maxX = function (k) { return Math.max.apply(null, bs.filter(function (b) { return b[k]; }).map(function (b) { return k === 'sup' ? b.supx : k === 'mid' ? b.midx : b[k][0]; })); };
         bs.forEach(function (b) {
           lines.push({ role: 'sup', sz: 'per', d0: b.dS, ext0: [0, -0.23 * PXM], jog: b.jS ? [b.jS, 0.06 * PXM] : null, pts: [b.sup, [b.supx, yl.sup]] });
           lines.push({ role: 'ret', sz: 'per', d0: b.dR, ext0: [0, -0.23 * PXM], pts: [b.ret, [b.ret[0], yl.ret]] });
@@ -310,9 +355,10 @@
         });
         nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', d1: r.d1, pts: [[r.sx, yl.sup], [r.sx, r.ys || r.y]] }); lines.push({ role: 'ret', sz: 'main', d1: r.d1, pts: [[r.rx, yl.ret], [r.rx, r.yr || r.y]] }); });
         lines.push({ role: 'sup', sz: 'main', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
-        lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
+        if (left && useB) lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[xj, yl.ret], [pR[0], yl.ret], pR] : [[xj, yl.ret], [pR[0], yl.ret]] });     // бойлер слева: обратка начинается у спуска змеевика и идёт через котлы к коллектору
+        else lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
         if (useB) {
-          lines.push({ role: 'ld', sz: 'coil', d1: -tp[0].pos_m[1], ext1: [0.075 * PXM, 0], pts: [[minX('mid'), yl.ld], [xe, yl.ld], [xe, cS[1]], cS] });
+          lines.push({ role: 'ld', sz: 'coil', d1: -tp[0].pos_m[1], ext1: [0.075 * PXM, 0], pts: [[left ? maxX('mid') : minX('mid'), yl.ld], [xe, yl.ld], [xe, cS[1]], cS] });
           lines.push({ role: 'lr', sz: 'coil', d0: -tp[1].pos_m[1], ext0: [0.075 * PXM, 0], pts: [cR, [xj, cR[1]], [xj, yl.ret]] });
         }
         return { lines: lines, yl: yl };
@@ -331,7 +377,7 @@
         }
         return n;
       }
-      var perms = roles.length === 3 ? (bs.length > 1 ? [[2, 1, 0], [2, 0, 1], [1, 2, 0], [1, 0, 2], [0, 2, 1], [0, 1, 2]] : [[2, 1, 0]]) : [[1, 0]], best = null;   // как на эталоне: сверху подача змеевика, ниже обратка, ниже подача
+      var perms = roles.length === 3 ? (bs.length > 1 || left ? [[2, 1, 0], [2, 0, 1], [1, 2, 0], [1, 0, 2], [0, 2, 1], [0, 1, 2]] : [[2, 1, 0]]) : [[1, 0]], best = null;   // как на эталоне: сверху подача змеевика, ниже обратка, ниже подача
       perms.forEach(function (pm) { var r = build(pm), c = crossings(r.lines); if (!best || c < best.c) best = { c: c, r: r, pm: pm }; });
       best.r.lines.forEach(function (ln) { ln.scr = true; routes.push(ln); });
       // глубина от стены, мм до оси трубы: подача — в плоскости патрубков котла (105–107), обратка и змеевик ближе к стене; в одной плоскости линии
@@ -341,6 +387,7 @@
       var sameCross = 0;
       (function () { var L = best.r.lines; for (var i = 0; i < L.length; i++) for (var j = i + 1; j < L.length; j++) { if (L[i].role === L[j].role || L[i].planeMm !== L[j].planeMm) continue; if (crossings([L[i], L[j]]) > 0 && !((L[i].role === 'ret' && L[j].role === 'lr') || (L[i].role === 'lr' && L[j].role === 'ret'))) sameCross++; } })();
       notes.push('пересечений на виде спереди: ' + best.c + ', в одной плоскости: ' + sameCross + ' (глубина от стены, мм: подача 107, обратка 70, змеевик 40)');
+      xinfo = { c: best.c, same: sameCross };
     }
 
     // ── потребители над группами: радиатор или тёплый пол с подписью мощности (значки по образцу владельца), группы по буквам ключа кадра
@@ -356,7 +403,33 @@
       }
     }
     if (!hOff && typeof nhCons !== 'undefined' && nhCons && nhCons.length && nhCons[0].sup) nhCons.forEach(function (cn) { cons.push(cn); });
-    return { layers: layers, routes: routes, notes: notes, cons: cons, exps: exps };
+    var problems = checkLayout(layers, routes, xinfo);
+    problems.forEach(function (t) { notes.push('раскладка: ' + t); });
+    return { layers: layers, routes: routes, notes: notes, cons: cons, exps: exps, problems: problems, side: left ? 'l' : 'r' };
+  }
+  // проверка раскладки до рисования: корпуса не налезают друг на друга, трубы не идут сквозь чужое оборудование, в одной плоскости трубы разных контуров не пересекаются.
+  // Трубы вида спереди лежат в пикселях кадра (1 м = PXM), концы труб у собственных патрубков внутри габарита своего узла — это стык, а не пересечение
+  function checkLayout(layers, routes, xi) {
+    var out = [], i, j, eps = 0.02;
+    for (i = 0; i < layers.length; i++) for (j = i + 1; j < layers.length; j++) {
+      var a = layerBox(layers[i], layers[i].off), b = layerBox(layers[j], layers[j].off);
+      if (a.x0 < b.x1 - eps && a.x1 > b.x0 + eps && a.zb < b.zt - eps && a.zt > b.zb + eps) out.push(layerName(layers[i]) + ' упирается в ' + layerName(layers[j]));
+    }
+    var boxes = layers.map(function (l) { return { l: l, b: layerBox(l, l.off) }; });
+    routes.forEach(function (r) {
+      if (!r.scr) return;
+      var P = r.pts.map(function (p) { return [p[0] / PXM, -p[1] / PXM]; }), ends = [P[0], P[P.length - 1]];
+      boxes.forEach(function (o) {
+        var b = o.b, pad = 0.06;
+        if (ends.some(function (e) { return e[0] > b.x0 - pad && e[0] < b.x1 + pad && e[1] > b.zb - pad && e[1] < b.zt + pad; })) return;     // свой узел
+        for (var k = 0; k < P.length - 1; k++) {
+          var x0 = Math.min(P[k][0], P[k + 1][0]), x1 = Math.max(P[k][0], P[k + 1][0]), z0 = Math.min(P[k][1], P[k + 1][1]), z1 = Math.max(P[k][1], P[k + 1][1]);
+          if (x0 < b.x1 - 0.01 && x1 > b.x0 + 0.01 && z0 < b.zt - 0.01 && z1 > b.zb + 0.01) { out.push('труба «' + r.role + '» идёт сквозь ' + layerName(o.l)); return; }
+        }
+      });
+    });
+    if (xi && xi.same > 0) out.push('трубы разных контуров пересекаются в одной плоскости: ' + xi.same);
+    return out.filter(function (t, k) { return out.indexOf(t) === k; });
   }
 
   // мощность контура из названия строки группы («… радиаторы: 15,8 из 48,8 кВт»), по порядку: тёплый пол слева, затем радиаторы, как ключ кадра
@@ -714,13 +787,13 @@
   // заводские патрубки (класс «tube» карты деталей) стираем с кадра: вместо них рисуется труба выбранной системы, без «хвостов» старого материала
   // результат зависит только от картинки слоя: считается один раз (потом не меняется, только читается и рисуется)
   var ERC = {};
-  function eraseTubes(im) {
+  function eraseTubes(im, mir) {
     var k = im.src;
-    if (!ERC[k]) { var pr = eraseTubesRaw(im); ERC[k] = pr; pr.catch(function () { if (ERC[k] === pr) delete ERC[k]; }); }
+    if (!ERC[k]) { var pr = eraseTubesRaw(im, mir); ERC[k] = pr; pr.catch(function () { if (ERC[k] === pr) delete ERC[k]; }); }
     return ERC[k];
   }
-  async function eraseTubesRaw(im) {
-    var idim = await img(im.src.replace(/\.webp(\?.*)?$/, '_id.png$1'));
+  async function eraseTubesRaw(im, mir) {
+    var idim = await img((mir ? 'mirror:' : '') + (im._orig || im.src).replace(/\.webp(\?.*)?$/, '_id.png$1'));
     var w = im.naturalWidth, h = im.naturalHeight;
     var c = document.createElement('canvas'); c.width = w; c.height = h; var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0);
     var c2 = document.createElement('canvas'); c2.width = w; c2.height = h; var x2 = c2.getContext('2d', { willReadFrequently: true }); x2.drawImage(idim, 0, 0);
@@ -747,6 +820,10 @@
       for (a = iy + 4; a >= 0; a--) { var has = false; for (b = ix - 8; b <= ix + 8; b++) if (b >= 0 && b < w && m[a * w + b]) { has = true; break; } if (has) { best = a; miss = 0; } else if (++miss > 8) break; }
       return best === null ? null : [0, (l.y + best * s) - p[1]];
     }
+    if (l.mir) {          // зеркальный бойлер: патрубок справа от корпуса, ищем влево
+      for (a = ix + 4; a >= 0; a--) { var hm = false; for (b = iy - 8; b <= iy + 8; b++) if (b >= 0 && b < h && a < w && m[b * w + a]) { hm = true; break; } if (hm) { best = a; miss = 0; } else if (++miss > 8) break; }
+      return best === null ? null : [(l.x + (best + 1) * s) - p[0], 0];
+    }
     for (a = ix - 4; a < w; a++) { var hs = false; for (b = iy - 8; b <= iy + 8; b++) if (b >= 0 && b < h && a >= 0 && m[b * w + a]) { hs = true; break; } if (hs) { best = a; miss = 0; } else if (++miss > 8) break; }
     return best === null ? null : [(l.x + best * s) - p[0], 0];
   }
@@ -755,8 +832,8 @@
     var S = await build(steps);
     if (!S) return null;
     var sc = function (fr) { return PXM / Math.hypot(fr.ax.x[0], fr.ax.x[1]); };
-    var ims = await Promise.all(S.layers.map(function (l) { return img(l.src); }));
-    var ers = await Promise.all(S.layers.map(function (l, i) { return ((l.kind === 'boiler' || l.kind === 'dhw') && !/^ex/.test(l.fid || '')) ? eraseTubes(ims[i]) : null; }));
+    var ims = await Promise.all(S.layers.map(function (l) { return img((l.mir ? 'mirror:' : '') + l.src); }));
+    var ers = await Promise.all(S.layers.map(function (l, i) { return ((l.kind === 'boiler' || l.kind === 'dhw') && !/^ex/.test(l.fid || '')) ? eraseTubes(ims[i], l.mir) : null; }));
     var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     S.layers.forEach(function (l, i) {
       var s = sc(l.fr), p = proj(l.off), ox = l.fr.o[0] * s, oy = l.fr.o[1] * s;
@@ -798,8 +875,8 @@
     drawCons(g, S.cons || [], x0, y0);
     cv._notes = S.notes;
     cv._dims = dimsOf(S.layers, ims, x0, y0, tl);
-    cv._geom = { x0: x0, y0: y0, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, off: l.off, fid: l.fid, fr: l.fr, x: l.x, y: l.y, w: l.w, h: l.h }; }) };
-    cv._s3 = { exp: (S.exps || []).map(function (e) { return { fid: e.fid, text: e.text }; }), mat: mat, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr, pf: l.pf, baked: l.baked, pid: l.pid }; }), routes: S.routes.map(function (r) {
+    cv._geom = { x0: x0, y0: y0, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, off: l.off, fid: l.fid, fr: l.fr, mir: l.mir, x: l.x, y: l.y, w: l.w, h: l.h }; }) };
+    cv._s3 = { exp: (S.exps || []).map(function (e) { return { fid: e.fid, text: e.text }; }), mat: mat, side: S.side, problems: S.problems, layers: S.layers.map(function (l) { return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, fr: l.fr, fr0: l.fr0, mir: l.mir, pf: l.pf, baked: l.baked, pid: l.pid }; }), routes: S.routes.map(function (r) {
       var pp = r.pts.map(function (p) { return r.scr ? p.slice() : proj(p); });
       if (r.ext0) pp[0] = [pp[0][0] + r.ext0[0], pp[0][1] + r.ext0[1]];
       if (r.ext1) pp[pp.length - 1] = [pp[pp.length - 1][0] + r.ext1[0], pp[pp.length - 1][1] + r.ext1[1]];
@@ -837,12 +914,11 @@
   var HL_PAL = [['mf', 255, 0, 0], ['ek', 0, 255, 0], ['tube', 0, 0, 255], ['mount', 255, 255, 0], ['feed', 0, 255, 255], ['end', 255, 0, 255], ['head', 255, 255, 255], ['kit', 255, 128, 0], ['sep', 128, 0, 255], ['cap', 0, 128, 255], ['th', 128, 255, 0]];
   var HL_S = 3, HL_R = 2;          // ячейка 3 px кадра; детали, лежащие ближе 2 ячеек, считаются одной
   var HL = null, LB = null, FC_MOVED = 0, hmCache = {};
-  function labelMap(kind, key) {
-    var ck = kind + '_' + key;
+  function labelMap(kind, key, mir) {
+    var ck = kind + '_' + key + (mir ? '_m' : '');
     if (hmCache[ck]) return hmCache[ck];
     hmCache[ck] = new Promise(function (res) {
-      var im = new Image();
-      im.onload = function () {
+      img((mir ? 'mirror:' : '') + 'img/' + kind + '_node_front/' + kind + '_' + key + '_id.png').then(function (im) {
         var w = Math.ceil(im.naturalWidth / HL_S), h = Math.ceil(im.naturalHeight / HL_S);
         var cv = document.createElement('canvas'); cv.width = w; cv.height = h;
         var g = cv.getContext('2d', { willReadFrequently: true }); g.imageSmoothingEnabled = false; g.drawImage(im, 0, 0, w, h);
@@ -865,9 +941,7 @@
           }
         }
         res({ w: w, h: h, lab: lab, inst: inst, ring: {} });
-      };
-      im.onerror = function () { res(null); };
-      im.src = 'img/' + kind + '_node_front/' + kind + '_' + key + '_id.png';
+      }).catch(function () { res(null); });
     });
     return hmCache[ck];
   }
@@ -1016,10 +1090,10 @@
   }
   // состав сцены 3D: узлы с зонами в метрах (привязка деталей модели к строкам сметы), трассы труб, подписи компонентов
   function spec3d(c, caps, sig) {
-    var S3 = c.s3, hkNow = null, ang = tankAngle(), rotInfo = null, routes3 = S3.routes;
+    var S3 = c.s3, hkNow = null, ang = tankAngle(), sideL = S3.side === 'l', rotInfo = null, routes3 = S3.routes;
     try { hkNow = A && A.hydroFrameKey && A.hydroFrameKey(); } catch (e) { hkNow = null; }     // насос читается заново: сцена в кэше, а насос могли заменить
     var layers = S3.layers.map(function (l) {
-      var fr = l.fr, ax = fr.ax, zs = [];
+      var fr = l.fr0 || l.fr, ax = fr.ax, zs = [];
       Object.keys(fr.zones || {}).forEach(function (zn) {
         var q = fr.zones[zn];
         zs.push({ root: zn.split(':')[0], x0: (q[0] * fr.w - fr.o[0]) / ax.x[0], x1: (q[2] * fr.w - fr.o[0]) / ax.x[0], z0: (fr.o[1] - q[3] * fr.h) / Math.abs(ax.z[1]), z1: (fr.o[1] - q[1] * fr.h) / Math.abs(ax.z[1]) });
@@ -1027,8 +1101,8 @@
       return { kind: l.kind, key: l.key, fid: l.fid, off: l.off, zones: zs, pf: l.kind === 'hydro' && hkNow ? hkNow.pf : (l.kind === 'ufhmix' ? mixPumpFam() : l.pf), pfs: l.kind === 'hydro' ? pumpFams() : null, baked: l.baked, pid: l.kind === 'hydro' && hkNow ? hkNow.pid : l.pid };
     });
     var tk = layers.filter(function (l) { return l.kind === 'dhw' && l.fid === 'w0'; })[0], tpk = tk && DATA && DATA.PB['dhw:' + tk.key];
-    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang; if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; tk.dy = rotInfo.dy; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } else { try { var li = tankLift(tk, tpk, S3.routes); if (li) { routes3 = li.routes; tk.dy = li.dy; } } catch (e) { console.warn('[3D] подъём бойлера не построен:', e); } } }
-    return { sig: sig + (ang && rotInfo ? '|r' + ang : ''), baseSig: sig, rot: rotInfo ? ang : 0, layers: layers, routes: routes3, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
+    if (tk && tpk && tpk.length >= 2) { var dP = -tpk[0].pos_m[1] - 0.05 + 0.05; tk.piv = dP; tk.rot = ang || (sideL ? 180 : 0); if (ang) { try { rotInfo = tankRoutes(tk, tpk, S3.routes, ang); routes3 = rotInfo.routes; tk.dz = rotInfo.dz; tk.dy = rotInfo.dy; } catch (e) { console.warn('[3D] поворот бойлера не построен:', e); rotInfo = null; } } else { try { var li = tankLift(tk, tpk, S3.routes); if (li) { routes3 = li.routes; tk.dy = li.dy; } } catch (e) { console.warn('[3D] подъём бойлера не построен:', e); } } }
+    return { sig: sig + (ang && rotInfo ? '|r' + ang : '') + (sideL ? '|L' : ''), baseSig: sig, rot: rotInfo ? ang : (sideL ? 180 : 0), side: S3.side || 'r', problems: S3.problems || [], layers: layers, routes: routes3, mat: S3.mat, comps: compItems(layers, caps), tank: tankName(), exp: S3.exp || [] };
   }
   // ── выноски показаний при включённом потоке: подача, обратка, скорость, расход по каждой системе (числа — из расчётов приложения)
   var FC_ICON = {
@@ -1170,6 +1244,7 @@
     undo: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
     check: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
     cover: '<rect x="5" y="3" width="14" height="18" rx="3.5"/><circle cx="9.5" cy="8" r="1.7"/><circle cx="14.5" cy="8" r="1.7"/><rect x="8" y="12" width="8" height="5" rx="1"/>',
+    tankside: '<rect x="3" y="3" width="6" height="12" rx="2"/><rect x="15" y="3" width="6" height="7" rx="1.5"/><path d="M5 17h14l-3-3M19 20H5l3 3"/>',
     move: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
     x: '<path d="M5 5l14 14M19 5L5 19"/>',
     dims: '<path d="M3 7v10M21 7v10M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
@@ -1323,7 +1398,8 @@
       h += '<i class="sep"></i>' + ibtn('check', 'check', 'Проверка сборки: красным подсвечиваются неподключённые трубы и порты, углы без фитинга, пересечения; жёлтым — свободные порты', !!(window.Room3D && window.Room3D.checkOn && window.Room3D.checkOn())) + ibtn('covers', 'cover', 'Крышки теплоизоляции насосных групп: открыть или закрыть все', !!(window.Room3D && window.Room3D.coversOpen && window.Room3D.coversOpen())) + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
         ibtn('save', 'pin', 'Зафиксировать вид для себя') + (app.wmPreviewOn() ? ibtn('saveall', 'pinall', 'Вид по умолчанию для всех') : '') + ibtn('home', 'undo', 'Сбросить вид');
     }
-    if (movables().length) h += '<i class="sep"></i>' + ibtn('move', 'move', 'Переместить коллектор: влево-вправо, вверх-вниз; положение запоминается', MV.open);
+    if (hasTank()) h += '<i class="sep"></i>' + ibtn('tankside', 'tankside', 'Бойлер ' + (tankSide() === 'l' ? 'слева от котла: переставить вправо' : 'справа от котла: переставить влево') + '. Раскладка и трубы перестраиваются и проверяются, выбор запоминается', tankSide() === 'l');
+    if (movables().length) h += (hasTank() ? '' : '<i class="sep"></i>') + ibtn('move', 'move', 'Переместить коллектор: влево-вправо, вверх-вниз; положение запоминается', MV.open);
     h += '<i class="sep"></i>' + ibtn('close', 'x', 'Закрыть (Esc)');
     MODAL.querySelector('.rvm-bar').innerHTML = h;
   }
@@ -1374,6 +1450,7 @@
     var app = A; if (!app) return;
     var st = CUR ? CUR.st : fullStyle(app);
     if (a === 'close') { closeFull(); return; }
+    if (a === 'tankside') { tankSwap(); return; }
     if (a === 'move') { MV.open = !MV.open; barFull(app, st); drawMove(); return; }
     if (a.indexOf('v:') === 0) { app.state.roomViewStyle = a.slice(2); app.saveState(); renderFull(); return; }
     if (a === 'flow') { app.state.roomViewFlow = !app.state.roomViewFlow; app.state.roomViewStyle = 'real'; app.saveState(); renderFull(); return; }
@@ -1420,7 +1497,7 @@
     if (hl) {
       HL = { c: c, comps: compItems(c.geom.layers, e.caps), maps: [], cur: null };
       var mine = HL;
-      Promise.all(c.geom.layers.map(function (L) { return labelMap(L.kind, L.key).then(function (m) { return m ? { L: L, m: m } : null; }); }))
+      Promise.all(c.geom.layers.map(function (L) { return labelMap(L.kind, L.key, L.mir).then(function (m) { return m ? { L: L, m: m } : null; }); }))
         .then(function (r) { if (HL === mine) mine.maps = r.filter(Boolean).sort(drawOrder); });
     } else HL = null;
     bind(app);
@@ -1532,7 +1609,7 @@
     if (!LB || LB.c !== c) {
       LB = { c: c, comps: compItems(c.geom.layers, CUR.caps), maps: null, hover: null, pins: {}, anchors: null };
       var mine = LB;
-      Promise.all(c.geom.layers.map(function (L) { return labelMap(L.kind, L.key).then(function (m) { return m ? { L: L, m: m } : null; }); })).then(function (maps) {
+      Promise.all(c.geom.layers.map(function (L) { return labelMap(L.kind, L.key, L.mir).then(function (m) { return m ? { L: L, m: m } : null; }); })).then(function (maps) {
         if (LB === mine) { mine.maps = maps.filter(Boolean).sort(drawOrder); drawFlatLabels(); }
       });
       return;
@@ -1584,7 +1661,7 @@
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
     var hk = app.hydroFrameKey(), dk = dhwKeys();
-    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null, wallKind(app), isDark()]);
+    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null, tankSide(), wallKind(app), isDark()]);
     var c = cache[sig];
     if (c === 'wait') return null;
     if (!c) {
@@ -1754,6 +1831,8 @@
   }
   // два положения: 0 — как в кадрах (патрубки влево, лицевая сторона с логотипом вправо) и 90 — патрубки к стене, лицевая сторона к зрителю
   function tankAngle() { return (A && A.state && A.state.roomViewTank === 90) ? 90 : 0; }
+  // полный угол бойлера вокруг оси: справа от котла 0 (патрубки влево) или 90 (к стене), слева от котла 180 (патрубки вправо, к котлу) или 90
+  function tankRot() { var a = tankAngle(); return a || (tankSide() === 'l' ? 180 : 0); }
   function tankRotate() {
     var a = tankAngle() === 90 ? 0 : 90;
     A.state.roomViewTank = a;
@@ -1761,6 +1840,27 @@
     A.render();
     if (FULL && MODAL) renderFull();                                 // поворот не меняет плоский вид, поэтому окно обновляем сами
     return a;
+  }
+  // бойлер слева или справа от котла: раскладка собирается и проверяется заранее (корпуса, трубы сквозь оборудование, пересечения в одной плоскости);
+  // слева, если она не собирается, остаётся прежняя. Сторона запоминается в смете (state.roomViewTankSide), поворот к стене (roomViewTank) сохраняется
+  function hasTank() { var L = (CUR && CUR.c && CUR.c.s3 && CUR.c.s3.layers) || []; return L.some(function (l) { return l.fid === 'w0'; }); }
+  async function tankSwap(to) {
+    var app = A; if (!app || !DATA) return null;
+    var cur = tankSide(); to = to || (cur === 'l' ? 'r' : 'l');
+    if (to === cur) return { ok: true, side: cur };
+    var prev = app.state.roomViewTankSide, res = null;
+    app.state.roomViewTankSide = to;
+    try { res = await build(3); } catch (e) { console.warn('[вид котельной] перестановка бойлера:', e); res = null; }
+    if (!res || (to === 'l' && res.problems && res.problems.length)) {
+      if (prev === undefined) delete app.state.roomViewTankSide; else app.state.roomViewTankSide = prev;
+      var m = !res ? 'Раскладка не собралась: бойлер остался на месте' : 'Слева не собирается, бойлер остался на месте: ' + res.problems.join('; ');
+      toast(m); return { ok: false, msg: m };
+    }
+    if (app.saveState) app.saveState();
+    app.render();
+    if (FULL && MODAL) renderFull();
+    toast('Бойлер ' + (to === 'l' ? 'слева' : 'справа') + ' от котла: раскладка проверена, пересечений нет');
+    return { ok: true, side: to };
   }
 
   // ── перемещение коллекторов: стрелки в окне «На весь экран» (и стрелки клавиатуры), положение запоминается в смете (state.roomViewPos[fid] = [вправо, вверх], м)
@@ -1815,5 +1915,5 @@
     var el = old || document.createElement('div'); el.className = 'rvm-move'; el.innerHTML = h; if (!old) MODAL.appendChild(el);
   }
 
-  window.RoomView = { wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
+  window.RoomView = { wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
 })();

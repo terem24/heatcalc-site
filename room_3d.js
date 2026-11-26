@@ -154,7 +154,7 @@
       '.r3-chk{position:absolute;z-index:5;left:12px;top:70px;max-width:340px;padding:8px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
       '.r3-chk b{display:block;margin-bottom:4px;font-size:13px}.r3-chk div{padding:2px 0 2px 14px;position:relative}.r3-chk div:before{content:"";position:absolute;left:2px;top:7px;width:8px;height:8px;border-radius:50%}.r3-chk .bad:before{background:#EF4444}.r3-chk .free:before{background:#F59E0B}' +
       '.r3-tg{position:absolute;z-index:5;transform:translate(-50%,-100%);display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:rgba(15,23,42,.9);color:#fff;font:12px system-ui,Arial,sans-serif;box-shadow:0 4px 16px rgba(15,23,42,.3)}' +
-      '.r3-tg button{width:32px;height:32px;border:0;border-radius:9px;background:#2563EB;color:#fff;font-size:18px;line-height:1;cursor:pointer}.r3-tg button:hover{background:#1D4ED8}' +
+      '.r3-tg button{width:32px;height:32px;border:0;border-radius:9px;background:#2563EB;color:#fff;font-size:18px;line-height:1;cursor:pointer}.r3-tg button:hover{background:#1D4ED8}.r3-tg button.sw{background:#475569}.r3-tg button.sw:hover{background:#334155}' +
       '.r3-msg{max-width:calc(100% - 24px);white-space:normal;text-align:center}' +
       /* телефон: панель значков в окне занимает верхние ~60 px, куб ракурсов и плашки опускаются под неё, плашки выбора насоса компактнее */
       '@media (max-width:700px){' +
@@ -236,7 +236,8 @@
       // порты узлов (устья с резьбой) известны только после загрузки моделей: по ним труба получает переходник на резьбу, а проверка — места стыка
       S.mouths = collectMouths();
       S.plan = planPipes(spec, T, S.mouths);
-      S.bad = spec.rot ? violations(S.plan, T) : [];          // проверка сборки новых труб бойлера: пересечения, углы без фитинга, нехватка прямого участка
+      S.bad = spec.rot ? violations(S.plan, T, spec.side === 'l') : [];          // слева от котла проверяются все трассы, а не только новые трубы бойлера
+      S.bad = S.bad || [];          // проверка сборки новых труб бойлера: пересечения, углы без фитинга, нехватка прямого участка
       if (S.bad.length) console.warn('[3D] поворот бойлера не собирается:', S.bad.map(function (v) { return v.t + ' ' + (v.msg || ''); }));
       var keys = {}, fj = []; S.plan.places.forEach(function (pl) { keys[pl.key] = 1; });
       Object.keys(keys).forEach(function (k) {
@@ -249,6 +250,11 @@
       var ld = S.wrap.querySelector('.r3-load'); if (ld) ld.remove();
       if (miss.length) { msg('Нет 3D-модели: ' + miss.join(', ')); failBanner(miss.length === S.spec.layers.length ? 'Оборудование не загрузилось' : 'Часть оборудования не загрузилась'); }
       loop();
+      if (spec.side === 'l') {
+        var nb = (S.bad || []).length;
+        msg(nb ? 'Бойлер слева от котла: замечаний сборки ' + nb + ', места видны по кнопке «Проверка сборки»' : 'Бойлер слева от котла: пересечений нет, трубы собираются');
+        if (nb) console.warn('[3D] бойлер слева не собирается:', S.bad.map(function (v) { return v.t + ' ' + (v.msg || ''); }));
+      }
       // прежний кадр уходит плавно, когда новый уже нарисован (первый кадр — в следующем rAF)
       var sn = S.wrap.querySelector('.r3-snap'), bz = S.wrap.querySelector('.r3-busy');
       if (sn || bz) requestAnimationFrame(function () { requestAnimationFrame(function () {
@@ -1035,10 +1041,12 @@
     if (!S.tankPivot) return;
     var ang = window.RoomView.tankAngle(), box = new S.T.Box3().setFromObject(S.tankHold), c = box.getCenter(new S.T.Vector3());
     var el = document.createElement('div'); el.className = 'r3-tg';
-    el.innerHTML = '<span>Бойлер: ' + (ang ? 'патрубки к стене, лицевая сторона к вам' : 'как в проекте, лицевая сторона вправо') + '</span><button type="button" title="Повернуть бойлер">&#x21BB;</button>';
+    el.innerHTML = '<span>Бойлер ' + (S.spec.side === 'l' ? 'слева от котла: ' : 'справа от котла: ') + (ang ? 'патрубки к стене, лицевая сторона к вам' : S.spec.side === 'l' ? 'патрубки к котлу, лицевая сторона влево' : 'как в проекте, лицевая сторона вправо') + '</span><button type="button" title="Повернуть бойлер">&#x21BB;</button><button type="button" class="sw" title="Переставить бойлер ' + (S.spec.side === 'l' ? 'вправо от котла' : 'влево от котла') + ': трубы перестроятся и проверятся">&#x21C4;</button>';
     el.addEventListener('click', function (e) {
       e.stopPropagation();
-      if (e.target.closest && e.target.closest('button')) rotateTank();
+      var bt = e.target.closest && e.target.closest('button');
+      if (!bt) return;
+      if (bt.classList.contains('sw')) { closeTankGizmo(); window.RoomView.tankSwap(); } else rotateTank();
     });
     S.wrap.appendChild(el); S.tg = { el: el, at: new S.T.Vector3(c.x, box.max.y + 0.08, c.z) };
   }
@@ -1050,10 +1058,11 @@
   }
   function rotateTank() {
     if (!S || !S.tankPivot || S.rotating) return;
-    var dir = window.RoomView.tankAngle() === 90 ? -1 : 1;      // 0 -> 90 по часовой, 90 -> 0 обратно
+    // справа от котла 0 <-> 90 (по часовой), слева от котла 180 <-> 90: поворот на 90° в сторону стены и обратно
+    var base = window.RoomView.tankSide() === 'l' ? 180 : 0, to = window.RoomView.tankAngle() === 90 ? base : 90;
     S.rotating = true; closeTankGizmo();
     if (S.pipeGroup) S.pipeGroup.visible = false;
-    var pv = S.tankPivot, y0 = pv.rotation.y, y1 = y0 - dir * Math.PI / 2, t0 = performance.now();
+    var pv = S.tankPivot, y0 = pv.rotation.y, y1 = -to * Math.PI / 180, t0 = performance.now();
     (function st(n) {
       var k = Math.min(1, (n - t0) / 520), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
       pv.rotation.y = y0 + (y1 - y0) * e;
