@@ -30,8 +30,19 @@
     }
     return KEYS[name];
   }
+  // Байты моделей начинают качаться сразу при открытии вида, параллельно с библиотекой three (раньше — только после неё: цепочка
+  // «библиотека → модели → фитинги» шла строго по очереди). Результат лежит в PRE, loadGlb забирает его оттуда.
+  var PRE = {};
+  function fetchBytes(url) {
+    if (!PRE[url]) {
+      PRE[url] = fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); });
+      PRE[url].catch(function () { delete PRE[url]; });
+    }
+    return PRE[url];
+  }
   function loadGlb(gl, url, ok, err) {
-    fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(function (buf) {
+    fetchBytes(url).then(function (buf) {
+      delete PRE[url];                                                  // повторно из памяти не отдаём: дальше работает кэш браузера
       var h = new Uint8Array(buf, 0, 4);
       if (h[0] === 0x67 && h[1] === 0x6c && h[2] === 0x54 && h[3] === 0x46) return buf;                  // «glTF» — открытый файл
       if (h[0] !== 0x48 || h[1] !== 0x43 || h[2] !== 0x4d || h[3] !== 0x31) throw new Error('неизвестный формат модели');
@@ -60,18 +71,20 @@
   function loadLibs() {
     if (L) return Promise.resolve(L);
     if (loading) return loading;
-    loading = blobModule('build/three.module.js').then(function (threeUrl) {
+    // все файлы библиотеки качаются одновременно (текст), правка адресов и подключение — после
+    var P = function (p) { return fetch(THREE_URL + p).then(function (r) { if (!r.ok) throw new Error('библиотека 3D не скачалась (' + r.status + ')'); return r.text(); }); };
+    var blob = function (t) { return URL.createObjectURL(new Blob([t], { type: 'text/javascript' })); };
+    loading = Promise.all([
+      P('build/three.module.js'), P('examples/jsm/utils/BufferGeometryUtils.js'), P('examples/jsm/controls/OrbitControls.js'),
+      P('examples/jsm/loaders/GLTFLoader.js'), P('examples/jsm/loaders/DRACOLoader.js'), P('examples/jsm/environments/RoomEnvironment.js')
+    ]).then(function (tx) {
+      var threeUrl = blob(tx[0]);
       var fx = function (t) { return t.replace(/from\s+['"]three['"]/g, "from '" + threeUrl + "'"); };
-      return blobModule('examples/jsm/utils/BufferGeometryUtils.js', fx).then(function (bgu) {
-        var fg = function (t) { return fx(t).replace(/from\s+['"]\.\.\/utils\/BufferGeometryUtils\.js['"]/g, "from '" + bgu + "'"); };
-        return Promise.all([
-          import(threeUrl),
-          blobModule('examples/jsm/controls/OrbitControls.js', fx).then(function (u) { return import(u); }),
-          blobModule('examples/jsm/loaders/GLTFLoader.js', fg).then(function (u) { return import(u); }),
-          blobModule('examples/jsm/loaders/DRACOLoader.js', fx).then(function (u) { return import(u); }),
-          blobModule('examples/jsm/environments/RoomEnvironment.js', fx).then(function (u) { return import(u); })
-        ]);
-      });
+      var bgu = blob(fx(tx[1]));
+      var fg = function (t) { return fx(t).replace(/from\s+['"]\.\.\/utils\/BufferGeometryUtils\.js['"]/g, "from '" + bgu + "'"); };
+      return Promise.all([
+        import(threeUrl), import(blob(fx(tx[2]))), import(blob(fg(tx[3]))), import(blob(fx(tx[4]))), import(blob(fx(tx[5])))
+      ]);
     }).then(function (m) {
       L = { T: m[0], OC: m[1].OrbitControls, GL: m[2].GLTFLoader, DR: m[3].DRACOLoader, RE: m[4].RoomEnvironment };
       return L;
@@ -166,6 +179,11 @@
       var d = document.createElement('div'); d.className = 'f'; d.textContent = f[0]; d.style.transform = f[1]; d.setAttribute('data-i', i); cb.appendChild(d);
     });
     S = { spec: spec, wrap: wrap, host: host, T: null, hid: {}, comps: {}, mode: false, ready: false, raf: 0, pins: {}, lhover: null, coversOpen: KEEP.cov > 0, backOff: KEEP.cov > 1 };
+    // модели и ключ расшифровки качаются параллельно с библиотекой; ошибки здесь глотаем — их покажет сама загрузка в setup
+    try {
+      spec.layers.forEach(function (Ly) { fetchBytes(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V).catch(function () { }); });
+      cryptoKey('room').catch(function () { });
+    } catch (e) { }
     return loadLibs().then(function (lib) { return setup(lib); });
   }
 
