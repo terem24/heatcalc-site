@@ -107,8 +107,13 @@
   function posOf(fid) { var P = (A && A.state && A.state.roomViewPos) || {}, q = P[fid]; return q ? [+q[0] || 0, +q[1] || 0] : [0, 0]; }
   var REF = null;
 
+  // картинки слоёв декодируются один раз: при сдвиге коллектора сцена пересобирается, а слои те же
+  var IMGC = {};
   function img(src) {
-    return new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; });
+    if (IMGC[src]) return IMGC[src];
+    var pr = new Promise(function (res, rej) { var i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = src; });
+    IMGC[src] = pr; pr.catch(function () { if (IMGC[src] === pr) delete IMGC[src]; });
+    return pr;
   }
   function proj(p) {
     return [p[0] * REF.x[0] + p[1] * REF.y[0] + p[2] * REF.z[0], p[0] * REF.x[1] + p[1] * REF.y[1] + p[2] * REF.z[1]];
@@ -707,16 +712,29 @@
 
 
   // заводские патрубки (класс «tube» карты деталей) стираем с кадра: вместо них рисуется труба выбранной системы, без «хвостов» старого материала
-  async function eraseTubes(im) {
+  // результат зависит только от картинки слоя: считается один раз (потом не меняется, только читается и рисуется)
+  var ERC = {};
+  function eraseTubes(im) {
+    var k = im.src;
+    if (!ERC[k]) { var pr = eraseTubesRaw(im); ERC[k] = pr; pr.catch(function () { if (ERC[k] === pr) delete ERC[k]; }); }
+    return ERC[k];
+  }
+  async function eraseTubesRaw(im) {
     var idim = await img(im.src.replace(/\.webp(\?.*)?$/, '_id.png'));
     var w = im.naturalWidth, h = im.naturalHeight;
     var c = document.createElement('canvas'); c.width = w; c.height = h; var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0);
     var c2 = document.createElement('canvas'); c2.width = w; c2.height = h; var x2 = c2.getContext('2d', { willReadFrequently: true }); x2.drawImage(idim, 0, 0);
     var d = x.getImageData(0, 0, w, h), d2 = x2.getImageData(0, 0, w, h), m = new Uint8Array(w * h), m2 = new Uint8Array(w * h), i;
     for (i = 0; i < w * h; i++) if (d2.data[4 * i + 2] > 200 && d2.data[4 * i] < 60 && d2.data[4 * i + 1] < 60) m[i] = 1;
-    for (var yy = 0; yy < h; yy++) for (var xx = 0; xx < w; xx++) {
+    // расширение маски на 2 пикселя во все стороны (квадрат 5x5): сначала по строкам, затем по столбцам, результат тот же, что у прямого перебора
+    var mt = new Uint8Array(w * h), yy, xx, q;
+    for (yy = 0; yy < h; yy++) for (xx = 0; xx < w; xx++) {
       if (!m[yy * w + xx]) continue;
-      for (var dy = -2; dy <= 2; dy++) for (var dx = -2; dx <= 2; dx++) { var nx = xx + dx, ny = yy + dy; if (nx >= 0 && ny >= 0 && nx < w && ny < h) m2[ny * w + nx] = 1; }
+      for (q = Math.max(0, xx - 2); q <= Math.min(w - 1, xx + 2); q++) mt[yy * w + q] = 1;
+    }
+    for (yy = 0; yy < h; yy++) for (xx = 0; xx < w; xx++) {
+      if (!mt[yy * w + xx]) continue;
+      for (q = Math.max(0, yy - 2); q <= Math.min(h - 1, yy + 2); q++) m2[q * w + xx] = 1;
     }
     for (i = 0; i < w * h; i++) if (m2[i]) d.data[4 * i + 3] = 0;
     x.putImageData(d, 0, 0);
@@ -1100,6 +1118,10 @@
       '.rvm-stage.is3d{padding:0}.rvm-stage.is3d .r3{position:absolute;inset:0;border-radius:0;height:100%}' +
       '.rvm-stage .rv-stage{box-shadow:0 8px 30px rgba(15,23,42,.18)}' +
       '.rvm-load{font:500 14px system-ui,Arial,sans-serif;color:#475569}' +
+      '.rvm-stage.rvm-wait>*:not(.rvm-wait-ico){filter:blur(4px);opacity:.75;transition:filter .25s,opacity .25s;pointer-events:none}' +
+      '.rvm-wait-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 20px;border-radius:14px;background:rgba(255,255,255,.88);box-shadow:0 6px 24px rgba(15,23,42,.18);font:500 14px system-ui,Arial,sans-serif;color:#475569;pointer-events:none}' +
+      '.rvm-wait-ico img{width:44px;height:44px;object-fit:contain;animation:rvmpulse 1.6s ease-in-out infinite}' +
+      '@keyframes rvmpulse{0%,100%{transform:scale(.88);opacity:.55}50%{transform:scale(1);opacity:1}}' +
       '.rvm-bar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:2px;padding:5px;border-radius:14px;background:rgba(255,255,255,.93);backdrop-filter:blur(8px);box-shadow:0 4px 18px rgba(15,23,42,.18);border:1px solid rgba(15,23,42,.08)}' +
       '.rvm-bar button{position:relative;width:36px;height:36px;border:0;border-radius:9px;background:transparent;color:#334155;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;transition:background .12s,color .12s}' +
       '.rvm-bar button svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}' +
@@ -1376,6 +1398,13 @@
     barFull(app, st);
     var kk = st === 'flow' ? 'flowbase' : st === '3d' ? 'real' : st;
     var e = entry(app, kk);
+    // вид пересобирается (сдвинули коллектор, заменили позицию): прежняя картинка остаётся на экране, размытая, со значком загрузки;
+    // раньше окно затиралось надписью «Собираю вид…» и 3D сбрасывалось
+    if (e === null && CUR && stage.firstChild && !stage.querySelector('.rvm-load')) {
+      stage.classList.add('rvm-wait');
+      if (!stage.querySelector('.rvm-wait-ico')) stage.insertAdjacentHTML('beforeend', '<div class="rvm-wait-ico"><img src="img/logo_hc_flame.png" alt=""><span>Обновляю вид…</span></div>');
+      return;
+    }
     if (!e) { CUR = null; if (window.Room3D) window.Room3D.hide(); stage.className = 'rvm-stage'; stage.innerHTML = '<div class="rvm-load">' + (e === false ? 'Для этой сметы общий вид не собирается: в ней нет котла с обвязкой.' : 'Собираю вид…') + '</div>'; return; }
     CUR = { st: st, c: e.c, caps: e.caps, sig: e.sig };
     barFull(app, st); drawMove();
@@ -1563,11 +1592,19 @@
       canvasOf(3, kk).then(function (cv) {
         if (!cv) { cache[sig] = { none: true }; return; }
         var ready = function (u) { cache[sig] = { url: u, w: cv.width, h: cv.height, dims: cv._dims, geom: cv._geom, flow: cv._flow, s3: cv._s3 }; app.render(); if (FULL) renderFull(); };
+        // в окне 3D плоская картинка не нужна: сцена стартует сразу по геометрии, а PNG кодируется позже (для встроенного вида)
+        if (FULL && MODAL && fullStyle(app) === '3d' && cv.toBlob) {
+          var c3 = cache[sig] = { url: '', w: cv.width, h: cv.height, dims: cv._dims, geom: cv._geom, flow: cv._flow, s3: cv._s3 };
+          renderFull();
+          cv.toBlob(function (b) { c3.url = b ? URL.createObjectURL(b) : cv.toDataURL('image/png'); app.render(); if (FULL && MODAL && fullStyle(app) !== '3d') renderFull(); }, 'image/png');
+          return;
+        }
         if (cv.toBlob) cv.toBlob(function (b) { ready(b ? URL.createObjectURL(b) : cv.toDataURL('image/png')); }, 'image/png'); else ready(cv.toDataURL('image/png'));
       }).catch(function (e) { console.warn('[вид котельной] не собран:', e); cache[sig] = { none: true }; });
       return null;
     }
     if (c.none) return false;
+    if (!c.url && !(FULL && MODAL && fullStyle(app) === '3d')) return null;      // картинка ещё кодируется
     return { c: c, caps: caps, sig: sig };
   }
   function html(app) {
