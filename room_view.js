@@ -1191,6 +1191,7 @@
       '.rvm-stage{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:72px 236px 22px}' +
       '.rvm-stage.is3d{padding:0}.rvm-stage.is3d .r3{position:absolute;inset:0;border-radius:0;height:100%}' +
       '.rvm-stage .rv-stage{box-shadow:0 8px 30px rgba(15,23,42,.18)}' +
+      'body.dark-mode .rvm{background:#24272C}body.dark-mode .rvm-stage .rv-stage{box-shadow:none}' +
       '.rvm-load{font:500 14px system-ui,Arial,sans-serif;color:#475569}' +
       '.rvm-stage.rvm-wait>*:not(.rvm-wait-ico){filter:blur(4px);opacity:.75;transition:filter .25s,opacity .25s;pointer-events:none}' +
       '.rvm-wait-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:8;display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 20px;border-radius:14px;background:rgba(255,255,255,.88);box-shadow:0 6px 24px rgba(15,23,42,.18);font:500 14px system-ui,Arial,sans-serif;color:#475569;pointer-events:none}' +
