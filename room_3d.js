@@ -233,6 +233,7 @@
       var miss = [];
       rs.forEach(function (x) { if (!x.g) { miss.push(x.L.kind + '_' + x.L.key); return; } place(x.L, x.g.scene); });
       S.miss = miss;
+      stretchLoops();
       // порты узлов (устья с резьбой) известны только после загрузки моделей: по ним труба получает переходник на резьбу, а проверка — места стыка
       S.mouths = collectMouths();
       S.plan = planPipes(spec, T, S.mouths);
@@ -291,6 +292,7 @@
       var hold = new T.Group(); hold.position.set(Ly.off[0], Ly.off[2] + (Ly.dy || 0), Ly.dz || 0); hold.add(pivot);
       S.tankPivot = pivot; S.tankHold = hold; host = hold;
     } else obj.position.set(Ly.off[0], Ly.off[2], 0);     // глубину не сдвигаем: на плоском виде узлы приведены в одну плоскость, а в 3D патрубки лежат на своих расстояниях от стены
+    (S.lobj = S.lobj || {})[Ly.fid] = obj;
     S.root.add(host); host.updateMatrixWorld(true);
     (S.lbox = S.lbox || {})[Ly.kind === 'dhw' && /^ex/.test(Ly.fid || '') ? 'dhw:' + Ly.fid : Ly.kind] = new T.Box3().setFromObject(host);
     var zs = Ly.zones || [];
@@ -735,15 +737,48 @@
     fl.material.dispose(); fl.material = new T.MeshStandardMaterial({ color: dk ? 0x1B1D21 : 0xEEF0F3, roughness: 0.9, metalness: 0, toneMapped: false });
     S.wrap.style.background = '#' + ('000000' + bgNow().toString(16)).slice(-6);
   }
+  // Петли тёплого пола у коллектора, сдвинутого вверх или вниз, должны доходить до пола: труба петли растягивается по вертикали, а колено с горизонтальным
+  // участком, фиксатор 90° и втулка опускаются вместе с её нижним концом. Пол - на 8 см ниже самой нижней детали остального оборудования (как у wall()).
+  function stretchLoops() {
+    var T = S.T, others = Object.keys(S.lbox || {}).filter(function (k) { return k !== 'ufhmix'; });
+    if (!others.length || !S.lobj) return;
+    var y0 = Infinity; others.forEach(function (k) { y0 = Math.min(y0, S.lbox[k].min.y); });
+    S.floorY = y0 - 0.08;
+    var VER = /^труба_петли(\.\d+)?$/, LOW = /^(труба_петли,_отвод|фиксатор_90|втулка)(\.\d+)?$/;
+    S.spec.layers.forEach(function (Ly) {
+      var obj = Ly.kind === 'ufhmix' && S.lobj[Ly.fid]; if (!obj) return;
+      obj.updateMatrixWorld(true);
+      var ver = [], low = [], run = Infinity, b = new T.Box3();
+      obj.traverse(function (o) {
+        if (!o.isMesh) return;
+        if (VER.test(o.name)) ver.push(o);
+        else if (LOW.test(o.name)) { low.push(o); if (/отвод/.test(o.name)) run = Math.min(run, b.setFromObject(o).min.y); }
+      });
+      if (!ver.length || run === Infinity) return;
+      var d = run - S.floorY;                                   // на сколько опустить нижний конец петли (м); меньше нуля - поднять
+      var lmin = Infinity; ver.forEach(function (o) { var bb = b.setFromObject(o); lmin = Math.min(lmin, bb.max.y - bb.min.y); });
+      d = Math.max(d, -(lmin - 0.08));                          // труба не короче 8 см
+      if (Math.abs(d) < 0.002) return;
+      ver.forEach(function (o) {
+        var bb = b.setFromObject(o), L = bb.max.y - bb.min.y, k = (L + d) / L, top = bb.max.y - obj.position.y;
+        o.scale.y *= k; o.position.y = top * (1 - k);
+      });
+      low.forEach(function (o) { o.position.y -= d; });
+      obj.updateMatrixWorld(true);
+      ver.concat(low).forEach(function (o) { o.userData.box = new T.Box3().setFromObject(o); });
+      S.lbox.ufhmix = new T.Box3().setFromObject(obj);
+    });
+  }
   function wall() {
     var T = S.T, b = new T.Box3().setFromObject(S.root), sz = b.getSize(new T.Vector3()), c = b.getCenter(new T.Vector3());
     var w = sz.x + 2.2, h = sz.y + 1.4;
     // стена выше и шире, пол глубже: на телефоне стоймя в кадр попадает много пустого места над и под сценой, край стены не должен быть виден
     var wh = h + 3, ww = Math.max(w, sz.x + 6);
     var wm = new T.Mesh(new T.PlaneGeometry(ww, wh), new T.MeshStandardMaterial({ color: 0xE9EBEE, roughness: 0.95, metalness: 0 }));
-    wm.position.set(c.x, b.min.y - 0.08 + wh / 2, -0.004); wm.receiveShadow = true; S.root.add(wm);
+    var fy = S.floorY != null ? Math.min(S.floorY, b.min.y) : b.min.y - 0.08;
+    wm.position.set(c.x, fy + wh / 2, -0.004); wm.receiveShadow = true; S.root.add(wm);
     var fl = new T.Mesh(new T.PlaneGeometry(ww, 40), new T.MeshStandardMaterial({ color: 0xC4C8CE, roughness: 0.9, metalness: 0 }));
-    fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, b.min.y - 0.08, 20); fl.receiveShadow = true; S.root.add(fl);
+    fl.rotation.x = -Math.PI / 2; fl.position.set(c.x, fy, 20); fl.receiveShadow = true; S.root.add(fl);
     S.box = b; S.floor = fl; S.wallMesh = wm; applyWall();
     S.sun.position.set(c.x - 1.6, b.max.y + 2.4, 3.2); S.sun.target.position.set(c.x, c.y, 0);
     var sc = S.sun.shadow.camera; sc.left = -w / 2; sc.right = w / 2; sc.top = h / 2 + 1; sc.bottom = -h / 2 - 1; sc.near = 0.5; sc.far = 12; sc.updateProjectionMatrix();

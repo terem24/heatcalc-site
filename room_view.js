@@ -353,7 +353,8 @@
           if (e.role === 'ret') lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
           else lines.push({ role: 'cw', sz: 'tank', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
         });
-        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', d1: r.d1, pts: [[r.sx, yl.sup], [r.sx, r.ys || r.y]] }); lines.push({ role: 'ret', sz: 'main', d1: r.d1, pts: [[r.rx, yl.ret], [r.rx, r.yr || r.y]] }); });
+        // стояки радиаторов на насосе котла уходят в стену (глубина конца 0), а не заканчиваются в воздухе у значка потребителя
+        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', d1: 0, pts: [[r.sx, yl.sup], [r.sx, r.ys || r.y]] }); lines.push({ role: 'ret', sz: 'main', d1: 0, pts: [[r.rx, yl.ret], [r.rx, r.yr || r.y]] }); });
         lines.push({ role: 'sup', sz: 'main', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
         if (left && useB) lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[xj, yl.ret], [pR[0], yl.ret], pR] : [[xj, yl.ret], [pR[0], yl.ret]] });     // бойлер слева: обратка начинается у спуска змеевика и идёт через котлы к коллектору
         else lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
