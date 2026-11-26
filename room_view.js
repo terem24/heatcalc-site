@@ -768,7 +768,9 @@
       if (pt.setTransform && window.DOMMatrix) pt.setTransform(new DOMMatrix().scale(kz));
       g.fillStyle = pt; g.fillRect(0, 0, cv.width, fy);
     }
-    g.fillStyle = dk ? '#1B1D21' : '#EEF0F3'; g.fillRect(0, fy, cv.width, cv.height - fy); g.fillStyle = dk ? '#121417' : '#D9DDE2'; g.fillRect(0, fy, cv.width, 8);
+    // без фона пол сливается со стеной (иначе вокруг картинки в карточке видны полосы другого цвета); с материалом стены пол отдельным тоном
+    if (wk !== 'off') { g.fillStyle = dk ? '#1B1D21' : '#EEF0F3'; g.fillRect(0, fy, cv.width, cv.height - fy); }
+    g.fillStyle = dk ? '#34383F' : '#E3E6EA'; g.fillRect(0, fy, cv.width, 4);
     S.layers.slice().sort(function (a, b) { return b.off[1] - a.off[1] || a.off[0] - b.off[0]; }).forEach(function (l) { g.drawImage(l.im, l.x - x0, l.y - y0, l.w, l.h); });
     var mat = (A.boilerPipeSystem && A.boilerPipeSystem()) || 'ss316';
     S.routes.forEach(function (r) { r.od = routeOd(r.sz, mat); });

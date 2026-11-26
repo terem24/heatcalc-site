@@ -237,7 +237,7 @@
 .rv-side .rv { padding: 0; margin: 0; max-width: none; }
 .rv-side .rv-stage.zoomable { box-sizing: border-box; width: 100%; height: auto; aspect-ratio: 420 / 297; max-width: none;
     margin: 0; border: 1px solid var(--border, #E5E7EB); border-radius: 8px; background: #fff; }
-body.dark-mode .rv-side .rv-stage.zoomable { border-color: #334155; }
+body.dark-mode .rv-side .rv-stage.zoomable { border-color: #334155; background: #24272C; }
 .rv-side .rv-stage.zoomable img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 #dynamic_scheme.scheme-vector.rv-show-models .scheme-svg-wrap { display: none; }
 #dynamic_scheme.scheme-vector.rv-show-scheme .rv-side { display: none; }
