@@ -35,6 +35,11 @@
   window.RoomPipe = { sys: pipeSys, hex: PIPE_HEX, od: routeOd };
   var BOILER_Z = 0.85;                    // низ корпуса настенного котла от пола, м: подключения котла на ~0,8 м от пола (каталог Meibes 2021, схема подключения котла, стр. 125)
   var YP = -0.16;                         // общая плоскость труб вдоль стены (ось патрубков коллектора)
+  // Коллекторы висят низко, как в проектах и по практике монтажа (низ коллектора не ниже 300 мм от пола, оптимум около 500; в документах STOUT и СП цифры нет):
+  // подключения к котлу — на уровне концов заводских патрубков котла (низ котла − 0,47 м), магистрали идут к ним почти прямо, без подъёмов и спусков.
+  // Петли тёплого пола уходят вниз к полу. Положение коллектора можно сдвинуть руками (state.roomViewPos[fid] = [вправо, вверх], м) — запоминается в смете.
+  var ZLOW = BOILER_Z - 0.47;
+  function posOf(fid) { var P = (A && A.state && A.state.roomViewPos) || {}, q = P[fid]; return q ? [+q[0] || 0, +q[1] || 0] : [0, 0]; }
   var REF = null;
 
   function img(src) {
@@ -131,8 +136,8 @@
     var hp = hb ? PH[hb] : null;
     var hOff = null;
     if (hkey && hi[hkey] && hp && hp.boiler.length === 2) {
-      var ZC = BOILER_Z + 0.075;
-      hOff = [bx + 0.35, YP - hp.boiler[0].pos_m[1], ZC];
+      var ZC = ZLOW - hp.boiler[0].pos_m[2], pH = posOf('h0');          // входы коллектора от котла — на нижнем уровне подключений
+      hOff = [bx + 0.35 + pH[0], YP - hp.boiler[0].pos_m[1], ZC + pH[1]];
       layers.push({ kind: 'hydro', fid: 'h0', key: hkey, pf: hk.pf || '', pfs: pumpFams(), baked: (/_p[a-z0-9]+$/.exec(hkey) || [''])[0], pid: hk.pid, fr: hi[hkey], off: hOff, src: A.HYDRO_DIR.replace('hydro_node', 'hydro_node_front') + 'hydro_' + hkey + '.webp' });
     } else notes.push('нет кадра коллектора');
 
@@ -147,7 +152,7 @@
       var mixExtra = 0;                                 // широкие узлы подмеса вместо значков: потребителям нужно больше места до бойлера
       if (!hOff) plainCons().forEach(function (cn) { var nn = mixN(cn); if (nn) mixExtra += mixW(nn) / PXM - 0.42; });
       var spanM = A.boilerTankSpanM ? A.boilerTankSpanM(plainCons().length) : 1.5;   // расстояние котёл – бойлер: то же число, что в смете (app.boilerTankSpanM)
-      tankOff = [(hOff ? hOff[0] + maxX + 0.40 : bx + spanM + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
+      tankOff = [(hOff ? hOff[0] - posOf('h0')[0] + maxX + 0.40 : bx + spanM + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
       layers.push({ kind: 'dhw', fid: 'w0', key: tkey, fr: di[tkey], off: tankOff, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + tkey + '.webp' });
       // расширительные баки парой на стене слева от бойлера, выше его верха, на одной высоте; слева красный (отопления), справа белый (ГВС)
       if (needExp) {
@@ -187,12 +192,13 @@
           nhCons.forEach(function (cn, k) {                  // у каждой пары: обратка слева, подача справа — как выходы групп коллектора
             var nn = mixN(cn);
             if (nn) {                                        // узел подмеса целиком: подача — нижний порт клапана, возврат — угольник слева (шаг 72 мм)
-              var rx = xcur + 0.06 * PXM, sx = rx + 0.072 * PXM, pp = PB['ufhmix:' + nn];
-              var offU = [sx / PXM - pp[0].pos_m[0], YP - pp[0].pos_m[1], BOILER_Z + 0.20 - pp[0].pos_m[2]];
+              var sx0 = xcur + 0.06 * PXM, pp = PB['ufhmix:' + nn], zmin = Math.min(pp[0].pos_m[2], pp[1].pos_m[2]);       // подача — угольник слева, возврат — нижний порт справа
+              var pU = posOf('u' + k);
+              var offU = [sx0 / PXM - pp[0].pos_m[0] + pU[0], YP - pp[0].pos_m[1], ZLOW - zmin + pU[1]];
               layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), fr: DATA.UI[String(nn)], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + '.webp' });
               cn.sup = add(pp[0].pos_m, offU); cn.ret = add(pp[1].pos_m, offU); cn.noIcon = true; cn.N = nn;
-              nhR.push({ rx: rx, sx: sx, y: yTop, ys: proj(cn.sup)[1], yr: proj(cn.ret)[1], d1: -pp[0].pos_m[1] });
-              xcur = rx + (0.2985 + 0.05 * nn + 0.12) * PXM;
+              nhR.push({ rx: proj(cn.ret)[0], sx: proj(cn.sup)[0], y: yTop, ys: proj(cn.sup)[1], yr: proj(cn.ret)[1], d1: -pp[0].pos_m[1] });
+              xcur = sx0 + (0.2985 + 0.05 * nn + 0.12) * PXM;
             } else {
               var rx2 = xcur, sx2 = rx2 + SEP;
               nhR.push({ rx: rx2, sx: sx2, y: yTop });
@@ -719,7 +725,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=4'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=1').catch(function () { return null; })])
+    Promise.all([j('img/room_ports.json?v=5'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=1').catch(function () { return null; })])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
@@ -1026,6 +1032,12 @@
       '.rvm-bar .sep{width:1px;height:22px;margin:0 5px;background:rgba(15,23,42,.14)}' +
       '.rvm-bar button[data-a=close]:hover{background:rgba(220,38,38,.12);color:#B91C1C}' +
       '.rvm-bar [data-tip]:hover::after{content:attr(data-tip);position:absolute;top:calc(100% + 9px);left:50%;transform:translateX(-50%);white-space:nowrap;background:#0F172A;color:#fff;font:12px system-ui,Arial,sans-serif;padding:5px 9px;border-radius:7px;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.3)}' +
+      '.rvm-move{position:absolute;left:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));z-index:6;width:236px;padding:10px 12px 12px;border-radius:14px;background:rgba(255,255,255,.96);box-shadow:0 6px 24px rgba(15,23,42,.18);color:#1F2937;font:13px/1.35 system-ui,Arial,sans-serif}' +
+      '.rvm-move .mv-t{font-weight:600;margin:0 0 6px}.rvm-move select{width:100%;margin:0 0 8px;padding:5px 6px;border:1px solid #CBD5E1;border-radius:8px;background:#fff;color:inherit;font:inherit}' +
+      '.rvm-move .mv-pad{display:grid;grid-template-columns:repeat(3,40px);grid-template-rows:repeat(3,36px);gap:3px;justify-content:center;margin:2px 0 8px}' +
+      '.rvm-move button{border:1px solid #CBD5E1;border-radius:9px;background:#F8FAFC;color:#334155;cursor:pointer;font:inherit}.rvm-move button:hover{background:#EFF6FF;border-color:#93C5FD}' +
+      '.rvm-move .mv-pad button{font-size:18px;line-height:1}.rvm-move .mv-st{display:flex;gap:4px;margin:0 0 8px}.rvm-move .mv-st button{flex:1;padding:4px 0}.rvm-move .mv-st button.on{background:#2563EB;border-color:#2563EB;color:#fff}' +
+      '.rvm-move .mv-r{color:#475569;margin:0 0 8px}.rvm-move .mv-b{display:flex;gap:6px}.rvm-move .mv-b button{flex:1;padding:6px 0}' +
       '.rvm-toast{position:absolute;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);max-width:calc(100% - 28px);text-align:center;padding:8px 14px;border-radius:9px;background:rgba(17,24,39,.9);color:#fff;font:12.5px/1.35 system-ui,Arial,sans-serif;opacity:0;pointer-events:none;transition:opacity .2s;z-index:6}.rvm-toast.on{opacity:1}' +
       '.rvm-list{position:absolute;right:14px;top:70px;bottom:18px;width:318px;z-index:4;overflow:auto;padding:12px 12px 10px;border-radius:14px;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);box-shadow:0 8px 28px rgba(15,23,42,.2);border:1px solid rgba(15,23,42,.08);color:#0f172a;font:12.5px/1.35 system-ui,Arial,sans-serif}' +
       '.rvm-list h4{margin:0 0 2px;font:600 14px system-ui,Arial,sans-serif}.rvm-list .sub{opacity:.6;font-size:11.5px;margin-bottom:8px}' +
@@ -1060,6 +1072,7 @@
     undo: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
     check: '<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/>',
     cover: '<rect x="5" y="3" width="14" height="18" rx="3.5"/><circle cx="9.5" cy="8" r="1.7"/><circle cx="14.5" cy="8" r="1.7"/><rect x="8" y="12" width="8" height="5" rx="1"/>',
+    move: '<path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/>',
     x: '<path d="M5 5l14 14M19 5L5 19"/>',
     dims: '<path d="M3 7v10M21 7v10M3 12h18M6 9l-3 3 3 3M18 9l3 3-3 3"/>',
     list: '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
@@ -1201,6 +1214,7 @@
       h += '<i class="sep"></i>' + ibtn('check', 'check', 'Проверка сборки: красным подсвечиваются неподключённые трубы и порты, углы без фитинга, пересечения; жёлтым — свободные порты', !!(window.Room3D && window.Room3D.checkOn && window.Room3D.checkOn())) + ibtn('covers', 'cover', 'Крышки теплоизоляции насосных групп: открыть или закрыть все', !!(window.Room3D && window.Room3D.coversOpen && window.Room3D.coversOpen())) + ibtn('fade', 'ghost', 'Прозрачность: щёлкните по детали', !!(window.Room3D && window.Room3D.isFade())) +
         ibtn('save', 'pin', 'Зафиксировать вид для себя') + (app.wmPreviewOn() ? ibtn('saveall', 'pinall', 'Вид по умолчанию для всех') : '') + ibtn('home', 'undo', 'Сбросить вид');
     }
+    if (movables().length) h += '<i class="sep"></i>' + ibtn('move', 'move', 'Переместить коллектор: влево-вправо, вверх-вниз; положение запоминается', MV.open);
     h += '<i class="sep"></i>' + ibtn('close', 'x', 'Закрыть (Esc)');
     MODAL.querySelector('.rvm-bar').innerHTML = h;
   }
@@ -1211,7 +1225,19 @@
       MODAL = document.createElement('div'); MODAL.className = 'rvm';
       MODAL.innerHTML = '<div class="rvm-bar"></div><div class="rvm-stage"></div><div class="rvm-list" style="display:none"></div><div class="rvm-toast"></div>';
       MODAL.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.rvm-bar button'); if (b) act(b.getAttribute('data-a')); });
-      document.addEventListener('keydown', function (e) { if (FULL && e.key === 'Escape') closeFull(); });
+      MODAL.addEventListener('click', function (e) {
+        var b = e.target.closest && e.target.closest('.rvm-move button'); if (!b) return;
+        var m = b.getAttribute('data-m'), s = b.getAttribute('data-s'), st = MV.step;
+        if (s) { MV.step = +s; drawMove(); } else if (m === 'reset') resetPos(); else if (m === 'up') movePos(0, st); else if (m === 'down') movePos(0, -st); else if (m === 'left') movePos(-st, 0); else if (m === 'right') movePos(st, 0);
+      });
+      MODAL.addEventListener('change', function (e) { if (e.target.matches && e.target.matches('.rvm-move select')) { MV.fid = e.target.value; drawMove(); } });
+      document.addEventListener('keydown', function (e) {
+        if (FULL && e.key === 'Escape') closeFull();
+        if (FULL && MV.open && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !/^(INPUT|SELECT|TEXTAREA)$/.test((e.target || {}).tagName || '')) {
+          e.preventDefault(); var st = MV.step * (e.shiftKey ? 2 : 1);
+          if (e.key === 'ArrowLeft') movePos(-st, 0); else if (e.key === 'ArrowRight') movePos(st, 0); else if (e.key === 'ArrowUp') movePos(0, st); else movePos(0, -st);
+        }
+      });
       ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (n) { document.addEventListener(n, function (e) { if (FULL) e.preventDefault(); }, { passive: false }); });   // iOS Safari: щепотка не масштабирует страницу
       window.addEventListener('resize', function () { if (FULL) drawFlatLabels(); });
     }
@@ -1239,6 +1265,7 @@
     var app = A; if (!app) return;
     var st = CUR ? CUR.st : fullStyle(app);
     if (a === 'close') { closeFull(); return; }
+    if (a === 'move') { MV.open = !MV.open; barFull(app, st); drawMove(); return; }
     if (a.indexOf('v:') === 0) { app.state.roomViewStyle = a.slice(2); app.saveState(); renderFull(); return; }
     if (a === 'flow') { app.state.roomViewFlow = !app.state.roomViewFlow; app.state.roomViewStyle = 'real'; app.saveState(); renderFull(); return; }
     if (a === 'dims') { toggleDims(); return; }
@@ -1263,6 +1290,7 @@
     var e = entry(app, kk);
     if (!e) { CUR = null; if (window.Room3D) window.Room3D.hide(); stage.className = 'rvm-stage'; stage.innerHTML = '<div class="rvm-load">' + (e === false ? 'Для этой сметы общий вид не собирается: в ней нет котла с обвязкой.' : 'Собираю вид…') + '</div>'; return; }
     CUR = { st: st, c: e.c, caps: e.caps, sig: e.sig };
+    barFull(app, st); drawMove();
     drawList();
     if (st === '3d') {
       stage.className = 'rvm-stage is3d'; stage.innerHTML = '';
@@ -1439,7 +1467,7 @@
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
     var hk = app.hydroFrameKey(), dk = dhwKeys();
-    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size]);
+    var sig = JSON.stringify([kk, bc.frames.map(function (f) { return [f.key, f.it && (f.it.q || f.it.qty || 1)]; }), hk && hk.key.replace(/_p[a-z0-9]+$/, ''), dk && dk.tank, app.boilerPipeSystem && app.boilerPipeSystem(), groupKw(), plainCons().map(function (q) { return q.kind + q.kw; }), app._bpSz && [app._bpSz.main, app._bpSz.tank, app._bpSz.per], app._dhwLoad && app._dhwLoad.size, app.state.roomViewPos || null]);
     var c = cache[sig];
     if (c === 'wait') return null;
     if (!c) {
@@ -1581,6 +1609,58 @@
     A.render();
     if (FULL && MODAL) renderFull();                                 // поворот не меняет плоский вид, поэтому окно обновляем сами
     return a;
+  }
+
+  // ── перемещение коллекторов: стрелки в окне «На весь экран» (и стрелки клавиатуры), положение запоминается в смете (state.roomViewPos[fid] = [вправо, вверх], м)
+  var MV = { fid: null, step: 0.05, open: false };
+  function movables() {
+    var L = (CUR && CUR.c && CUR.c.s3 && CUR.c.s3.layers) || [], out = [], nu = L.filter(function (l) { return l.kind === 'ufhmix'; }).length, k = 0;
+    L.forEach(function (l) {
+      if (l.kind === 'hydro') out.push({ fid: l.fid, name: 'Коллектор с группами' });
+      else if (l.kind === 'ufhmix') out.push({ fid: l.fid, name: 'Коллектор тёплого пола' + (nu > 1 ? ' ' + (++k) : '') });
+    });
+    return out;
+  }
+  function layerName(l) { return l.kind === 'boiler' ? 'котёл' : l.kind === 'hydro' ? 'коллектор с группами' : l.kind === 'ufhmix' ? 'коллектор тёплого пола' : /^ex/.test(l.fid || '') ? 'расширительный бак' : 'бойлер'; }
+  // габарит слоя в метрах мира: по кадру (начало координат кадра o, масштаб ax) и смещению слоя
+  function layerBox(l, off) {
+    var f = l.fr, ax = Math.abs(f.ax.x[0]), az = Math.abs(f.ax.z[1]);
+    return { x0: off[0] - f.o[0] / ax, x1: off[0] + (f.w - f.o[0]) / ax, zt: off[2] + f.o[1] / az, zb: off[2] - (f.h - f.o[1]) / az };
+  }
+  function movePos(dx, dz) {
+    var app = A, L = (CUR && CUR.c && CUR.c.s3 && CUR.c.s3.layers) || [], me = L.filter(function (l) { return l.fid === MV.fid; })[0];
+    if (!app || !me) return;
+    var cur = posOf(me.fid), np = [Math.round((cur[0] + dx) * 1000) / 1000, Math.round((cur[1] + dz) * 1000) / 1000];
+    var b = layerBox(me, [me.off[0] + dx, me.off[1], me.off[2] + dz]), msg = '';
+    if (b.zb < 0.05) msg = 'Ниже нельзя: низ коллектора не может быть ниже 5 см от пола';
+    else if (b.zt > 2.4) msg = 'Выше нельзя: верх коллектора выше 2,4 м';
+    else L.forEach(function (o) {
+      if (msg || o.fid === me.fid) return;
+      var q = layerBox(o, o.off);
+      if (b.x0 < q.x1 - 0.02 && b.x1 > q.x0 + 0.02 && b.zb < q.zt - 0.02 && b.zt > q.zb + 0.02) msg = 'Упрётся в ' + layerName(o) + ': сдвиг не выполнен';
+    });
+    if (msg) { toast(msg); return; }
+    (app.state.roomViewPos = app.state.roomViewPos || {})[me.fid] = np;
+    if (app.saveState) app.saveState();
+    app.render(); renderFull();
+  }
+  function resetPos() {
+    if (!A || !MV.fid) return;
+    if (A.state.roomViewPos) delete A.state.roomViewPos[MV.fid];
+    if (A.saveState) A.saveState();
+    A.render(); renderFull();
+  }
+  function drawMove() {
+    if (!MODAL) return;
+    var old = MODAL.querySelector('.rvm-move'), mv = movables();
+    if (!MV.open || !mv.length) { if (old) old.remove(); return; }
+    if (!mv.some(function (m) { return m.fid === MV.fid; })) MV.fid = mv[0].fid;
+    var p = posOf(MV.fid), cm = function (v) { return (v > 0 ? '+' : '') + Math.round(v * 100) + ' см'; };
+    var h = '<div class="mv-t">Положение коллектора</div>' + (mv.length > 1 ? '<select>' + mv.map(function (m) { return '<option value="' + m.fid + '"' + (m.fid === MV.fid ? ' selected' : '') + '>' + esc(m.name) + '</option>'; }).join('') + '</select>' : '<div class="mv-r">' + esc(mv[0].name) + '</div>') +
+      '<div class="mv-pad"><i></i><button type="button" data-m="up" aria-label="Выше">&#8593;</button><i></i><button type="button" data-m="left" aria-label="Левее">&#8592;</button><i></i><button type="button" data-m="right" aria-label="Правее">&#8594;</button><i></i><button type="button" data-m="down" aria-label="Ниже">&#8595;</button><i></i></div>' +
+      '<div class="mv-st">' + [0.01, 0.05, 0.1].map(function (v) { return '<button type="button" data-s="' + v + '" class="' + (MV.step === v ? 'on' : '') + '">' + Math.round(v * 100) + ' см</button>'; }).join('') + '</div>' +
+      '<div class="mv-r">вправо: ' + cm(p[0]) + ', вверх: ' + cm(p[1]) + '. Положение сохраняется в смете. Стрелки клавиатуры тоже работают.</div><div class="mv-b"><button type="button" data-m="reset">Сбросить</button></div>';
+    var el = old || document.createElement('div'); el.className = 'rvm-move'; el.innerHTML = h; if (!old) MODAL.appendChild(el);
   }
 
   window.RoomView = { toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate };
