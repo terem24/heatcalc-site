@@ -265,7 +265,7 @@
               var sx0 = xcur + 0.06 * PXM, pp = PB['ufhmix:' + nn], zmin = Math.min(pp[0].pos_m[2], pp[1].pos_m[2]);       // подача — угольник слева, возврат — нижний порт справа
               var pU = posOf('u' + k);
               var offU = [sx0 / PXM - pp[0].pos_m[0] + pU[0], YP - pp[0].pos_m[1], ZLOW - zmin + pU[1]];
-              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), pf: mixPumpFam(), fr: DATA.UI[String(nn)], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + '.webp' });
+              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), pf: mixPumpFam(), fr: DATA.UI[String(nn)], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + '.webp?v=2' });
               cn.sup = add(pp[0].pos_m, offU); cn.ret = add(pp[1].pos_m, offU); cn.noIcon = true; cn.N = nn;
               nhR.push({ rx: proj(cn.ret)[0], sx: proj(cn.sup)[0], y: yTop, ys: proj(cn.sup)[1], yr: proj(cn.ret)[1], d1: -pp[0].pos_m[1] });
               xcur = sx0 + (0.2985 + 0.05 * nn + 0.12) * PXM;
@@ -720,7 +720,7 @@
     return ERC[k];
   }
   async function eraseTubesRaw(im) {
-    var idim = await img(im.src.replace(/\.webp(\?.*)?$/, '_id.png'));
+    var idim = await img(im.src.replace(/\.webp(\?.*)?$/, '_id.png$1'));
     var w = im.naturalWidth, h = im.naturalHeight;
     var c = document.createElement('canvas'); c.width = w; c.height = h; var x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0);
     var c2 = document.createElement('canvas'); c2.width = w; c2.height = h; var x2 = c2.getContext('2d', { willReadFrequently: true }); x2.drawImage(idim, 0, 0);
@@ -817,7 +817,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=6'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=1').catch(function () { return null; })])
+    Promise.all([j('img/room_ports.json?v=6'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=2').catch(function () { return null; })])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
