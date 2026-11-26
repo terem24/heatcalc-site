@@ -144,7 +144,9 @@
     if (tkey && di[tkey] && PB['dhw:' + tkey]) {
       var maxX = hp ? Math.max.apply(null, hp.outlets.map(function (o) { return o.pos_m[0]; })) : 0.3;
       tp = PB['dhw:' + tkey];
-      tankOff = [(hOff ? hOff[0] + maxX + 0.40 : bx + 1.5) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
+      var mixExtra = 0;                                 // широкие узлы подмеса вместо значков: потребителям нужно больше места до бойлера
+      if (!hOff) plainCons().forEach(function (cn) { var nn = mixN(cn); if (nn) mixExtra += mixW(nn) / PXM - 0.42; });
+      tankOff = [(hOff ? hOff[0] + maxX + 0.40 : bx + 1.5 + Math.max(0, mixExtra)) + (needExp ? 0.55 : 0) - tp[0].pos_m[0], YP - tp[0].pos_m[1], 0];   // с баками отопления и ГВС между потребителями и бойлером нужно место для пары
       layers.push({ kind: 'dhw', fid: 'w0', key: tkey, fr: di[tkey], off: tankOff, src: A.DHW_DIR.replace('dhw_node', 'dhw_node_front') + 'dhw_' + tkey + '.webp' });
       // расширительные баки парой на стене слева от бойлера, выше его верха, на одной высоте; слева красный (отопления), справа белый (ГВС)
       if (needExp) {
@@ -180,10 +182,22 @@
           var xr0 = Math.max.apply(null, bports.map(function (b) { return Math.max(proj(b.sup)[0], proj(b.ret)[0], b.mid ? proj(b.mid)[0] : 0); })) + 0.30 * PXM;
           var xlim = cS[0] - 260 - (exps.length ? 0.62 : 0.18) * PXM, SEP = 0.125 * PXM, PAIR = Math.min(0.42 * PXM, (xlim - xr0 - SEP) / nhCons.length);
           var yTop = proj([0, YP, BOILER_Z + 0.20])[1];
+          var xcur = xr0;
           nhCons.forEach(function (cn, k) {                  // у каждой пары: обратка слева, подача справа — как выходы групп коллектора
-            var rx = xr0 + k * PAIR, sx = rx + SEP;
-            nhR.push({ rx: rx, sx: sx, y: yTop });
-            cn.sup = [sx / PXM, YP, -yTop / PXM]; cn.ret = [rx / PXM, YP, -yTop / PXM];
+            var nn = mixN(cn);
+            if (nn) {                                        // узел подмеса целиком: подача — нижний порт клапана, возврат — угольник слева (шаг 72 мм)
+              var rx = xcur + 0.06 * PXM, sx = rx + 0.072 * PXM, pp = PB['ufhmix:' + nn];
+              var offU = [sx / PXM - pp[0].pos_m[0], YP - pp[0].pos_m[1], BOILER_Z + 0.20 - pp[0].pos_m[2]];
+              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), fr: DATA.UI[String(nn)], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + '.webp' });
+              cn.sup = add(pp[0].pos_m, offU); cn.ret = add(pp[1].pos_m, offU); cn.noIcon = true; cn.N = nn;
+              nhR.push({ rx: rx, sx: sx, y: yTop, ys: proj(cn.sup)[1], yr: proj(cn.ret)[1], d1: -pp[0].pos_m[1] });
+              xcur = rx + (0.2985 + 0.05 * nn + 0.12) * PXM;
+            } else {
+              var rx2 = xcur, sx2 = rx2 + SEP;
+              nhR.push({ rx: rx2, sx: sx2, y: yTop });
+              cn.sup = [sx2 / PXM, YP, -yTop / PXM]; cn.ret = [rx2 / PXM, YP, -yTop / PXM];
+              xcur += PAIR;
+            }
           });
           pL = [nhR[nhR.length - 1].sx, 0];
         }
@@ -217,7 +231,7 @@
           if (e.role === 'ret') lines.push({ role: 'ret', sz: 'tank', d0: e.depth, pts: [e.port, [e.port[0], yl.ret]] });
           else lines.push({ role: 'cw', sz: 'tank', planeMm: e.depth * 1000, pts: [e.port, [e.port[0], e.port[1] + 0.14 * PXM]] });
         });
-        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', pts: [[r.sx, yl.sup], [r.sx, r.y]] }); lines.push({ role: 'ret', sz: 'main', pts: [[r.rx, yl.ret], [r.rx, r.y]] }); });
+        nhR.forEach(function (r) { lines.push({ role: 'sup', sz: 'main', d1: r.d1, pts: [[r.sx, yl.sup], [r.sx, r.ys || r.y]] }); lines.push({ role: 'ret', sz: 'main', d1: r.d1, pts: [[r.rx, yl.ret], [r.rx, r.yr || r.y]] }); });
         lines.push({ role: 'sup', sz: 'main', d1: dL, pts: hOff ? [[minX('sup'), yl.sup], [pL[0], yl.sup], pL] : [[minX('sup'), yl.sup], [pL[0], yl.sup]] });
         lines.push({ role: 'ret', sz: 'main', d1: dRr, pts: hOff ? [[minX('ret'), yl.ret], [haveTank && useB ? xj : pR[0], yl.ret]].concat(haveTank && useB ? [[pR[0], yl.ret], pR] : [[pR[0], yl.ret], pR]) : [[minX('ret'), yl.ret], [pR[0], yl.ret]] });
         if (useB) {
@@ -275,13 +289,25 @@
     try { h = A.buildHydroCheckData(); } catch (e) { }
     var R = {}; (h && h.rows || []).forEach(function (r) { R[r.id] = r; });
     var reg = A.radRegime ? A.radRegime() : { dt: 20 };
+    var fi = 0;
     eq.filter(function (it) { return !it.isOpt && /узел подмеса/i.test(it.name || ''); }).forEach(function (it) {
       var m = /\(([\d.,]+)\s*кВт\)/.exec(it.name || ''), n = Math.max(1, it.q || it.qty || 1), i;
-      for (i = 0; i < n; i++) out.push({ kind: 'floor', kw: m ? m[1].replace(',', '.') : '', tag: 'узел подмеса' });
+      for (i = 0; i < n; i++) out.push({ kind: 'floor', kw: m ? m[1].replace(',', '.') : '', tag: 'узел подмеса', sku: String(it.displaySku || it.id || ''), fi: fi++ });
     });
     if (R.rad && R.rad.flow) out.push({ kind: 'rad', kw: (R.rad.flow * 1.163 * reg.dt).toFixed(1), tag: '' });
     return out;
   }
+  // Узел подмеса SDG-0120-001000 на коллекторе тёплого пола показывается целиком — клапан, тройник и гребёнка (слой «ufhmix», кадры img/ufhmix_node_front,
+  // модель models3d/room/ufhmix_<N>.glb). N — число выходов гребёнки этого узла из сметы (app._ufhMans); нет кадра или другой артикул — прежний значок
+  var UFHMIX_DIR = 'img/ufhmix_node_front/';
+  function mixN(cn) {
+    if (!cn || cn.kind !== 'floor' || !/^SDG-0120-001000$/i.test(cn.sku || '') || !DATA || !DATA.UI) return 0;
+    var m = (A._ufhMans || [])[cn.fi];
+    if (!m) return 0;
+    var n = Math.min(13, Math.max(2, m.loops | 0));
+    return DATA.UI[String(n)] && DATA.PB['ufhmix:' + n] ? n : 0;
+  }
+  function mixW(n) { return (0.2985 + 0.05 * n + 0.12) * PXM; }     // от порта возврата до правого края гребёнки с воздухоотводчиком и зазором, px
   function groupKw() {
     var eq = (A.currentEquipmentList || []).filter(function (e) { return !e.isOpt && /групп\S*\s+насосн|насосн\S*\s+групп/i.test(e.name) && !/(коллектор|гидрострелк|для\s+бойлера)/i.test(e.name); });
     var res = [];
@@ -336,6 +362,7 @@
   }
   function drawCons(g, cons, x0, y0) {
     cons.forEach(function (c) {
+      if (c.noIcon) return;                                 // узел подмеса нарисован слоем со своими портами
       var ps = proj(c.sup), pr = proj(c.ret); ps = [ps[0] - x0, ps[1] - y0]; pr = [pr[0] - x0, pr[1] - y0];
       // значок масштабируется так, чтобы его выходы стояли ровно над выходами группы: выноски идут прямо вверх, без поворотов
       var K = Math.abs(ps[0] - pr[0]) / 64, cx = (ps[0] + pr[0]) / 2, top = Math.min(ps[1], pr[1]) - 150 - 150 * K;
@@ -690,8 +717,8 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=3'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4')])
-      .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3] }; app.render(); } loading = false; })
+    Promise.all([j('img/room_ports.json?v=4'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=4'), j('img/ufhmix_node_front/ufhmix.json?v=1').catch(function () { return null; })])
+      .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
   // листы котла, гидравлики и бойлера строятся штатными функциями: берём их подписи и строки сметы, а кадры подставляем свои (спереди)
@@ -1067,7 +1094,8 @@
       if (DATA && DATA.BI && !hasFrame(DATA.BI, key)) add('котёл', it);
     });
     // коллектор и насосные группы: вид строится только для коллекторов SDG-0016/0018, RDG-0017/1017 с группами DN25 своего бренда
-    var hyd = eq.filter(function (it) { return /^2\.4/.test(String(it.group || '')) && /^(SDG-00(16|18)|RDG-(0017|1017)|МУ|MU|SDG-0120|RDG-0120|SDG-0038|SVM-0025)/i.test(sk(it)); });
+    // узел подмеса SDG-0120-001000 на коллекторе тёплого пола есть на виде отдельным слоем (кадры ufhmix) — не «нет модели»
+    var hyd = eq.filter(function (it) { return /^2\.4/.test(String(it.group || '')) && /^(SDG-00(16|18)|RDG-(0017|1017)|МУ|MU|SDG-0120|RDG-0120|SDG-0038|SVM-0025)/i.test(sk(it)) && !(/^SDG-0120-001000$/i.test(sk(it)) && DATA && DATA.UI && Object.keys(DATA.UI).length); });
     var hk = null;
     try { hk = app.hydroFrameKey(); } catch (e) { hk = null; }
     var hpick = hk && DATA && DATA.HI ? pickHydro(DATA.HI, hk.key) : null;

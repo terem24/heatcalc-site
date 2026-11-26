@@ -15,9 +15,9 @@
   // Тяжёлые модели лежат не на сайте (лимит GitHub Pages 1 ГБ), а в публичном репозитории моделей и отдаются через jsDelivr.
   // Новая выгрузка = новый тег репозитория: поднять MODELS_TAG здесь. Новые разделы (тёплый пол, радиаторы...) — новые ключи карты,
   // при нехватке места — другой репозиторий. Для проверки с диска: ?models=local (нужна папка models3d/room рядом с сайтом).
-  var MODELS_TAG = 'v2';
+  var MODELS_TAG = 'v3';
   var MODEL_HOSTS = { room: 'https://cdn.jsdelivr.net/gh/terem24/heatcalc-models@' + MODELS_TAG + '/room/' };
-  var GLB_DIR = /[?&]models=local/.test(location.search) ? 'models3d/room/' : MODEL_HOSTS.room;
+  var GLB_DIR = (/[?&]models=local/.test(location.search) || /^(localhost|127.0.0.1)$/.test(location.hostname)) ? 'models3d/room/' : MODEL_HOSTS.room;     // на localhost — открытые файлы из папки сайта
   // Модели на CDN зашифрованы (AES-256-GCM: «HCM1» + 12 байт вектора + шифртекст с меткой). Ключ — app.modelKey('room'): его выдаёт база
   // только тарифу «Профи». Расшифровка в браузере; открытый файл (glTF, режим ?models=local) читается как есть.
   var KEYS = {};
