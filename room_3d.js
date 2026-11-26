@@ -18,6 +18,26 @@
   var MODELS_TAG = 'v1';
   var MODEL_HOSTS = { room: 'https://cdn.jsdelivr.net/gh/terem24/heatcalc-models@' + MODELS_TAG + '/room/' };
   var GLB_DIR = /[?&]models=local/.test(location.search) ? 'models3d/room/' : MODEL_HOSTS.room;
+  // Модели на CDN зашифрованы (AES-256-GCM: «HCM1» + 12 байт вектора + шифртекст с меткой). Ключ — app.modelKey('room'): его выдаёт база
+  // только тарифу «Профи». Расшифровка в браузере; открытый файл (glTF, режим ?models=local) читается как есть.
+  var KEYS = {};
+  function cryptoKey(name) {
+    if (!KEYS[name]) {
+      KEYS[name] = Promise.resolve(window.app && window.app.modelKey ? window.app.modelKey(name) : Promise.reject(new Error('нет приложения'))).then(function (hex) {
+        var raw = new Uint8Array(hex.match(/../g).map(function (h) { return parseInt(h, 16); }));
+        return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+      }).catch(function (e) { delete KEYS[name]; throw e; });
+    }
+    return KEYS[name];
+  }
+  function loadGlb(gl, url, ok, err) {
+    fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); }).then(function (buf) {
+      var h = new Uint8Array(buf, 0, 4);
+      if (h[0] === 0x67 && h[1] === 0x6c && h[2] === 0x54 && h[3] === 0x46) return buf;                  // «glTF» — открытый файл
+      if (h[0] !== 0x48 || h[1] !== 0x43 || h[2] !== 0x4d || h[3] !== 0x31) throw new Error('неизвестный формат модели');
+      return cryptoKey('room').then(function (k) { return crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 4, 12) }, k, new Uint8Array(buf, 16)); });
+    }).then(function (buf) { gl.parse(buf, '', ok, err); }).catch(function (e) { if (err) err(e); });
+  }
   var GLB_V = 10;                          // версия моделей: поднимать при перевыгрузке GLB, иначе у тех, у кого вид уже открывали, останутся старые
   var PXM = 1500;
   var STUB = /^(труба|лежак|транзит|подающая труба|медная труба|выпуск)/;   // заводские патрубки: трубу системы ведём от порта сами
@@ -150,7 +170,7 @@
     var gl = new lib.GL(); gl.setDRACOLoader(dl); S.gl = gl;
     var jobs = spec.layers.map(function (Ly, i) {
       return new Promise(function (res) {
-        gl.load(GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, null, function () { res({ L: Ly, g: null }); });
+        loadGlb(gl, GLB_DIR + Ly.kind + '_' + Ly.key + '.glb?v=' + GLB_V, function (g) { res({ L: Ly, g: g }); }, function () { res({ L: Ly, g: null }); });
       });
     });
     // нержавеющие пресс-фитинги по плану труб: угольники, тройники, муфты нужных размеров (room_fit.js); для других систем остаются шарики
@@ -167,7 +187,7 @@
       if (S.bad.length) console.warn('[3D] поворот бойлера не собирается:', S.bad.map(function (v) { return v.t + ' ' + (v.msg || ''); }));
       var keys = {}, fj = []; S.plan.places.forEach(function (pl) { keys[pl.key] = 1; });
       Object.keys(keys).forEach(function (k) {
-        fj.push(new Promise(function (res) { gl.load(GLB_DIR + 'fitting_' + k + fb + '.glb', function (g) { S.fit[k] = g.scene; res(); }, null, function () { res(); }); }));
+        fj.push(new Promise(function (res) { loadGlb(gl, GLB_DIR + 'fitting_' + k + fb + '.glb', function (g) { S.fit[k] = g.scene; res(); }, function () { res(); }); }));
       });
       return Promise.all(fj);
     }).then(function () {
