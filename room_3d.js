@@ -1210,6 +1210,59 @@
     });
     var cvs = S.r.domElement, down = null, tip = wrap.querySelector('.r3-tip');
     cvs.addEventListener('pointerdown', function (e) { down = [e.clientX, e.clientY]; });
+    // ── перетаскивание коллектора мышью: пока открыта панель «Положение коллектора» (RoomView.moveOn), зажатая кнопка на коллекторе двигает его в плоскости стены;
+    // при отпускании сдвиг проверяется и записывается в смету (RoomView.moveLayer: упор в соседнее оборудование, пол, высота), трубы и фитинги строятся заново
+    var DR = null;
+    var dragHit = function (e) {
+      var rc = cvs.getBoundingClientRect();
+      S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);
+      var hits = S.ray.intersectObject(S.root, true);
+      for (var i = 0; i < hits.length; i++) {
+        var o = hits[i].object, c = o.visible && o.userData.comp, m = c && /^(hydro|ufhmix)\|([^|]+)\|/.exec(c);
+        if (m) return { fid: m[2], pt: hits[i].point };
+        if (c) return null;                                    // первой попалась другая деталь - не коллектор
+      }
+      return null;
+    };
+    var dragPlanePt = function (e, z) {
+      var rc = cvs.getBoundingClientRect(), v = new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
+      S.ray.setFromCamera(v, S.cam);
+      var pl = new T.Plane(new T.Vector3(0, 0, 1), -z), pt = new T.Vector3();
+      return S.ray.ray.intersectPlane(pl, pt) ? pt : null;
+    };
+    var dragParts = function (fid) {
+      var out = [S.lobj && S.lobj[fid]];
+      Object.keys(S.pumpOv || {}).forEach(function (k) { if (k.indexOf(fid + '#') === 0 && S.pumpOv[k].root) out.push(S.pumpOv[k].root); });
+      return out.filter(Boolean);
+    };
+    wrap.addEventListener('pointerdown', function (e) {
+      if (e.button !== 0 || S.picker || !window.RoomView || !window.RoomView.moveOn || !window.RoomView.moveOn()) return;
+      var h = dragHit(e); if (!h || !window.RoomView.moveable(h.fid)) return;
+      var p0 = dragPlanePt(e, h.pt.z); if (!p0) return;
+      DR = { fid: h.fid, z: h.pt.z, p0: p0, parts: dragParts(h.fid), d: [0, 0] };
+      DR.base = DR.parts.map(function (o) { return o.position.clone(); });
+      S.ctl.enabled = false; e.stopPropagation(); e.preventDefault();
+      try { cvs.setPointerCapture(e.pointerId); } catch (x) { }
+      cvs.style.cursor = 'grabbing';
+    }, true);
+    window.addEventListener('pointermove', function (e) {
+      if (!DR) return;
+      var p = dragPlanePt(e, DR.z); if (!p) return;
+      DR.d = [Math.round((p.x - DR.p0.x) * 100) / 100, Math.round((p.y - DR.p0.y) * 100) / 100];      // шаг 1 см
+      DR.parts.forEach(function (o, i) { o.position.set(DR.base[i].x + DR.d[0], DR.base[i].y + DR.d[1], DR.base[i].z); });
+    });
+    window.addEventListener('pointerup', function (e) {
+      if (!DR) return;
+      var d = DR; DR = null; S.ctl.enabled = true; cvs.style.cursor = '';
+      if (Math.abs(d.d[0]) + Math.abs(d.d[1]) < 0.01) { d.parts.forEach(function (o, i) { o.position.copy(d.base[i]); }); return; }
+      var ok = window.RoomView.moveLayer(d.fid, d.d[0], d.d[1]);
+      if (ok === false) d.parts.forEach(function (o, i) { o.position.copy(d.base[i]); });          // сдвиг не принят - коллектор возвращается на место (причина - в плашке окна)
+      down = null;
+    });
+    cvs.addEventListener('pointermove', function (e) {
+      if (DR || e.buttons || S.picker || !window.RoomView || !window.RoomView.moveOn || !window.RoomView.moveOn()) return;
+      var h = dragHit(e); cvs.style.cursor = h && window.RoomView.moveable(h.fid) ? 'grab' : '';
+    });
     var pick = function (e) {
       var rc = cvs.getBoundingClientRect();
       S.ray.setFromCamera(new T.Vector2(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1), S.cam);

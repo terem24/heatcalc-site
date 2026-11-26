@@ -1881,9 +1881,10 @@
     var f = l.fr, ax = Math.abs(f.ax.x[0]), az = Math.abs(f.ax.z[1]);
     return { x0: off[0] - f.o[0] / ax, x1: off[0] + (f.w - f.o[0]) / ax, zt: off[2] + f.o[1] / az, zb: off[2] - (f.h - f.o[1]) / az };
   }
-  function movePos(dx, dz) {
+  function movePos(dx, dz, fid) {
+    if (fid) MV.fid = fid;
     var app = A, L = (CUR && CUR.c && CUR.c.s3 && CUR.c.s3.layers) || [], me = L.filter(function (l) { return l.fid === MV.fid; })[0];
-    if (!app || !me) return;
+    if (!app || !me) return false;
     var cur = posOf(me.fid), np = [Math.round((cur[0] + dx) * 1000) / 1000, Math.round((cur[1] + dz) * 1000) / 1000];
     var b = layerBox(me, [me.off[0] + dx, me.off[1], me.off[2] + dz]), msg = '';
     if (b.zb < 0.05) msg = 'Ниже нельзя: низ коллектора не может быть ниже 5 см от пола';
@@ -1893,10 +1894,11 @@
       var q = layerBox(o, o.off);
       if (b.x0 < q.x1 - 0.02 && b.x1 > q.x0 + 0.02 && b.zb < q.zt - 0.02 && b.zt > q.zb + 0.02) msg = 'Упрётся в ' + layerName(o) + ': сдвиг не выполнен';
     });
-    if (msg) { toast(msg); return; }
+    if (msg) { toast(msg); return false; }
     (app.state.roomViewPos = app.state.roomViewPos || {})[me.fid] = np;
     if (app.saveState) app.saveState();
     app.render(); renderFull();
+    return true;
   }
   function resetPos() {
     if (!A || !MV.fid) return;
@@ -1913,9 +1915,12 @@
     var h = '<div class="mv-t">Положение коллектора</div>' + (mv.length > 1 ? '<select>' + mv.map(function (m) { return '<option value="' + m.fid + '"' + (m.fid === MV.fid ? ' selected' : '') + '>' + esc(m.name) + '</option>'; }).join('') + '</select>' : '<div class="mv-r">' + esc(mv[0].name) + '</div>') +
       '<div class="mv-pad"><i></i><button type="button" data-m="up" aria-label="Выше">&#8593;</button><i></i><button type="button" data-m="left" aria-label="Левее">&#8592;</button><i></i><button type="button" data-m="right" aria-label="Правее">&#8594;</button><i></i><button type="button" data-m="down" aria-label="Ниже">&#8595;</button><i></i></div>' +
       '<div class="mv-st">' + [0.01, 0.05, 0.1].map(function (v) { return '<button type="button" data-s="' + v + '" class="' + (MV.step === v ? 'on' : '') + '">' + Math.round(v * 100) + ' см</button>'; }).join('') + '</div>' +
-      '<div class="mv-r">вправо: ' + cm(p[0]) + ', вверх: ' + cm(p[1]) + '. Положение сохраняется в смете. Стрелки клавиатуры тоже работают.</div><div class="mv-b"><button type="button" data-m="reset">Сбросить</button></div>';
+      '<div class="mv-r">вправо: ' + cm(p[0]) + ', вверх: ' + cm(p[1]) + '. Положение сохраняется в смете. Коллектор можно тянуть мышью на 3D-виде; стрелки клавиатуры тоже работают.</div><div class="mv-b"><button type="button" data-m="reset">Сбросить</button></div>';
     var el = old || document.createElement('div'); el.className = 'rvm-move'; el.innerHTML = h; if (!old) MODAL.appendChild(el);
   }
 
-  window.RoomView = { wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
+  // перетаскивание коллектора мышью на 3D-виде (room_3d.js): включено, пока открыта панель «Положение коллектора»; сдвиг в метрах, проверка и запись — как у стрелок
+  function moveOn() { return !!(FULL && MV.open); }
+  function moveable(fid) { return movables().some(function (m) { return m.fid === fid; }); }
+  window.RoomView = { moveOn: moveOn, moveable: moveable, moveLayer: function (fid, dx, dz) { return movePos(dx, dz, fid); }, wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
 })();
