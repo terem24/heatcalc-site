@@ -169,6 +169,7 @@
 - [Воздух-вода или геотермальный](https://heatcalc.ru/vozduh-voda-ili-geotermalnyy/) — тепловой насос воздух вода
 - [Инсталляция унитаза: что нужно учесть](https://heatcalc.ru/installyatsiya-unitaza/) — инсталляция для унитаза
 - [Себестоимость рабочего дня бригады: как посчитать](https://heatcalc.ru/sebestoimost-chasa-brigady/) — себестоимость работ монтажника
+- [Во сколько обходится отопление за сезон](https://heatcalc.ru/stoimost-ekspluatatsii/) — стоимость отопления за сезон
 
 ## Примечания для моделей
 

@@ -641,9 +641,9 @@
    "freq": 5200,
    "audience": "owner",
    "data_block": "расчёт по 21 городу",
-   "status": "queued",
+   "status": "published",
    "date": "2026-11-26",
-   "published_at": null,
+   "published_at": "2026-11-27",
    "words": 573
   },
   {
