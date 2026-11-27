@@ -1774,7 +1774,7 @@
         if (h.mat) extW.push(h.ins ? { l: r2(l / ppm()), t: r2(wallT(h)), mat: h.mat, ins: h.ins } : { l: r2(l / ppm()), t: r2(wallT(h)), mat: h.mat });
       }
     }
-    var wins = [], dExt = 0, dInt = 0;
+    var wins = [], dExt = 0, dInt = 0, gA = 0;
     ops().forEach(function (o) {
       var g = opGeom(o);
       if (!g) return;
@@ -1786,11 +1786,12 @@
         var sl = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]) || 1;
         if (o.k === 'win') {
           if (sg.h.k !== 'int') wins.push({ w: r2(o.w), h: r2(o.h), sill: r2(o.sill || 0), ox: r2((sg.b[1] - sg.a[1]) / sl), oy: r2(-(sg.b[0] - sg.a[0]) / sl) });
-        } else if (sg.h.k !== 'int') dExt++; else dInt++;
+        } else if (o.k === 'gate') { if (sg.h.k !== 'int') gA += o.w * o.h; }   // ворота считаются по своей площади, не как дверь 2,1 м2
+        else if (sg.h.k !== 'int') dExt++; else dInt++;
         break;
       }
     });
-    return { v: 1, perim: r2(per / ppm()), outer: r2(outer / ppm()), ext: ext, wins: wins, doorsExt: dExt, doorsInt: dInt, extW: extW,
+    return { v: 1, perim: r2(per / ppm()), outer: r2(outer / ppm()), ext: ext, wins: wins, doorsExt: dExt, doorsInt: dInt, gateArea: r2(gA), extW: extW,
       t: [r2(extT()), r2(intT())] };
   }
 
