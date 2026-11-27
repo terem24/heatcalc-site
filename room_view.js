@@ -922,7 +922,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=7'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=2'), j('img/dhw_node_front/dhw.json?v=5'), j('img/ufhmix_node_front/ufhmix.json?v=3').catch(function () { return null; })])
+    Promise.all([j('img/room_ports.json?v=8'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=3'), j('img/dhw_node_front/dhw.json?v=5'), j('img/ufhmix_node_front/ufhmix.json?v=3').catch(function () { return null; })])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
@@ -1949,5 +1949,5 @@
   // перетаскивание коллектора мышью на 3D-виде (room_3d.js): включено, пока открыта панель «Положение коллектора»; сдвиг в метрах, проверка и запись — как у стрелок
   function moveOn() { return !!(FULL && MV.open); }
   function moveable(fid) { return movables().some(function (m) { return m.fid === fid; }); }
-  window.RoomView = { moveOn: moveOn, moveable: moveable, moveLayer: function (fid, dx, dz) { return movePos(dx, dz, fid); }, wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
+  window.RoomView = { moveOn: moveOn, moveable: moveable, moveLayer: function (fid, dx, dz) { return movePos(dx, dz, fid); }, wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, _gapList: function (app, data) { var o = DATA; if (data) DATA = data; try { return gapList(app); } finally { DATA = o; } }, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
 })();
