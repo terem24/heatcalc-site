@@ -286,17 +286,67 @@
     return mcache[key];
   }
 
+  /** Углы ломаной скругляются дугой (изгиб трубы не острее 5 диаметров): вместо ломаных стыков - плавные повороты. */
+  function roundCorners(T, v, R) {
+    if (v.length < 3) return v;
+    var out = [v[0]], i, s, N = 6;
+    for (i = 1; i < v.length - 1; i++) {
+      var a = v[i - 1], b = v[i], c = v[i + 1];
+      var u1 = a.clone().sub(b), u2 = c.clone().sub(b), l1 = u1.length(), l2 = u2.length();
+      if (l1 < 1e-6 || l2 < 1e-6) { out.push(b); continue; }
+      u1.divideScalar(l1); u2.divideScalar(l2);
+      var cosT = u1.dot(u2);
+      if (cosT < -0.9995 || cosT > 0.9995) { out.push(b); continue; }   // прямо или разворот на месте
+      var d = Math.min(R / Math.tan(Math.acos(cosT) / 2), Math.min(l1, l2) * 0.5);
+      var p1 = b.clone().addScaledVector(u1, d), p2 = b.clone().addScaledVector(u2, d);
+      for (s = 0; s <= N; s++) {
+        var t = s / N, w0 = (1 - t) * (1 - t), w1 = 2 * (1 - t) * t, w2 = t * t;
+        out.push(new T.Vector3(p1.x * w0 + b.x * w1 + p2.x * w2, p1.y * w0 + b.y * w1 + p2.y * w2, p1.z * w0 + b.z * w1 + p2.z * w2));
+      }
+    }
+    out.push(v[v.length - 1]);
+    return out;
+  }
+  /** Круглая труба по точкам: кольцо вершин в каждой точке, гладкие нормали, заглушки на концах. */
+  function polyTube(T, pts, rad, radial) {
+    var n = pts.length, pos = [], idx = [], i, j, up = new T.Vector3(0, 1, 0), tg = new T.Vector3(), nrm = new T.Vector3(), bn = new T.Vector3();
+    for (i = 0; i < n; i++) {
+      tg.set(0, 0, 0);
+      if (i > 0) tg.add(pts[i].clone().sub(pts[i - 1]).normalize());
+      if (i < n - 1) tg.add(pts[i + 1].clone().sub(pts[i]).normalize());
+      if (tg.lengthSq() < 1e-9) tg.set(1, 0, 0);
+      tg.normalize();
+      nrm.crossVectors(up, tg);
+      if (nrm.lengthSq() < 1e-6) nrm.set(1, 0, 0);
+      nrm.normalize(); bn.crossVectors(tg, nrm).normalize();
+      for (j = 0; j < radial; j++) {
+        var an = j / radial * Math.PI * 2, c = Math.cos(an) * rad, sn = Math.sin(an) * rad;
+        pos.push(pts[i].x + nrm.x * c + bn.x * sn, pts[i].y + nrm.y * c + bn.y * sn, pts[i].z + nrm.z * c + bn.z * sn);
+      }
+    }
+    for (i = 0; i < n - 1; i++) for (j = 0; j < radial; j++) {
+      var a = i * radial + j, b = i * radial + (j + 1) % radial, c2 = (i + 1) * radial + j, d = (i + 1) * radial + (j + 1) % radial;
+      idx.push(a, c2, b, b, c2, d);
+    }
+    [0, n - 1].forEach(function (e) {   // заглушки
+      var ci = pos.length / 3; pos.push(pts[e].x, pts[e].y, pts[e].z);
+      for (j = 0; j < radial; j++) { var p = e * radial + j, q = e * radial + (j + 1) % radial; if (e === 0) idx.push(ci, q, p); else idx.push(ci, p, q); }
+    });
+    var g = new T.BufferGeometry();
+    g.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    g.setIndex(idx); g.computeVertexNormals();
+    return g;
+  }
   /** Труба по ломаной (пиксели плана -> метры), на высоте y: подача, обратка, вода, канализация. */
   function tube(T, pts, pm, rad, color, y) {
-    var v = [], i;
+    var v = [];
     (pts || []).forEach(function (p) {
       var q = new T.Vector3(p[0] / pm, y, p[1] / pm);
       if (!v.length || v[v.length - 1].distanceTo(q) > 1e-3) v.push(q);
     });
     if (v.length < 2) return null;
-    var path = new T.CurvePath();
-    for (i = 1; i < v.length; i++) path.add(new T.LineCurve3(v[i - 1], v[i]));
-    return new T.Mesh(new T.TubeGeometry(path, Math.min(500, v.length * 3), rad * PIPE_K, 5, false), matOf(T, color));
+    var r = rad * PIPE_K, round = roundCorners(T, v, Math.max(0.05, rad * 10));
+    return new T.Mesh(polyTube(T, round, r, r > 0.02 ? 14 : 10), matOf(T, color));
   }
 
   /** Что редактор насчитал по этажу: петли тёплого пола, трассы радиаторов, вода, канализация, приборы, коллекторы. */
