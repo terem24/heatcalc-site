@@ -484,101 +484,145 @@
   }
 
   // ---------- мебель ----------
-  // Условная, по названию комнаты: чтобы 3D показывал дом, а не голые стены. Крупное ставится к стене без проёмов.
+  // Условная, по названию комнаты, как интерьер на рекламе застройщика: мягкие цвета, ковры, подушки, лампы, растения.
+  // Места выбирает PlanFit.layout (plan_fit.js): по контуру комнаты, мимо стен, перегородок, дверей и радиаторов.
+  // Слой «Мебель» выключается в панели 3D.
   var FURN = [
     [/гостин|зал/i, 'living'], [/кухн/i, 'kitchen'], [/спальн/i, 'bed'], [/детск/i, 'kids'], [/кабинет|рабоч/i, 'office'],
     [/прихож|холл|тамбур|коридор|вестибюл/i, 'hall'], [/гардероб|кладов/i, 'store'], [/с\/у|санузел|ванн|туалет|душ/i, 'wc']
   ];
 
-  /** Длина проёмов на стороне комнаты (0 - сплошная стена). side: 0 верх (z min), 1 право, 2 низ, 3 лево. */
-  function sideBlocked(fl, bb, side) {
-    var horiz = side === 0 || side === 2, line = side === 0 ? bb.z0 : side === 2 ? bb.z1 : side === 3 ? bb.x0 : bb.x1, tot = 0;
-    fl.walls.forEach(function (w) {
-      var da = horiz ? Math.abs(w.a[1] - line) : Math.abs(w.a[0] - line), db = horiz ? Math.abs(w.b[1] - line) : Math.abs(w.b[0] - line);
-      if (da > 0.4 || db > 0.4) return;
-      var L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]) || 1, ux = (w.b[0] - w.a[0]) / L, uy = (w.b[1] - w.a[1]) / L;
-      w.ops.forEach(function (o) {
-        var cx = w.a[0] + ux * o.o, cz = w.a[1] + uy * o.o, c = horiz ? cx : cz;
-        if (c > (horiz ? bb.x0 : bb.z0) - 0.05 && c < (horiz ? bb.x1 : bb.z1) + 0.05) tot += o.w;
+  /** Сборка одного блока мебели в своей системе: u вдоль стены от середины, v от стены вглубь, y0 от пола. */
+  function buildBlock(T, g, blk, elev, mats) {
+    var sd = blk.sd, W = blk.w, D = blk.d, nm = blk.name;
+    function box(w, h, d, u, v, y0, mat, edge) {
+      var tx = -sd.n[1], tz = sd.n[0];
+      var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat || mats.furn);
+      m.position.set(sd.c[0] + tx * u + sd.n[0] * v, elev + y0 + h / 2, sd.c[1] + tz * u + sd.n[1] * v);
+      m.rotation.y = Math.atan2(sd.n[0], sd.n[1]);
+      m.castShadow = w * h * d > 0.02; m.receiveShadow = true; g.add(m);
+      if (edge !== false && w * h * d > 0.004) {
+        var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), mats.fedge); ed.position.copy(m.position); ed.rotation.copy(m.rotation); g.add(ed);
+      }
+      return m;
+    }
+    function cyl(r, h, u, v, y0, mat, r2) {
+      var tx = -sd.n[1], tz = sd.n[0];
+      var m = new T.Mesh(new T.CylinderGeometry(r2 == null ? r : r2, r, h, 14), mat || mats.furn);
+      m.position.set(sd.c[0] + tx * u + sd.n[0] * v, elev + y0 + h / 2, sd.c[1] + tz * u + sd.n[1] * v);
+      m.castShadow = true; g.add(m); return m;
+    }
+    function ball(r, u, v, y0, mat) {
+      var tx = -sd.n[1], tz = sd.n[0];
+      var m = new T.Mesh(new T.SphereGeometry(r, 14, 10), mat);
+      m.position.set(sd.c[0] + tx * u + sd.n[0] * v, elev + y0 + r, sd.c[1] + tz * u + sd.n[1] * v); m.castShadow = true; g.add(m); return m;
+    }
+    function plant(u, v, h) {
+      cyl(0.13, 0.26, u, v, 0, mats.pot, 0.1);
+      ball(0.2 * h, u, v, 0.22, mats.plant); ball(0.15 * h, u + 0.1, v - 0.05, 0.4 * h, mats.plant); ball(0.13 * h, u - 0.09, v + 0.06, 0.45 * h, mats.plant);
+    }
+    function lamp(u, v, y0) {
+      cyl(0.04, 0.22, u, v, y0, mats.metal); cyl(0.11, 0.17, u, v, y0 + 0.22, mats.lamp, 0.07);
+    }
+    function rug(w, d, v, col) { box(w, 0.012, d, 0, v, 0, col || mats.rug, false); }
+    var i, n;
+    if (nm === 'bed' || nm === 'kbed') {
+      var bw = nm === 'bed' ? 1.6 : 0.9, bl = 2.0, acc = nm === 'bed' ? mats.accent : mats.blue2;
+      if (nm === 'bed' && W > bw + 0.9) rug(bw + 1.0, 1.5, 1.55);
+      box(bw + 0.1, 1.0, 0.08, 0, 0.05, 0, mats.wood);                                 // изголовье
+      box(bw, 0.3, bl, 0, 0.1 + bl / 2, 0.08, mats.furn);                             // основание
+      box(bw - 0.05, 0.18, bl - 0.06, 0, 0.1 + bl / 2, 0.38, mats.linen);              // матрас с бельём
+      box(bw - 0.03, 0.05, bl * 0.58, 0, 0.1 + bl * 0.71, 0.56, acc);                  // покрывало
+      n = nm === 'bed' ? 2 : 1;
+      for (i = 0; i < n; i++) box(nm === 'bed' ? 0.62 : 0.5, 0.12, 0.38, n === 1 ? 0 : (i ? 0.4 : -0.4), 0.36, 0.56, mats.linen);
+      if (nm === 'bed') box(0.5, 0.1, 0.2, 0, 0.7, 0.57, mats.accent);                  // декоративная подушка
+      if (nm === 'bed' && W > bw + 0.9) [-1, 1].forEach(function (sg) {
+        box(0.45, 0.5, 0.4, sg * (bw / 2 + 0.33), 0.25, 0, mats.wood); lamp(sg * (bw / 2 + 0.33), 0.25, 0.5);
       });
-    });
-    return tot;
+    } else if (nm === 'wardrobe' || nm === 'hallw') {
+      var wh = nm === 'wardrobe' ? 2.1 : 2.1;
+      box(W, wh, D, 0, D / 2, 0, mats.wood);
+      n = Math.max(2, Math.round(W / 0.6));
+      for (i = 1; i < n; i++) box(0.012, wh - 0.1, 0.01, -W / 2 + W * i / n, D + 0.004, 0.05, mats.dark, false);   // створки
+      for (i = 0; i < n; i += 2) { box(0.02, 0.2, 0.02, -W / 2 + W * (i + 1) / n - 0.04, D + 0.02, 1.0, mats.metal, false); }
+      if (nm === 'hallw') box(Math.min(W - 0.2, 0.7), 1.3, 0.012, W > 1.2 ? -W / 4 : 0, D + 0.012, 0.6, mats.mirror, false);   // зеркало
+    } else if (nm === 'sofa') {
+      rug(W + 0.3 > 2.4 ? 2.4 : W, 1.5, 1.45);
+      box(W, 0.4, 0.92, 0, 0.5, 0, mats.sofa);                                          // основание
+      box(W, 0.5, 0.2, 0, 0.1, 0.4, mats.sofa);                                         // спинка
+      [-1, 1].forEach(function (sg) { box(0.18, 0.28, 0.9, sg * (W / 2 - 0.09), 0.5, 0.4, mats.sofa); });   // подлокотники
+      for (i = 0; i < 3; i++) box(0.56, 0.12, 0.62, -0.62 + i * 0.62, 0.58, 0.4, mats.blue2);               // подушки сиденья
+      box(0.42, 0.34, 0.1, -0.7, 0.28, 0.55, mats.accent); box(0.42, 0.34, 0.1, 0.72, 0.28, 0.55, mats.linen);   // декоративные подушки
+      box(1.1, 0.04, 0.6, 0, 1.75, 0.38, mats.glassTop);                                // журнальный столик
+      [[-0.5, 1.55], [0.5, 1.55], [-0.5, 1.95], [0.5, 1.95]].forEach(function (p) { box(0.04, 0.38, 0.04, p[0], p[1], 0, mats.metal, false); });
+      cyl(0.05, 0.16, 0.2, 1.75, 0.42, mats.pot, 0.04); ball(0.09, 0.2, 1.75, 0.55, mats.plant);
+    } else if (nm === 'tv') {
+      box(W, 0.45, 0.4, 0, 0.2, 0, mats.wood);                                          // тумба
+      box(Math.min(1.2, W - 0.3), 0.68, 0.04, 0, 0.14, 0.62, mats.dark);                // телевизор
+      box(0.3, 0.12, 0.12, 0, 0.14, 0.45, mats.dark, false);
+      if (W > 1.5) plant(W / 2 - 0.2, 0.2, 1.0);
+    } else if (nm === 'kitchen') {
+      var fr = W >= 2.4 ? 0.65 : 0, x0 = -W / 2 + fr, cw = W - fr, cc = x0 + cw / 2;
+      if (fr) { box(0.62, 1.85, 0.64, -W / 2 + 0.33, 0.32, 0, mats.metal); box(0.012, 0.5, 0.02, -W / 2 + 0.58, 0.65, 1.1, mats.dark, false); }   // холодильник
+      box(cw, 0.86, 0.6, cc, 0.3, 0, mats.furn);                                         // нижние шкафы
+      box(cw, 0.04, 0.64, cc, 0.32, 0.86, mats.top);                                     // столешница
+      n = Math.max(2, Math.round(cw / 0.6));
+      for (i = 1; i < n; i++) box(0.01, 0.78, 0.01, x0 + cw * i / n, 0.605, 0.04, mats.dark, false);
+      box(0.6, 0.012, 0.5, cc - cw / 4, 0.32, 0.9, mats.dark);                           // варочная панель
+      box(0.5, 0.01, 0.4, cc + cw / 4, 0.32, 0.9, mats.metal); cyl(0.015, 0.22, cc + cw / 4, 0.12, 0.9, mats.metal);   // мойка и смеситель
+      if (blk.upper) {
+        box(cw, 0.7, 0.34, cc, 0.17, 1.45, mats.furn);                                   // верхние шкафы
+        box(0.6, 0.12, 0.45, cc - cw / 4, 0.24, 1.38, mats.metal);                       // вытяжка
+      }
+    } else if (nm === 'dining') {
+      box(1.3, 0.04, 0.8, 0, D / 2, 0.72, mats.wood);                                    // стол
+      [[-0.58, -0.33], [0.58, -0.33], [-0.58, 0.33], [0.58, 0.33]].forEach(function (p) { box(0.05, 0.72, 0.05, p[0], D / 2 + p[1], 0, mats.wood, false); });
+      rug(2.2, 1.7, D / 2);
+      [-0.45, 0.45].forEach(function (uu) {
+        [-0.68, 0.68].forEach(function (vv) {
+          box(0.42, 0.05, 0.42, uu, D / 2 + vv, 0.44, mats.accent); box(0.42, 0.42, 0.04, uu, D / 2 + vv + (vv > 0 ? 0.2 : -0.2), 0.47, mats.accent, false);
+        });
+      });
+      cyl(0.06, 0.16, 0, D / 2, 0.76, mats.pot, 0.045); ball(0.1, 0, D / 2, 0.88, mats.plant);   // ваза
+    } else if (nm === 'desk2' || nm === 'desk') {
+      var dw = Math.min(W, 1.4);
+      box(dw, 0.04, 0.65, 0, 0.33, 0.72, mats.wood);
+      [-1, 1].forEach(function (sg) { box(0.05, 0.72, 0.6, sg * (dw / 2 - 0.03), 0.33, 0, mats.furn); });
+      box(0.5, 0.32, 0.03, 0, 0.18, 0.84, mats.dark); box(0.05, 0.1, 0.05, 0, 0.18, 0.76, mats.metal, false);   // монитор
+      box(0.4, 0.015, 0.14, 0, 0.5, 0.76, mats.metal, false);
+      box(0.46, 0.06, 0.46, 0, 0.95, 0.44, mats.dark); box(0.46, 0.46, 0.05, 0, 1.17, 0.47, mats.dark); cyl(0.03, 0.4, 0, 0.95, 0.04, mats.metal);   // кресло
+      lamp(dw / 2 - 0.15, 0.2, 0.76);
+    } else if (nm === 'shelf' || nm === 'shelves') {
+      var sh = nm === 'shelf' ? 1.9 : 2.0;
+      box(0.03, sh, D, -W / 2 + 0.015, D / 2, 0, mats.wood); box(0.03, sh, D, W / 2 - 0.015, D / 2, 0, mats.wood);
+      for (i = 0; i < 5; i++) box(W, 0.03, D, 0, D / 2, 0.02 + i * (sh - 0.05) / 4, mats.wood, false);
+      for (i = 0; i < 3; i++) {   // книги и коробки
+        var bu = -W / 2 + 0.15 + i * (W - 0.3) / 3;
+        box(Math.min(0.22, (W - 0.3) / 3 - 0.05), 0.24, D * 0.7, bu + 0.1, D / 2, 0.05 + (i % 3) * 0.45, i % 2 ? mats.accent : mats.blue2, false);
+      }
+    } else if (nm === 'bath') {
+      box(1.7, 0.55, 0.75, 0, 0.375, 0, mats.white);
+      box(1.5, 0.02, 0.55, 0, 0.375, 0.52, mats.glassTop, false);                         // вода
+      cyl(0.015, 0.2, -0.7, 0.1, 0.55, mats.metal);                                       // смеситель
+    } else if (nm === 'toilet') {
+      box(0.4, 0.4, 0.18, 0, 0.12, 0.4, mats.white); box(0.36, 0.38, 0.45, 0, 0.42, 0, mats.white); box(0.38, 0.04, 0.42, 0, 0.42, 0.4, mats.white, false);
+    } else if (nm === 'sink') {
+      box(W, 0.8, D, 0, D / 2, 0, mats.wood); box(W - 0.1, 0.05, D - 0.08, 0, D / 2, 0.8, mats.white);
+      cyl(0.015, 0.2, 0, 0.08, 0.85, mats.metal); box(W - 0.1, 0.7, 0.02, 0, 0.012, 1.2, mats.mirror, false);   // зеркало над раковиной
+    } else if (nm === 'plant') plant(0, D / 2, 1.2);
   }
 
   function furnish(T, grp, fl, z, elev, mats, hasFix) {
     var nm = z.name || '', kind = null, i;
     for (i = 0; i < FURN.length; i++) if (FURN[i][0].test(nm)) { kind = FURN[i][1]; break; }
-    if (!kind) return;
-    var bb = { x0: 1e9, x1: -1e9, z0: 1e9, z1: -1e9 };
-    z.pts.forEach(function (p) { bb.x0 = Math.min(bb.x0, p[0]); bb.x1 = Math.max(bb.x1, p[0]); bb.z0 = Math.min(bb.z0, p[1]); bb.z1 = Math.max(bb.z1, p[1]); });
-    var W = bb.x1 - bb.x0, D = bb.z1 - bb.z0, area = polyArea(z.pts);
-    if (Math.min(W, D) < 1.5 || area < 3) return;
-    // стороны: центр, внутренняя нормаль, длина; порядок - от самой «глухой» к самой занятой проёмами
-    var sides = [
-      { c: [(bb.x0 + bb.x1) / 2, bb.z0], n: [0, 1], len: W }, { c: [bb.x1, (bb.z0 + bb.z1) / 2], n: [-1, 0], len: D },
-      { c: [(bb.x0 + bb.x1) / 2, bb.z1], n: [0, -1], len: W }, { c: [bb.x0, (bb.z0 + bb.z1) / 2], n: [1, 0], len: D }
-    ];
-    sides.forEach(function (sd, k) { sd.k = k; sd.bl = sideBlocked(fl, bb, k); });
-    var order = sides.slice().sort(function (a, b) { return (a.bl - b.bl) || (b.len - a.len); });
+    if (!kind || !G.PlanFit) return;
+    var blocks = G.PlanFit.layout(kind, { pts: z.pts }, fl, hasFix);
+    if (!blocks.length) return;
+    var issues = G.PlanFit.checkBlocks(blocks, { pts: z.pts }, fl);
+    if (issues.length) { (G.__p3dIssues = G.__p3dIssues || []).push(nm + ': ' + issues.join('; ')); console.warn('[plan_3d] расстановка «' + nm + '»:', issues); }
     var g = new T.Group();
-    // piece: коробка w x h x d; u - вдоль стены от середины, v - от стены вглубь комнаты (центр), y0 - от пола
-    function piece(sd, w, h, d, u, v, y0, mat) {
-      var tx = -sd.n[1], tz = sd.n[0];                       // касательная к стороне
-      var m = new T.Mesh(new T.BoxGeometry(w, h, d), mat || mats.furn);
-      m.position.set(sd.c[0] + tx * u + sd.n[0] * v, elev + y0 + h / 2, sd.c[1] + tz * u + sd.n[1] * v);
-      m.rotation.y = Math.atan2(sd.n[0], sd.n[1]);
-      m.castShadow = true; m.receiveShadow = true; g.add(m);
-      var ed = new T.LineSegments(new T.EdgesGeometry(m.geometry), mats.fedge); ed.position.copy(m.position); ed.rotation.copy(m.rotation); g.add(ed);
-      return m;
-    }
-    var a = order[0], b = order[1], c = order[2];
-    if (kind === 'bed' || kind === 'kids') {
-      var bw = kind === 'bed' ? 1.6 : 0.9, bl = kind === 'bed' ? 2.0 : 1.9;
-      piece(a, bw + 0.1, 0.95, 0.08, 0, 0.06, 0, mats.wood);                       // изголовье
-      piece(a, bw, 0.42, bl, 0, 0.1 + bl / 2, 0, mats.furn);                        // кровать
-      piece(a, bw - 0.1, 0.1, bl - 0.45, 0, 0.1 + 0.45 + (bl - 0.45) / 2, 0.42, mats.linen); // одеяло
-      if (kind === 'bed') {
-        [-0.4, 0.4].forEach(function (uu) { piece(a, 0.55, 0.1, 0.34, uu, 0.35, 0.42, mats.linen); });
-        if (a.len > bw + 1.4) [-1, 1].forEach(function (sg) { piece(a, 0.45, 0.45, 0.4, sg * (bw / 2 + 0.35), 0.25, 0, mats.wood); });
-      }
-      var wd = (b.len > 1.6 ? b : c);
-      piece(wd, Math.min(1.8, wd.len - 0.6), 2.1, 0.6, 0, 0.3, 0, mats.wood);        // шкаф
-      if (kind === 'kids') piece(c, 1.2, 0.74, 0.6, 0, 0.3, 0, mats.wood);
-    } else if (kind === 'living') {
-      piece(a, 2.1, 0.45, 0.92, 0, 0.5, 0, mats.sofa);                               // диван
-      piece(a, 2.1, 0.45, 0.2, 0, 0.12, 0.45, mats.sofa);                            // спинка
-      [-1.05, 1.05].forEach(function (uu) { piece(a, 0.18, 0.2, 0.9, uu, 0.5, 0.45, mats.sofa); });
-      piece(a, 1.1, 0.4, 0.6, 0, 1.75, 0, mats.glassTop);                            // журнальный столик
-      var tvS = sides[(a.k + 2) % 4];
-      piece(tvS, Math.min(1.8, tvS.len - 0.6), 0.5, 0.4, 0, 0.22, 0, mats.wood);     // тумба
-      piece(tvS, 1.15, 0.66, 0.05, 0, 0.1, 0.9, mats.dark);                           // телевизор
-    } else if (kind === 'kitchen') {
-      var kl = Math.min(a.len - 0.4, 3.6);
-      piece(a, kl, 0.86, 0.6, 0, 0.32, 0, mats.furn);                                // нижние шкафы
-      piece(a, kl, 0.04, 0.64, 0, 0.32, 0.86, mats.top);                             // столешница
-      piece(a, 0.6, 0.012, 0.5, -kl / 4, 0.3, 0.9, mats.dark);                       // варочная панель
-      piece(a, 0.5, 0.01, 0.4, kl / 4, 0.3, 0.9, mats.metal);                        // мойка
-      if (a.bl === 0) piece(a, kl, 0.7, 0.34, 0, 0.19, 1.45, mats.furn);             // верхние шкафы
-      if (area > 10) {
-        piece(a, 1.3, 0.04, 0.8, 0, 2.3, 0.74, mats.wood);                           // обеденный стол
-        [-0.45, 0.45].forEach(function (uu) { [1.8, 2.8].forEach(function (vv) { piece(a, 0.4, 0.46, 0.4, uu, vv, 0, mats.wood); }); });
-      }
-    } else if (kind === 'office') {
-      piece(a, 1.4, 0.04, 0.7, 0, 0.4, 0.74, mats.wood);
-      [-0.65, 0.65].forEach(function (uu) { piece(a, 0.05, 0.74, 0.65, uu, 0.4, 0, mats.furn); });
-      piece(a, 0.5, 0.5, 0.5, 0, 1.0, 0, mats.dark);                                 // кресло
-      piece(b, Math.min(1.2, b.len - 0.5), 1.9, 0.35, 0, 0.18, 0, mats.wood);        // стеллаж
-    } else if (kind === 'hall' && area >= 4) {
-      piece(a, Math.min(1.4, a.len - 0.5), 2.1, 0.42, 0, 0.22, 0, mats.wood);
-      piece(a, Math.min(1.0, a.len - 0.6), 0.4, 0.3, 0, 0.8, 0, mats.furn);
-    } else if (kind === 'store') {
-      for (i = 0; i < 4; i++) piece(a, a.len - 0.3, 0.03, 0.4, 0, 0.22, 0.35 + i * 0.5, mats.wood);
-    } else if (kind === 'wc' && !hasFix) {
-      piece(a, 1.7, 0.55, 0.75, 0, 0.4, 0, mats.white);                              // ванна
-      piece(c, 0.4, 0.4, 0.65, 0, 0.35, 0, mats.white);                              // унитаз
-      piece(b, 0.55, 0.85, 0.45, 0, 0.25, 0, mats.white);                            // раковина
-    }
-    if (g.children.length) grp.add(g);
+    blocks.forEach(function (b) { buildBlock(T, g, b, elev, mats); });
+    grp.add(g);
   }
 
   /** Стена по кускам: между проёмами - на всю высоту, под окном и над проёмом - ниже и выше него. */
@@ -640,6 +684,7 @@
 
   function build(m, data) {
     var T = m.T;
+    G.__p3dIssues = [];
     box.innerHTML = '';
     var W = box.clientWidth || 800, Hh = box.clientHeight || 520;
     var r = new T.WebGLRenderer({ antialias: true });
@@ -664,6 +709,8 @@
       glass: mk(0x93c5fd, { transparent: true, opacity: 0.34, roughness: 0.1, depthWrite: false }),
       door: mk(0xe9dcc8, { roughness: 0.7 }), frame: mk(0xffffff, { roughness: 0.6 }), metal: mk(0x94a3b8, { roughness: 0.35, metalness: 0.5 }),
       slab: mk(0xe3e9f3), rad: mk(0xffffff, { roughness: 0.5 }),
+      rug: mk(0xe6dccf), plant: mk(0x86c19a, { roughness: 0.8 }), pot: mk(0xf4f7fb), accent: mk(0xf2bfa0), blue2: mk(0xa9c1ec),
+      lamp: mk(0xfff1c2, { emissive: 0xffe9a8, emissiveIntensity: 0.25 }), mirror: mk(0xdbeafe, { roughness: 0.12, metalness: 0.55 }),
       edge: new T.LineBasicMaterial({ color: LINE, transparent: true, opacity: 0.85 }),
       fedge: new T.LineBasicMaterial({ color: 0xa9b8cf, transparent: true, opacity: 0.7 }),
       furn: mk(0xf4f7fc), wood: mk(0xe6d9c6), sofa: mk(0xcfdcf2), linen: mk(0xffffff), top: mk(0xdde5f1), dark: mk(0x475569, { roughness: 0.5 }),
@@ -729,9 +776,8 @@
         [w.a, w.b].forEach(function (p) { minX = Math.min(minX, p[0]); maxX = Math.max(maxX, p[0]); minZ = Math.min(minZ, p[1]); maxZ = Math.max(maxZ, p[1]); });
       });
       // радиаторы: низ на 120 мм от пола, высота 500 мм; трассы - под ними
-      fl.rads.forEach(function (rd) {
-        var rm = radMesh(T, rd.w, mats);
-        var rx = rd.x, ry = rd.y, bw = null, bd = 1e9;
+      fl.rads.forEach(function (rd0) {
+        var rd = rd0, rx = rd.x, ry = rd.y, bw = null, bd = 1e9;
         // прибор не должен уходить в стену: у толстой стены (слои калькулятора) сдвигаем его от грани на 5 см
         fl.walls.forEach(function (w) {
           var dx = w.b[0] - w.a[0], dy = w.b[1] - w.a[1], L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
@@ -743,6 +789,14 @@
           var need = bw.t / 2 + 0.05 + 0.04, sg = bw.ac >= 0 ? 1 : -1, mv = need - bd;
           rx += bw.nx * sg * mv; ry += bw.ny * sg * mv;
         }
+        // не должен входить в перегородки и торцы стен: сужается до свободного участка, нет места - не ставится
+        var rw = rd.w;
+        if (G.PlanFit) {
+          var ft = G.PlanFit.fitRad({ x: rx, y: ry, w: rd.w, ang: rd.ang }, fl.walls);
+          if (ft.dropped) { (G.__p3dIssues = G.__p3dIssues || []).push('радиатор у окна не поместился между стенами и не показан'); return; }
+          if (ft.changed) { rx = ft.x; ry = ft.y; rw = ft.w; (G.__p3dIssues = G.__p3dIssues || []).push('радиатор сужен до ' + Math.round(rw * 100) + ' см: рядом перегородка'); }
+        }
+        var rm = radMesh(T, rw, mats);
         rm.position.set(rx, elev + 0.12 + 0.25, ry); rm.rotation.y = -rd.ang * Math.PI / 180;
         gl.rad.add(rm);
       });
@@ -958,6 +1012,7 @@
       }
     };
     box.appendChild(panel);
+    if (G.__p3dIssues && G.__p3dIssues.length) panel.insertAdjacentHTML('beforeend', '<div class="kpn" style="color:#b45309" title="' + G.__p3dIssues.join('; ').replace(/"/g, '') + '">Подгонка расстановки: ' + G.__p3dIssues.length + ' (наведите)</div>');
     kpRender();
   }
 
