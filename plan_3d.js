@@ -614,8 +614,16 @@
         leaf.position.set(w.a[0] + ux * (s0 + s1) / 2, y0 + top / 2 - 0.02, w.a[1] + uy * (s0 + s1) / 2);
         leaf.rotation.y = rotY; leaf.castShadow = true; grp.add(leaf);
         frameOf(T, grp, mats, w, ux, uy, rotY, (s0 + s1) / 2, y0, s1 - s0, 0, top, 0.04, mats.frame, true);
+        if (o.k === 'gate') {   // секционные ворота: горизонтальные швы между панелями, без ручки
+          var np = Math.max(3, Math.round(top / 0.5)), gi;
+          for (gi = 1; gi < np; gi++) {
+            var gs = new T.Mesh(new T.BoxGeometry(s1 - s0 - 0.08, 0.014, 0.058), mats.dark);
+            gs.position.set(w.a[0] + ux * (s0 + s1) / 2, y0 + top * gi / np - 0.02, w.a[1] + uy * (s0 + s1) / 2); gs.rotation.y = rotY; grp.add(gs);
+          }
+        } else {
         var hd = new T.Mesh(new T.BoxGeometry(0.12, 0.03, 0.09), mats.metal);
         hd.position.set(w.a[0] + ux * ((s0 + s1) / 2 + (s1 - s0) / 2 - 0.15), y0 + 1.0, w.a[1] + uy * ((s0 + s1) / 2 + (s1 - s0) / 2 - 0.15)); hd.rotation.y = rotY; grp.add(hd);
+        }
       }
       cur = Math.max(cur, s1);
     });
