@@ -6205,6 +6205,7 @@ function pushUndo(t) {
   if (t === 'plan') {
     rec.prev.img = f.img; rec.prev.imgFile = f.imgFile || null;
     rec.prev.w = f.w; rec.prev.h = f.h;
+    rec.prev.blank = !!f.blank; rec.prev.scaleSrc = f.scaleSrc || null;
   }
   undoStack.push(rec);
   if (undoStack.length > 50) undoStack.shift();
@@ -6244,6 +6245,8 @@ function stepHist(from, to, empty) {
     if (rec.t === 'plan') {
       f.img = rec.prev.img; f.imgFile = rec.prev.imgFile || null;
       f.w = rec.prev.w; f.h = rec.prev.h;
+      if (rec.prev.blank) f.blank = true; else delete f.blank;
+      if (rec.prev.scaleSrc) f.scaleSrc = rec.prev.scaleSrc; else delete f.scaleSrc;
       delete imgCache[cur]; delete maskCache[cur]; delete imgFailed[cur];
     }
     f.pxPerM = rec.prev.pxPerM;
