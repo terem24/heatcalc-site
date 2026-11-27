@@ -45,6 +45,14 @@
       '.p3d-view canvas{display:block;width:100%;height:100%;cursor:grab;background:transparent!important}' +
       '.p3d-panel{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:190px;' +
       'padding:10px;border-radius:16px;background:rgba(255,255,255,.82);backdrop-filter:blur(8px);color:#334155;border:1px solid rgba(160,185,225,.45);box-shadow:0 10px 30px rgba(40,70,130,.14);font:12px system-ui,sans-serif}' +
+      '.p3d-kp{display:flex;flex-direction:column;gap:6px}' +
+      '.p3d-kp button.kpadd{border:0;border-radius:10px;padding:8px 10px;background:#4f6bed;color:#fff;font:600 12px system-ui,sans-serif;cursor:pointer}' +
+      '.p3d-kp button.kpadd:disabled{background:#9aa8d6;cursor:default}' +
+      '.p3d-kp .kpn{font:11px system-ui,sans-serif;color:#64748b}' +
+      '.p3d-kpl{display:flex;gap:6px}' +
+      '.p3d-kpl .kpt{position:relative;width:58px;height:40px;border-radius:6px;overflow:hidden;border:1px solid rgba(160,185,225,.7);background:#fff}' +
+      '.p3d-kpl .kpt img{width:100%;height:100%;object-fit:cover;display:block}' +
+      '.p3d-kpl .kpt b{position:absolute;right:1px;top:1px;width:16px;height:16px;border-radius:50%;background:rgba(15,23,42,.75);color:#fff;font:700 11px/16px system-ui;text-align:center;cursor:pointer}' +
       '.p3d-segrow{display:flex;gap:2px;padding:3px;border-radius:999px;background:#e8eef9}' +
       '.p3d-panel .p3d-segrow button{flex:1;border:0;background:transparent;color:#51607a;padding:6px 10px;border-radius:999px;font:600 12px system-ui,sans-serif}' +
       '.p3d-panel .p3d-segrow button.on{background:#fff;color:#2f6fed;box-shadow:0 1px 5px rgba(40,70,130,.2)}' +
@@ -914,6 +922,7 @@
   function uiPanel() {
     panel = document.createElement('div'); panel.className = 'p3d-panel';
     var h = '<div class="p3d-segrow"><button type="button" data-v="iso" class="on">Изометрия</button><button type="button" data-v="top">Сверху</button><button type="button" data-v="cut" id="p3d_cutbtn">Разрез</button><button type="button" data-v="eng" id="p3d_engbtn" title="Стены, окна, двери, пол и мебель становятся прозрачными: видна только инженерка, её можно крутить">Инженерка</button></div>' +
+      '<div class="p3d-kp"><button type="button" class="kpadd" data-kp="add" title="Снимок текущего ракурса попадёт в коммерческое предложение, в раздел «Ваш дом». Можно до трёх видов">В КП: добавить этот вид</button><div class="p3d-kpl"></div><div class="kpn"></div></div>' +
       '<button type="button" data-more="1" class="p3d-link">Слои и срез ▸</button><div class="p3d-more" style="display:none;flex-direction:column;gap:7px">' +
       '<label title="Срез по высоте: убирает всё выше выбранной отметки">Срез <input type="range" id="p3d_cut" min="0.3" max="' + (S.totalH + 0.5).toFixed(2) + '" step="0.1" value="' + (S.totalH + 0.5).toFixed(2) + '"></label>';
     h += '<div style="margin-top:4px;font-weight:700;font-size:11px;letter-spacing:.06em;opacity:.7">ЭТАЖИ</div>';
@@ -924,8 +933,11 @@
     LAYERS.forEach(function (l) { h += '<label><input type="checkbox" data-l="' + l[0] + '" checked> ' + l[1] + '</label>'; });
     panel.innerHTML = h + '</div>';
     panel.onclick = function (e) {
+      var x = e.target.closest && e.target.closest('[data-kpx]');
+      if (x) { var vv = kpViews(); vv.splice(parseInt(x.getAttribute('data-kpx'), 10), 1); kpSave(vv); kpRender(); return; }
       var b = e.target.closest && e.target.closest('button');
       if (!b) return;
+      if (b.getAttribute('data-kp') === 'add') { kpAdd(); return; }
       if (b.getAttribute('data-more')) {
         var mo = panel.querySelector('.p3d-more'), open = mo.style.display === 'none';
         mo.style.display = open ? 'flex' : 'none'; b.textContent = 'Слои и срез ' + (open ? '▾' : '▸');
@@ -946,6 +958,53 @@
       }
     };
     box.appendChild(panel);
+    kpRender();
+  }
+
+  // ── виды дома для коммерческого предложения ───────────────────────────
+  // Снимок текущего ракурса кладётся в localStorage (общий с калькулятором того же адреса); при печати КП
+  // калькулятор вставляет до трёх видов в раздел «Ваш дом» (app.kpViewsNode).
+  var KP_KEY = 'heatcalc_kp_views', KP_MAX = 3;
+  function kpViews() {
+    try { var a = JSON.parse(localStorage.getItem(KP_KEY) || '[]'); return Array.isArray(a) ? a.filter(function (v) { return v && typeof v.src === 'string'; }) : []; } catch (e) { return []; }
+  }
+  function kpSave(a) { try { localStorage.setItem(KP_KEY, JSON.stringify(a)); return true; } catch (e) { return false; } }
+  function kpRender() {
+    if (!panel) return;
+    var vv = kpViews(), l = panel.querySelector('.p3d-kpl'), n = panel.querySelector('.kpn'), b = panel.querySelector('.kpadd');
+    if (!l) return;
+    l.innerHTML = vv.map(function (v, i) { return '<div class="kpt" title="' + (v.title || '') + '"><img src="' + v.src + '"><b data-kpx="' + i + '">\u00d7</b></div>'; }).join('');
+    n.textContent = vv.length ? 'В КП видов: ' + vv.length + ' из ' + KP_MAX : 'В КП пока нет видов дома';
+    if (b) b.disabled = vv.length >= KP_MAX;
+  }
+  /** Кадр текущего ракурса крупнее экранного: холст на время снимка растягивается, камера та же. */
+  function kpShot() {
+    var r = S.r, cam = S.cam, el = r.domElement, W0 = box.clientWidth || 800, H0 = box.clientHeight || 520, pr = r.getPixelRatio();
+    var CW = 1400, CH = Math.max(500, Math.min(1000, Math.round(CW * H0 / W0)));
+    var l0 = cam.left, r0 = cam.right, t0 = cam.top, b0 = cam.bottom, a = CW / CH, fh = S.fh;
+    r.setPixelRatio(1); r.setSize(CW, CH, false);
+    cam.left = -fh * a; cam.right = fh * a; cam.top = fh; cam.bottom = -fh; cam.updateProjectionMatrix();
+    r.render(S.scene, cam);
+    var c = document.createElement('canvas'); c.width = CW; c.height = CH;
+    var g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, CH);
+    gr.addColorStop(0, '#fafcff'); gr.addColorStop(1, '#e9eff8');
+    g.fillStyle = gr; g.fillRect(0, 0, CW, CH); g.drawImage(el, 0, 0);
+    var url = c.toDataURL('image/jpeg', 0.86);
+    r.setPixelRatio(pr); r.setSize(W0, H0);
+    cam.left = l0; cam.right = r0; cam.top = t0; cam.bottom = b0; cam.updateProjectionMatrix();
+    r.render(S.scene, cam);
+    return url;
+  }
+  function kpAdd() {
+    if (!S) return;
+    var vv = kpViews(), n = panel.querySelector('.kpn');
+    if (vv.length >= KP_MAX) { n.textContent = 'Уже ' + KP_MAX + ' вида: уберите один крестиком'; return; }
+    var url;
+    try { url = kpShot(); } catch (e) { console.warn('[plan_3d] снимок вида:', e); n.textContent = 'Не удалось сделать снимок'; return; }
+    vv.push({ src: url, title: 'Вид дома ' + (vv.length + 1), t: Date.now() });
+    if (!kpSave(vv)) { n.textContent = 'Не хватило места в браузере: уберите старый вид'; return; }
+    kpRender();
+    n.textContent = 'Добавлено. В КП видов: ' + vv.length + ' из ' + KP_MAX;
   }
 
   // другой режим рисования во время 3D - сначала вернуться к плану
