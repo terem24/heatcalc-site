@@ -121,6 +121,8 @@
   // Материалы стен: слово в диалоге -> название и цвет в 3D. Толщина у стены своя (w.t, м), иначе общая по типу.
   var WALL_MATS = [['газобетон', 'Газобетон', 0xe6e0d0], ['кирпич', 'Кирпич', 0xc98a6e], ['керамблок', 'Керамблок', 0xd8b898], ['брус', 'Брус', 0xd0a367],
     ['каркас', 'Каркас', 0xe4d5ba], ['бетон', 'Бетон', 0xbcc2c9], ['гипсокартон', 'Гипсокартон', 0xf2f2ee], ['пеноблок', 'Пеноблок', 0xe9e6dc]];
+  // Утеплитель стены: слово в диалоге -> название. Толщина у стены своя (w.ins.t, м). Теплопроводность - в калькуляторе.
+  var INS_MATS = [['пенополистирол', 'Пенополистирол'], ['пенопласт', 'Пенополистирол'], ['пеноплекс', 'XPS'], ['xps', 'XPS'], ['минват', 'Минвата'], ['мин.ват', 'Минвата'], ['вата', 'Минвата']];
   function wallT(w) { return w.t > 0.04 && w.t < 1.2 ? w.t : (w.k === 'int' ? intT() : extT()); }
   function thickPx(w) { return wallT(w) * ppm(); }
 
@@ -1314,7 +1316,7 @@
     var s = walls()[sel];
     if (!s) return;
     hintWall('Выбрана стена: ' + (s.k === 'int' ? 'внутренняя' : 'наружная') + ', ' + fmtM(dist(s.a, s.b)) +
-      ' м, ' + Math.round(wallT(s) * 100) + ' см' + (s.mat ? ', ' + s.mat : '') + '. Enter — толщина и материал, T — сменить тип, Delete — убрать.');
+      ' м, ' + Math.round(wallT(s) * 100) + ' см' + (s.mat ? ', ' + s.mat : '') + (s.ins ? ' + ' + Math.round(s.ins.t * 100) + ' см ' + s.ins.mat.toLowerCase() : '') + '. Enter — толщина и материал, T — сменить тип, Delete — убрать.');
   }
 
   function toggleSel() {
@@ -1329,43 +1331,56 @@
    * Предупреждение, если наружная стена из этого материала хуже нормы СП 50.13330 для города.
    * R и норму считает калькулятор (окно-родитель); нет города или калькулятора - молчим.
    */
-  function wallNormNote(mat, t, k) {
+  function wallNormNote(mat, t, k, ins) {
     if (k === 'int' || !mat) return '';
     try {
       var A = window.parent && window.parent !== window && window.parent.app;
       if (!A || !A.planWallR || !A.wallSp50Req) return '';
-      var R = A.planWallR({ mat: mat, t: t }), q = A.wallSp50Req();
+      var R = A.planWallR({ mat: mat, t: t, ins: ins }), q = A.wallSp50Req();
       if (!R || !q || R >= q.rreq) return '';
-      return 'R ' + R.toFixed(2).replace('.', ',') + ' - ниже нормы СП 50 для г. ' + q.city + ' (' + String(q.rreq).replace('.', ',') + '), нужен утеплитель (задаётся в параметрах объекта)';
+      return 'R ' + R.toFixed(2).replace('.', ',') + ' - ниже нормы СП 50 для г. ' + q.city + ' (' + String(q.rreq).replace('.', ',') + '), добавьте утеплитель: «+ 10 пенополистирол»';
     } catch (e) { return ''; }
   }
   /** Толщина и материал выбранной стены: «40 газобетон», «51 кирпич», «10» (материал не меняется). */
   function wallProps() {
     var s = walls()[sel];
     if (!s) { hintWall('Выберите стену: Shift + клик по ней, затем Enter или кнопка «Толщина и материал».'); return; }
-    var chips = (s.k === 'int' ? ['10 гипсокартон', '12 кирпич', '15 пеноблок', '20 газобетон'] : ['40 газобетон', '51 кирпич', '38 керамблок', '20 брус', '30 бетон', '20 каркас']).map(function (v) { return { v: v }; });
+    var chips = (s.k === 'int' ? ['10 гипсокартон', '12 кирпич', '15 пеноблок', '20 газобетон'] : ['40 газобетон', '51 кирпич + 10 пенополистирол', '38 керамблок', '20 брус', '30 бетон', '20 каркас']).map(function (v) { return { v: v }; });
+    // «51 кирпич + 10 пенополистирол»: после «+» - утеплитель (толщина в см и слово); «+ 0» или «без утеплителя» - убрать
+    function parseIns(v) {
+      var t = String(v || '').toLowerCase(), i = t.indexOf('+');
+      if (/без\s+утепл/.test(t)) return { clear: true };
+      if (i < 0) return null;
+      var part = t.slice(i + 1), m = part.match(/(\d+[.,]?\d*)\s*(мм|см|м|mm|cm|m)?(?![а-яёa-z])/), mat = null;
+      INS_MATS.forEach(function (x) { if (part.indexOf(x[0]) >= 0 && !mat) mat = x[1]; });
+      if (!m) return null;
+      var n = parseFloat(m[1].replace(',', '.')), u = m[2] || '', len = /^(мм|mm)$/.test(u) ? n / 1000 : /^(м|m)$/.test(u) ? n : n / 100;
+      if (!(len > 0)) return { clear: true };
+      return len >= 0.02 && len <= 0.5 ? { mat: mat || 'Пенополистирол', t: Math.round(len * 1000) / 1000 } : null;
+    }
     function parse(v) {
-      var t = String(v || '').toLowerCase(), m = t.match(/(\d+[.,]?\d*)\s*(мм|см|м|mm|cm|m)?/), mat = null;
+      var t = String(v || '').toLowerCase().split('+')[0].replace(/без\s+утепл\S*/, ''), m = t.match(/(\d+[.,]?\d*)\s*(мм|см|м|mm|cm|m)?(?![а-яёa-z])/), mat = null;
       WALL_MATS.forEach(function (x) { if (t.indexOf(x[0]) >= 0) mat = x[1]; });
       var len = 0;
       if (m) { var n = parseFloat(m[1].replace(',', '.')), u = m[2] || ''; len = /^(мм|mm)$/.test(u) ? n / 1000 : /^(м|m)$/.test(u) ? n : n / 100; }
-      return len >= 0.05 && len <= 1.2 ? { t: Math.round(len * 1000) / 1000, mat: mat } : null;
+      return len >= 0.05 && len <= 1.2 ? { t: Math.round(len * 1000) / 1000, mat: mat, ins: parseIns(v) } : null;
     }
     G.askText({
       title: 'Толщина и материал стены',
-      sub: 'Толщина в сантиметрах и материал словом: 40 газобетон, 51 кирпич. Только число - материал не меняется.',
-      chips: chips, def: Math.round(wallT(s) * 100) + (s.mat ? ' ' + s.mat.toLowerCase() : ''),
+      sub: 'Толщина в сантиметрах и материал словом: 40 газобетон, 51 кирпич. Утеплитель - после плюса: 51 кирпич + 10 пенополистирол (минвата, xps). Только число - материал не меняется.',
+      chips: chips, def: Math.round(wallT(s) * 100) + (s.mat ? ' ' + s.mat.toLowerCase() : '') + (s.ins ? ' + ' + Math.round(s.ins.t * 100) + ' ' + s.ins.mat.toLowerCase() : ''),
       live: function (v) {
         var z = parse(v);
         if (!z) return v ? 'Не понял' : '';
-        var m = z.mat || s.mat, w = wallNormNote(m, z.t, s.k);
-        return Math.round(z.t * 100) + ' см' + (z.mat ? ', ' + z.mat : '') + (w ? '. ' + w : '');
+        var m = z.mat || s.mat, ins = z.ins ? (z.ins.clear ? null : z.ins) : s.ins, w = wallNormNote(m, z.t, s.k, ins);
+        return Math.round(z.t * 100) + ' см' + (z.mat ? ', ' + z.mat : '') + (ins ? ' + ' + Math.round(ins.t * 100) + ' см ' + ins.mat.toLowerCase() : '') + (w ? '. ' + w : '');
       }
     }, function (v) {
       var z = parse(v);
       if (!z) return;
       G.pushUndo('walls');
       s.t = z.t; if (z.mat) s.mat = z.mat;
+      if (z.ins) { if (z.ins.clear) delete s.ins; else s.ins = z.ins; }
       afterWallEdit(); reportSel(); G.refreshWallsUi(); G.draw();
     });
   }
@@ -1721,7 +1736,7 @@
       if (h && h.k !== 'int') {
         outer += l; ext.push([r2(l / ppm()), r2(u[1]), r2(-u[0])]);
         // материал задан на плане явно - длина, толщина (м) и материал уходят в расчёт теплопотерь
-        if (h.mat) extW.push({ l: r2(l / ppm()), t: r2(wallT(h)), mat: h.mat });
+        if (h.mat) extW.push(h.ins ? { l: r2(l / ppm()), t: r2(wallT(h)), mat: h.mat, ins: h.ins } : { l: r2(l / ppm()), t: r2(wallT(h)), mat: h.mat });
       }
     }
     var wins = [], dExt = 0, dInt = 0;
