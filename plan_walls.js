@@ -111,7 +111,11 @@
   function nextId() { var f = F(); f.wallSeq = (f.wallSeq || 0) + 1; return 'w' + f.wallSeq; }
   function dist(a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]); }
   function same(a, b) { return dist(a, b) < 0.5; }
-  function thickPx(w) { return (w.k === 'int' ? intT() : extT()) * ppm(); }
+  // Материалы стен: слово в диалоге -> название и цвет в 3D. Толщина у стены своя (w.t, м), иначе общая по типу.
+  var WALL_MATS = [['газобетон', 'Газобетон', 0xe6e0d0], ['кирпич', 'Кирпич', 0xc98a6e], ['керамблок', 'Керамблок', 0xd8b898], ['брус', 'Брус', 0xd0a367],
+    ['каркас', 'Каркас', 0xe4d5ba], ['бетон', 'Бетон', 0xbcc2c9], ['гипсокартон', 'Гипсокартон', 0xf2f2ee], ['пеноблок', 'Пеноблок', 0xe9e6dc]];
+  function wallT(w) { return w.t > 0.04 && w.t < 1.2 ? w.t : (w.k === 'int' ? intT() : extT()); }
+  function thickPx(w) { return wallT(w) * ppm(); }
 
   /** Расстояние от точки до отрезка и ближайшая точка на нём. */
   function projOn(p, a, b) {
@@ -445,7 +449,7 @@
   var cov = { key: '', mask: null, res: null };
   function covKey() {
     return G.cur + '|' + ppm() + '|' + extT() + '|' + intT() + '|' + (F().walls || []).map(function (s) {
-      return [s.k, Math.round(s.a[0]), Math.round(s.a[1]), Math.round(s.b[0]), Math.round(s.b[1])].join(',');
+      return [s.k, Math.round(s.a[0]), Math.round(s.a[1]), Math.round(s.b[0]), Math.round(s.b[1]), s.t || 0].join(',');
     }).join(';');
   }
   /**
@@ -1147,7 +1151,7 @@
     var s = walls()[sel];
     if (!s) return;
     hintWall('Выбрана стена: ' + (s.k === 'int' ? 'внутренняя' : 'наружная') + ', ' + fmtM(dist(s.a, s.b)) +
-      ' м. T — сменить тип, Delete — убрать.');
+      ' м, ' + Math.round(wallT(s) * 100) + ' см' + (s.mat ? ', ' + s.mat : '') + '. Enter — толщина и материал, T — сменить тип, Delete — убрать.');
   }
 
   function toggleSel() {
@@ -1158,6 +1162,32 @@
     reportSel(); G.refreshWallsUi(); G.draw();
   }
 
+  /** Толщина и материал выбранной стены: «40 газобетон», «51 кирпич», «10» (материал не меняется). */
+  function wallProps() {
+    var s = walls()[sel];
+    if (!s) { hintWall('Выберите стену: Shift + клик по ней, затем Enter или кнопка «Толщина и материал».'); return; }
+    var chips = (s.k === 'int' ? ['10 гипсокартон', '12 кирпич', '15 пеноблок', '20 газобетон'] : ['40 газобетон', '51 кирпич', '38 керамблок', '20 брус', '30 бетон', '20 каркас']).map(function (v) { return { v: v }; });
+    function parse(v) {
+      var t = String(v || '').toLowerCase(), m = t.match(/(\d+[.,]?\d*)\s*(мм|см|м|mm|cm|m)?/), mat = null;
+      WALL_MATS.forEach(function (x) { if (t.indexOf(x[0]) >= 0) mat = x[1]; });
+      var len = 0;
+      if (m) { var n = parseFloat(m[1].replace(',', '.')), u = m[2] || ''; len = /^(мм|mm)$/.test(u) ? n / 1000 : /^(м|m)$/.test(u) ? n : n / 100; }
+      return len >= 0.05 && len <= 1.2 ? { t: Math.round(len * 1000) / 1000, mat: mat } : null;
+    }
+    G.askText({
+      title: 'Толщина и материал стены',
+      sub: 'Толщина в сантиметрах и материал словом: 40 газобетон, 51 кирпич. Только число - материал не меняется.',
+      chips: chips, def: Math.round(wallT(s) * 100) + (s.mat ? ' ' + s.mat.toLowerCase() : ''),
+      live: function (v) { var z = parse(v); return z ? Math.round(z.t * 100) + ' см' + (z.mat ? ', ' + z.mat : '') : (v ? 'Не понял' : ''); }
+    }, function (v) {
+      var z = parse(v);
+      if (!z) return;
+      G.pushUndo('walls');
+      s.t = z.t; if (z.mat) s.mat = z.mat;
+      afterWallEdit(); reportSel(); G.refreshWallsUi(); G.draw();
+    });
+  }
+  G.wallsProps = wallProps;
   function deleteSel() {
     if (sel < 0 || !walls()[sel]) return;
     G.pushUndo('walls');
@@ -1216,6 +1246,7 @@
     else if (start && typed && /^(м|см|мм|m|cm|mm)$/i.test(e.key)) typed += e.key;
     else if (start && typed && e.key === 'Backspace') typed = typed.slice(0, -1);
     else if (e.key === 'Enter' && !start && selO >= 0) editOp();
+    else if (e.key === 'Enter' && !start && sel >= 0 && !typed) wallProps();
     else if (e.key === 'Enter') {
       if (start && typed && hover) {
         var end = typedEnd();
@@ -1267,7 +1298,7 @@
    * В сам план (f.walls) ничего не пишется - перемычки живут только в расчёте комнат.
    */
   function bridgedWalls() {
-    var base = walls().map(function (w) { return { id: w.id, a: w.a, b: w.b, k: w.k }; });
+    var base = walls().map(function (w) { return { id: w.id, a: w.a, b: w.b, k: w.k, t: w.t }; });
     var snap = base.slice(), px = ppm(), maxG = 1.6 * px, near = 0.25 * px, virt = [], pend = [];
     function joined(e, s) {
       for (var j = 0; j < snap.length; j++) {
@@ -1747,7 +1778,7 @@
         var ws = walls().map(function (sw) {
           var t = thickPx(sw) / pm;
           return {
-            a: [sw.a[0] / pm, sw.a[1] / pm], b: [sw.b[0] / pm, sw.b[1] / pm], k: sw.k, t: t,
+            a: [sw.a[0] / pm, sw.a[1] / pm], b: [sw.b[0] / pm, sw.b[1] / pm], k: sw.k, t: t, mat: sw.mat || '', matC: (WALL_MATS.filter(function (x) { return x[1] === sw.mat; })[0] || [0, 0, 0])[2],
             ea: cnt[key(sw.a)] > 1 ? t / 2 : 0, eb: cnt[key(sw.b)] > 1 ? t / 2 : 0,
             ops: ops().filter(function (o) { return o.wid === sw.id; }).map(function (o) { return { o: o.o, w: o.w, h: o.h, sill: o.sill || 0, k: o.k }; })
           };
@@ -1773,7 +1804,7 @@
     function key(e) { return Math.round(e[0]) + ',' + Math.round(e[1]); }
     (f.walls || []).forEach(function (sw) { [sw.a, sw.b].forEach(function (e) { cnt[key(e)] = (cnt[key(e)] || 0) + 1; }); });
     (f.walls || []).forEach(function (sw) {
-      var t = (sw.k === 'int' ? intT() : extT()) * pm, dx = sw.b[0] - sw.a[0], dy = sw.b[1] - sw.a[1], l = Math.hypot(dx, dy) || 1;
+      var t = wallT(sw) * pm, dx = sw.b[0] - sw.a[0], dy = sw.b[1] - sw.a[1], l = Math.hypot(dx, dy) || 1;
       var ux = dx / l, uy = dy / l, nx = -uy, ny = ux, h = t / 2;
       var ea = cnt[key(sw.a)] > 1 ? h : 0, eb = cnt[key(sw.b)] > 1 ? h : 0;
       var cuts = (f.openings || []).filter(function (o) { return o.wid === sw.id; }).map(function (o) { return [o.o * pm - o.w * pm / 2, o.o * pm + o.w * pm / 2]; })

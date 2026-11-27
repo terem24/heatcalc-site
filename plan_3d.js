@@ -142,6 +142,25 @@
         });
         h += '<tr class="tot"><td>Итого</td><td></td><td>' + fmt(tA) + '</td><td>' + fmt(tPer) + '</td><td>' + fmt(tOut) + '</td><td></td><td>' + fmt(tW) + '</td><td></td></tr></table>';
       }
+      // стены: тип, материал, толщина, длина и площадь за вычетом проёмов (по данным e3[i].walls - те же, что в 3D)
+      var ew = (e3[i] && e3[i].walls) || [];
+      if (ew.length) {
+        var gr = {};
+        ew.forEach(function (w) {
+          var L = Math.hypot(w.b[0] - w.a[0], w.b[1] - w.a[1]), op = 0;
+          (w.ops || []).forEach(function (o) { op += o.w * o.h; });
+          var key = (w.k === 'int' ? 'Внутренняя' : 'Наружная') + '|' + (w.mat || 'не задан') + '|' + Math.round(w.t * 100);
+          var g = gr[key] = gr[key] || { n: 0, len: 0, area: 0 };
+          g.n++; g.len += L; g.area += Math.max(0, L * hgt - op);
+        });
+        var tl = 0, ta = 0;
+        h += '<h4>Стены</h4><table><tr><th>Тип</th><th>Материал</th><th>Толщина, см</th><th>Участков</th><th>Длина, м</th><th>Площадь без проёмов, м²</th></tr>';
+        Object.keys(gr).sort().forEach(function (k) {
+          var p = k.split('|'), g = gr[k]; tl += g.len; ta += g.area;
+          h += '<tr><td>' + p[0] + '</td><td>' + p[1] + '</td><td>' + p[2] + '</td><td>' + g.n + '</td><td>' + fmt(g.len) + '</td><td>' + fmt(g.area) + '</td></tr>';
+        });
+        h += '<tr class="tot"><td>Итого</td><td></td><td></td><td></td><td>' + fmt(tl) + '</td><td>' + fmt(ta) + '</td></tr></table>';
+      }
       var ops = f.openings || [];
       if (ops.length) {
         var wmap = {}; (f.walls || []).forEach(function (w) { wmap[w.id] = w; });
@@ -510,6 +529,7 @@
     if (L < 1e-6) return;
     var ux = dx / L, uy = dy / L, rotY = -Math.atan2(uy, ux);
     var mat = w.k === 'int' ? mats.int : mats.ext;
+    if (w.matC) { mats['m' + w.matC] = mats['m' + w.matC] || new T.MeshStandardMaterial({ color: w.matC, roughness: 0.9 }); mat = mats['m' + w.matC]; }
     var lo = -w.ea, hi = L + w.eb;
     function piece(s0, s1, ya, yb, m) {
       if (s1 - s0 < 0.005 || yb - ya < 0.005) return;

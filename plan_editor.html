@@ -737,6 +737,7 @@
   html:not(.fs) .wz-ai .ai-ic { display: none; }
   html:not(.fs) .wz-do button.go { padding: 5px 14px; }
   .bar .ico { padding: 5px 9px; min-width: 32px; }
+  html:not(.fs) .p3d-panel { top: 54px !important; }   /* панель слоёв 3D не под кнопкой «На весь экран» */
   .side-guide { padding: 12px 12px 14px; display: flex; flex-direction: column; gap: 8px; }
   .side-guide .sg-h { font-weight: 600; font-size: 13px; color: var(--text-main); }
   .side-guide .sg-t { font-size: 12px; line-height: 1.45; color: var(--text-sec); }
@@ -8356,7 +8357,7 @@ function wzBody(id) {
         (hasImg && window.wallsRefGet ? Bt('wallsRefToggle()', 'Внешний край', wallsRefGet() === 'outer') + Bt('wallsSnapToggle()', 'Прилипание', wallsSnapGet()) : '') +
         (hasImg && ws.n && window.wallsShiftOuter ? B('wallsShiftOuter(1)', 'Контур внутрь') + B('wallsShiftOuter(-1)', 'Контур наружу') : '') +
         Bt("wallsTool('win')", 'Окно', wm && wt === 'win') + Bt("wallsTool('door')", 'Дверь', wm && wt === 'door') +
-        (ws.n ? Bt("wallsTool('move')", 'Двигать', wm && wt === 'move') + Bt("wallsTool('size')", 'Размер', wm && wt === 'size') + B('wallsHouseSize()', 'Размеры дома') + B('wallsInnerThickness()', 'Перегородки, см') : '') +
+        (ws.n && window.wallsProps ? B('wallsProps()', 'Толщина и материал', '', 'Выберите стену (Shift + клик) и задайте толщину и материал; Enter делает то же') : '') + (ws.n ? Bt("wallsTool('move')", 'Двигать', wm && wt === 'move') + Bt("wallsTool('size')", 'Размер', wm && wt === 'size') + B('wallsHouseSize()', 'Размеры дома') + B('wallsInnerThickness()', 'Перегородки, см') : '') +
         (hasImg && ws.n && window.wallsFindInner ? B('wallsFindInner()', 'Найти внутренние стены', '', 'Найти по подложке перегородки и несущие стены внутри дома: от нарисованного контура') : '') +
         (ws.n ? B('wallsMakeRooms()', 'Комнаты из стен', 'go') + B('wallsClear()', 'Убрать все') : ''),
       tx: ws.n ? '<b>Стены: наружных ' + fm(ws.ext) + ' м, внутренних ' + fm(ws.int) + ' м; окон ' + (ws.wins || 0) + ', дверей ' + (ws.doors || 0) + '.</b> Проверьте и нажмите «Комнаты из стен».'
@@ -10613,9 +10614,9 @@ renderTabs(); draw(); renderZones();
 // мастер открыли с уже загруженным планом — тоже сразу на весь экран
 if (UFH && F().img && fsPref() !== '0') setTimeout(fsAuto, 0);
 </script>
-<script src="plan_walls.js?v=2.14"></script>
+<script src="plan_walls.js?v=2.15"></script>
 <script src="plan_trace.js?v=1.6"></script>
-<script src="plan_3d.js?v=1.16"></script>
+<script src="plan_3d.js?v=1.19"></script>
 <script src="plan_layout.js?v=1.3"></script>
 <script src="plan_theme.js?v=1.4"></script>
 </body>
