@@ -1528,14 +1528,18 @@
    * Нормали - в координатах экрана (вправо x, вниз y): сторону света из них выводит калькулятор по компасу.
    */
   function geoOf(pts) {
-    var n = pts.length, per = 0, outer = 0, ext = [], i, segs = [];
+    var n = pts.length, per = 0, outer = 0, ext = [], extW = [], i, segs = [];
     for (i = 0; i < n; i++) {
       var a = pts[i], b = pts[(i + 1) % n], dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy);
       if (l < 1e-6) continue;
       var u = [dx / l, dy / l], h = wallHost([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2], u);
       per += l;
       segs.push({ a: a, b: b, h: h });
-      if (h && h.k !== 'int') { outer += l; ext.push([r2(l / ppm()), r2(u[1]), r2(-u[0])]); }
+      if (h && h.k !== 'int') {
+        outer += l; ext.push([r2(l / ppm()), r2(u[1]), r2(-u[0])]);
+        // материал задан на плане явно - длина, толщина (м) и материал уходят в расчёт теплопотерь
+        if (h.mat) extW.push({ l: r2(l / ppm()), t: r2(wallT(h)), mat: h.mat });
+      }
     }
     var wins = [], dExt = 0, dInt = 0;
     ops().forEach(function (o) {
@@ -1553,7 +1557,7 @@
         break;
       }
     });
-    return { v: 1, perim: r2(per / ppm()), outer: r2(outer / ppm()), ext: ext, wins: wins, doorsExt: dExt, doorsInt: dInt,
+    return { v: 1, perim: r2(per / ppm()), outer: r2(outer / ppm()), ext: ext, wins: wins, doorsExt: dExt, doorsInt: dInt, extW: extW,
       t: [r2(extT()), r2(intT())] };
   }
 
