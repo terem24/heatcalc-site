@@ -21,6 +21,7 @@
   try { access = localStorage.getItem('heatcalc_ufhplan_access') === '1'; } catch (e) { }
   if (!access) return;
   G.wallsEnabled = true;
+  setTimeout(function () { try { if (G.renderZones) G.renderZones(); } catch (e) { } }, 0);   // боковая панель рисовалась до загрузки этого файла
   (function showBtn() { var b = document.getElementById('b_wall'); if (b) b.style.display = ''; })();
 
   // Толщины, м. Наружная - сумма слоёв пирога стены из «Параметров объекта» калькулятора (его состояние лежит
@@ -1670,14 +1671,25 @@
     return a > 0 && b > 0 && a < 100 && b < 100 ? [a, b] : null;
   }
 
-  /** Пустой лист с масштабом 1:100 (100 px = 1 м): план рисуется с нуля, без подложки. */
-  G.wallsBlankSheet = function () {
+  /** Лист: белый фон и сетка (в тёмном виде плана белое инвертируется, и без сетки поле было сплошь чёрным). 100 px = 1 м. */
+  function blankCanvas(w, h) {
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    for (var x = 0, i = 0; x <= w; x += 50, i++) { g.fillStyle = i % 10 === 0 ? '#9aa0a6' : i % 2 === 0 ? '#d3d6da' : '#eceef0'; g.fillRect(x, 0, i % 10 === 0 ? 2 : 1, h); }
+    for (var y = 0, j = 0; y <= h; y += 50, j++) { g.fillStyle = j % 10 === 0 ? '#9aa0a6' : j % 2 === 0 ? '#d3d6da' : '#eceef0'; g.fillRect(0, y, w, j % 10 === 0 ? 2 : 1); }
+    return c;
+  }
+  /** force: на этаже уже есть подложка - после подтверждения она и разметка по ней убираются (шаг назад вернёт). */
+  G.wallsBlankSheet = function (force) {
     var f = F();
-    if (f.img) return;
-    var c = document.createElement('canvas');
-    c.width = 2000; c.height = 1400;
-    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
-    G.pushUndo('plan');
+    if (f.img) {
+      if (!force) return;
+      if (!window.confirm('Подложка этого этажа будет убрана, комнаты и стены по ней тоже. Рисовать с нуля по размерам? Вернуть можно кнопкой «Шаг назад».')) return;
+      G.pushUndo('plan');
+      f.zones = []; f.rads = []; f.walls = []; f.openings = []; delete f.roomMask; delete f.scaleSrc;
+    }
+    var c = blankCanvas(2000, 1400);
+    if (!force) G.pushUndo('plan');
     f.img = c.toDataURL('image/png'); f.imgFile = null;
     f.w = c.width; f.h = c.height; f.pxPerM = 100; f.scaleSrc = 'manual'; f.blank = true;
     delete G.imgCache[G.cur]; delete G.imgFailed[G.cur];
@@ -1707,9 +1719,7 @@
     var fixed = false;
     (G.DATA && G.DATA.floors || []).forEach(function (f, i) {
       if (!f.blank || f.img) return;
-      var c = document.createElement('canvas');
-      c.width = f.w || 2000; c.height = f.h || 1400;
-      var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      var c = blankCanvas(f.w || 2000, f.h || 1400);
       f.img = c.toDataURL('image/png'); f.w = c.width; f.h = c.height;
       delete G.imgCache[i]; fixed = true;
     });
