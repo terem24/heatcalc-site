@@ -1360,7 +1360,7 @@
     }
     function parse(v) {
       var t = String(v || '').toLowerCase().split('+')[0].replace(/без\s+утепл\S*/, ''), m = t.match(/(\d+[.,]?\d*)\s*(мм|см|м|mm|cm|m)?(?![а-яёa-z])/), mat = null;
-      WALL_MATS.forEach(function (x) { if (t.indexOf(x[0]) >= 0) mat = x[1]; });
+      var bl = 0; WALL_MATS.forEach(function (x) { if (t.indexOf(x[0]) >= 0 && x[0].length > bl) { mat = x[1]; bl = x[0].length; } });   // самое длинное слово: «газобетон» содержит «бетон»
       var len = 0;
       if (m) { var n = parseFloat(m[1].replace(',', '.')), u = m[2] || ''; len = /^(мм|mm)$/.test(u) ? n / 1000 : /^(м|m)$/.test(u) ? n : n / 100; }
       return len >= 0.05 && len <= 1.2 ? { t: Math.round(len * 1000) / 1000, mat: mat, ins: parseIns(v) } : null;
