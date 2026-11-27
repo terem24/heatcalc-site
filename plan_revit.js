@@ -298,6 +298,18 @@
     '.rvp .r span{opacity:.7}',
     '.rvp select,.rvp input{width:104px;height:21px;border:1px solid var(--border,#4a505c);border-radius:3px;font:12px "Segoe UI",system-ui,sans-serif;padding:0 4px;background:var(--bg,#14161b);color:inherit}',
     '.rvp .g{padding:2px 8px;font-weight:600;font-size:11px;opacity:.8}',
+    '.rvs .c{display:flex;align-items:center;gap:8px}',
+    '.rvs button.tg{height:18px;padding:0 8px;border:1px solid var(--border,#4a505c);background:transparent;color:inherit;border-radius:3px;font:11px "Segoe UI",system-ui,sans-serif;cursor:pointer}',
+    '.rvs button.tg.on{background:rgba(59,130,246,.35);border-color:#3b82f6;color:var(--text-main,#fff)}',
+    '.rvs .z{opacity:.7;min-width:34px;text-align:right}',
+    '.rv .fsb{display:none}',
+    'html.rv-draw .rv .fsb{display:flex}',
+    'html.rv-draw .fs-keys{display:none!important}',
+    'html.rv-draw.fs:not(.fs-dock-off) .wrap{padding-left:6px!important}',
+    'html.rv-draw #steps .wz-do{display:none!important}',
+    'html.rv-draw .cvbox{padding-bottom:8px!important}',
+    'html.rv-draw .side{position:fixed;right:6px;top:var(--fs-top,52px);bottom:6px;width:262px;z-index:45;transform:translateX(calc(100% + 14px));transition:transform .15s;overflow-y:auto}',
+    'html.rv-draw.rv-side .side{transform:none}',
     '.rvm{position:fixed;z-index:99999;background:var(--surface,#1f2229);color:var(--text-main,#e5e7eb);border:1px solid var(--border,#4a505c);box-shadow:2px 3px 12px rgba(0,0,0,.5);font:12px "Segoe UI",system-ui,sans-serif;min-width:210px;padding:2px 0;border-radius:6px}',
     '.rvm div{padding:5px 22px 5px 14px;cursor:default;display:flex;justify-content:space-between;gap:20px}',
     '.rvm div:hover{background:rgba(59,130,246,.3)}',
@@ -329,6 +341,9 @@
     under: '<rect x="4" y="5" width="22" height="20" ' + S + '/><path d="M4 15h22M15 5v20" ' + S + ' stroke-dasharray="2 2"/>',
     snap: '<rect x="8" y="8" width="14" height="14" ' + S + ' fill="none"/><path d="M5 15h20M15 5v20" stroke="' + A + '" stroke-width="1.4"/>',
     size: '<path d="M4 20h22M4 16v8M26 16v8" ' + S + '/><path d="M8 12h14" ' + S + ' stroke="' + A + '"/>',
+    steps: '<rect x="4" y="5" width="7" height="20" ' + S + '/><path d="M15 9h11M15 15h11M15 21h11" ' + S + '/>',
+    side: '<rect x="4" y="5" width="22" height="20" ' + S + '/><path d="M19 5v20" ' + S + '/>',
+    full: '<path d="M4 11V4h7M19 4h7v7M26 19v7h-7M11 26H4v-7" ' + S + '/>',
     house: '<path d="M4 14L15 5l11 9v11H4z" ' + S + ' fill="' + FILLB + '"/><path d="M12 25v-8h6v8" ' + S + '/>'
   };
   function ic(n) { return '<svg viewBox="0 0 30 30">' + (ICONS[n] || '') + '</svg>'; }
@@ -344,10 +359,18 @@
     ib('mirror', 'mirror', 'Зеркало: ось — стена (MM)') + ib('mirrorDraw', 'mirrorDraw', 'Зеркало: ось по двум точкам (DM)') + ib('offset', 'offset', 'Подобие: параллельная стена (OF)') +
     ib('align', 'align', 'Выровнять по грани другой стены (AL)') + ib('trim', 'trim', 'Подрезать или удлинить до угла (TR)') + ib('split', 'split', 'Разделить стену (SL)') + ib('delete', 'del', 'Удалить выбранное (DE, Delete)') + SP +
     ib('measure', 'measure', 'Рулетка (DI)') + ib('size', 'size', 'Размеры комнаты') + ib('house', 'house', 'Размеры дома') + SP +
-    ib('fit', 'fit', 'Показать всё (ZE). Колесо - масштаб, средняя кнопка - панорама') + ib('under', 'under', 'План / разметка (U)') + ib('snap', 'snap', 'Прилипание к граням на плане (S)') +
+    ib('fit', 'fit', 'Показать всё (ZE). Колесо - масштаб, средняя кнопка - панорама') + ib('under', 'under', 'План / разметка (U)') + SP +
+    ib('steps', 'steps', 'Шаги мастера (слева)').replace('class="ib"', 'class="ib fsb"') + ib('side', 'side', 'Правая панель: комнаты и зоны').replace('class="ib"', 'class="ib fsb"') + ib('full', 'full', 'На весь экран (F): больше места под план') +
     '</div><div class="opt" id="rv_opt"></div>';
   var bar = document.createElement('div'); bar.className = 'rvs'; bar.style.display = 'none';
-  bar.innerHTML = '<div class="p" id="rv_prompt"></div><div class="c" id="rv_coord"></div>';
+  bar.innerHTML = '<div class="p" id="rv_prompt"></div><div class="c"><span id="rv_coord"></span><button class="tg" data-g="img" title="Прилипание к граням стен на подложке (S)">Грани плана</button><button class="tg" data-g="obj" title="Привязка к концам, серединам и перпендикуляру (F3)">Привязка</button><button class="tg" data-g="ortho" title="Только по горизонтали и вертикали (F8). Shift временно меняет">Ортого</button><span id="rv_zoom" class="z"></span></div>';
+  bar.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-g]');
+    if (!b) return;
+    var g = b.getAttribute('data-g');
+    if (g === 'img') G.wallsSnapToggle(); else if (g === 'obj') G.wallsObjToggle(); else if (g === 'ortho') G.wallsOrthoToggle();
+    sig = ''; G.draw();
+  });
   var props = document.createElement('div'); props.className = 'rvp'; props.style.display = 'none';
   cvbox.insertBefore(ui, cvbox.firstChild);
   cvbox.appendChild(bar);
@@ -363,6 +386,9 @@
     if (t === 'fit') { resetView(); G.draw(); return; }
     if (t === 'under') { G.wallsViewCycle(); G.draw(); return; }
     if (t === 'snap') { G.wallsSnapToggle(); sig = ''; G.draw(); return; }
+    if (t === 'steps') { document.documentElement.classList.toggle('fs-dock-off'); setTimeout(function () { try { fsFit(); } catch (x) { } G.draw(); }, 50); return; }
+    if (t === 'side') { document.documentElement.classList.toggle('rv-side'); return; }
+    if (t === 'full') { try { toggleFs(); } catch (x) { } return; }
     if (t === 'size') { G.wallsTool('size'); return; }
     if (t === 'house') { G.wallsHouseSize(); return; }
     setTool(t);
@@ -386,6 +412,15 @@
     if (id !== 'off' && id !== 'odist') { sig = ''; G.draw(); }
   }
 
+  function drawModeSync(on) {
+    var R = document.documentElement, want = on && R.classList.contains('fs');
+    if (want === !!rv.dm) return;
+    rv.dm = want;
+    if (want) { rv.dockWas = !R.classList.contains('fs-dock-off'); R.classList.add('fs-dock-off'); R.classList.add('rv-draw'); }
+    else { R.classList.remove('rv-draw'); R.classList.remove('rv-side'); if (rv.dockWas) R.classList.remove('fs-dock-off'); }
+    setTimeout(function () { try { fsFit(); } catch (x) { } G.draw(); }, 50);
+  }
+
   var sig = '';
   function uiSync() {
     var on = G.mode === 'wall';
@@ -393,9 +428,10 @@
       ui.style.display = on ? '' : 'none'; bar.style.display = on ? '' : 'none';
       if (!on) { props.style.display = 'none'; resetView(); }
     }
+    drawModeSync(on);
     if (!on) return;
     var t = G.WI.getTool && rv.tool;
-    var key = [rv.tool, rv.phase, W.getKind(), G.wallsLocGet(), G.wallsChainGet(), G.wallsSnapGet(), rv.sel.length, rv.selO.length, rv.opt.onum, rv.opt.afaces, rv.opt.mcopy, rv.opt.rcopy, rv.opt.ocopy, rv.opt.multi, G.wallsViewGet()].join('|');
+    var key = [rv.tool, rv.phase, W.getKind(), G.wallsLocGet(), G.wallsChainGet(), G.wallsSnapGet(), rv.sel.length, rv.selO.length, rv.opt.onum, rv.opt.afaces, rv.opt.mcopy, rv.opt.rcopy, rv.opt.ocopy, rv.opt.multi, G.wallsViewGet(), G.wallsObjGet(), G.wallsOrthoGet()].join('|');
     if (key !== sig) {
       sig = key;
       var tools = ui.querySelectorAll('button[data-t]');
@@ -409,7 +445,11 @@
       var draw = rv.tool === 'wall' || rv.tool === 'rect' || rv.tool === 'win' || rv.tool === 'door';
       ui.querySelector('#rv_ctx').textContent = draw ? 'Размещение: ' + (rv.tool === 'win' ? 'окна' : rv.tool === 'door' ? 'двери' : 'стены') : (rv.sel.length || rv.selO.length ? 'Изменить: стены' : 'Изменить');
       optBox.innerHTML = optionsHtml();
+      var tgs = bar.querySelectorAll('button[data-g]'), tv = { img: G.wallsSnapGet(), obj: G.wallsObjGet(), ortho: G.wallsOrthoGet() };
+      for (var q = 0; q < tgs.length; q++) tgs[q].classList.toggle('on', !!tv[tgs[q].getAttribute('data-g')]);
     }
+    var zl = bar.querySelector('#rv_zoom'), zt = Math.round(view.z * 100) + '%';
+    if (zl.textContent !== zt) zl.textContent = zt;
     var pr = promptText();
     var pe = bar.querySelector('#rv_prompt');
     if (pe.textContent !== pr) pe.textContent = pr;
@@ -640,7 +680,7 @@
         if (d) W.moveWallBy(W.wallIndexById(sd.ids[0]), d);
       } else {
         dx = Math.round(dx / g) * g; dy = Math.round(dy / g) * g;
-        if (e.shiftKey) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
+        if (e.shiftKey !== G.wallsOrthoGet()) { if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0; }
         sd.moved = !!(dx || dy);
         if (sd.moved) transformSel(sd.ids, moveFn(dx, dy), false);
       }
@@ -774,7 +814,7 @@
     } else if (t === 'offset' || t === 'align' || t === 'trim' || t === 'mirror') {
       rv.cur = { p: raw, t: 'grid' };
     } else if (!selecting()) {
-      var sn = W.snap(raw, from, e.altKey, !!(from && e.shiftKey));
+      var sn = W.snap(raw, from, e.altKey, !!(from && (e.shiftKey !== G.wallsOrthoGet())));
       if (t === 'rotate' && ph === 'ray2' && e.shiftKey && rv.tmp && rv.tmp.c) {
         var c = rv.tmp.c, a0 = Math.atan2(rv.base[1] - c[1], rv.base[0] - c[0]), a1 = Math.atan2(raw[1] - c[1], raw[0] - c[0]), st = Math.PI / 12;
         var da = Math.round((a1 - a0) / st) * st, rr = dist(raw, c);

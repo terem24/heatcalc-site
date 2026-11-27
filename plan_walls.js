@@ -74,6 +74,10 @@
   var hover = null;       // курсор после привязки: { p:[x,y], t:'end'|'body'|'grid' }
   var sel = -1;           // выбранная стена
   var typed = '';         // длина, набранная с клавиатуры
+  var typedA = '';        // угол, набранный с клавиатуры (поле «Угол» у курсора, Tab переключает поля)
+  var fieldA = false;     // активно поле угла
+  var orthoOn = false;    // F8: ортогональность закреплена (Shift при этом её снимает)
+  var objOn = true;       // F3: привязка к концам, серединам, перпендикуляру
   var drag = null;        // перетаскивание узла
   var swallow = 0;        // время конца перетаскивания: гасит клик после него
   var tool = 'wall';      // 'wall' | 'win' | 'door' - что ставит клик
@@ -244,7 +248,7 @@
   function snap(p, from, free, ortho) {
     var r = SNAP_PX / k(), w = walls(), i, best = null, bd = r;
     guides = [];
-    if (!ortho) {
+    if (!ortho && objOn) {
       for (i = 0; i < w.length; i++) {
         [w[i].a, w[i].b].forEach(function (e) {
           var d = dist(p, e);
@@ -489,7 +493,7 @@
     moveNode(e0, V); moveNode(f0, V);
   }
   /** Без «Цепочки» каждая стена отдельная: после клика рисование заканчивается. */
-  function endChain() { start = null; chainStart = null; hover = null; typed = ''; chainPts = []; chainAxEnd = null; chainFirst = null; }
+  function endChain() { start = null; chainStart = null; hover = null; typed = ''; typedA = ''; fieldA = false; chainPts = []; chainAxEnd = null; chainFirst = null; }
 
   function fm2(x) { return String(Math.round(x * 100) / 100).replace('.', ','); }
   /** Вернулись в начало цепочки - контур замкнут: линия-предпросмотр гаснет, стену дальше не тянем. */
@@ -498,18 +502,18 @@
       var tMed = median(chainT), tm = chainT.length >= 2 && Math.abs(tMed - extT()) > 0.02 ? Math.round(tMed * 100) / 100 : 0;
       var shifted = locMode === 'c' && kind === 'ext' && refMode === 'outer' && shiftContourInward(chainPts.slice(0, -1), 1, tm);
       if (locMode !== 'c') fixLoopCorner();
-      start = null; chainStart = null; hover = null; typed = ''; chainPts = []; chainAxEnd = null; chainFirst = null;
+      start = null; chainStart = null; hover = null; typed = ''; typedA = ''; fieldA = false; chainPts = []; chainAxEnd = null; chainFirst = null;
       hintWall('<span class=ok>Контур замкнут.</span> ' + (shifted ? 'Линия шла по внешнему краю стены - контур сдвинут внутрь на ' + fm2(extT() * 500) + ' см (половина толщины ' + fm2(extT() * 100) + ' см' + (tm ? ', снята с плана' : '') + '), комнаты сойдутся с планом. ' : '') +
         'Можно ставить окна и двери или нажать «Комнаты из стен».');
     }
   }
   /** Закончить стену (кнопка, правая кнопка мыши, Enter, двойной клик). В полноэкранном режиме Esc это не делает: его забирает браузер. */
-  G.wallsFinish = function () { start = null; chainStart = null; chainAxEnd = null; chainFirst = null; typed = ''; hover = null; updateHint(); G.refreshWallsUi(); G.draw(); };
+  G.wallsFinish = function () { start = null; chainStart = null; chainAxEnd = null; chainFirst = null; typed = ''; typedA = ''; fieldA = false; hover = null; updateHint(); G.refreshWallsUi(); G.draw(); };
   G.wallsDrawing = function () { return !!start; };
   G.__wallsDbg = function () { return { start: start, chainStart: chainStart, chainN: chainN }; };
   // браузер выходит из полного экрана по Esc сам и не даёт этого перехватить - тянущуюся стену при этом снимаем
   document.addEventListener('fullscreenchange', function () { if (start) G.wallsFinish(); });
-  function reset() { start = null; hover = null; typed = ''; drag = null; updateHint(); }
+  function reset() { start = null; hover = null; typed = ''; typedA = ''; fieldA = false; drag = null; updateHint(); }
 
   // ── проверка разметки: что на подложке ещё не обведено, где контур разорван ──────────
   var uShow = 'both';      // что видно на шаге «Стены»: 'both' | 'marks' (только разметка) | 'under' (только план)
@@ -881,13 +885,25 @@
     cx.restore();
   }
   /** Конечная точка предпросмотра: набранная длина или привязанный курсор. */
-  function previewEnd() {
-    var end = hover.p;
-    if (typed) {
-      var tl = parseLen(typed), vx = hover.p[0] - start[0], vy = hover.p[1] - start[1], vl = Math.hypot(vx, vy) || 1;
-      if (tl > 0) end = [start[0] + vx / vl * tl * ppm(), start[1] + vy / vl * tl * ppm()];
-    }
-    return end;
+  function previewEnd() { return (typed || typedA !== '') ? typedEnd() : hover.p; }
+  /** Ввод у курсора как в AutoCAD: поля «Длина» и «Угол», Tab переключает, цифры вписываются в активное, Enter ставит. */
+  function drawDynInput(cx, kk, end, len) {
+    var an = Math.atan2(end[1] - start[1], end[0] - start[0]), deg = ((-an * 180 / Math.PI) % 360 + 360) % 360;
+    var rows = [['Длина', typed ? typed : fmtM(len), !fieldA, !!typed], ['Угол', typedA !== '' ? typedA : (Math.round(deg * 10) / 10).toString().replace('.', ','), fieldA, typedA !== '']];
+    cx.save(); cx.font = '12px "Segoe UI",system-ui,sans-serif'; cx.textBaseline = 'middle'; cx.setLineDash([]);
+    var x = end[0] * kk + 18, y = end[1] * kk + 16, w = 138, h = 22;
+    if (x + w > G.cv.width - 4) x = end[0] * kk - 18 - w;
+    if (y + 2 * h > G.cv.height - 4) y = end[1] * kk - 16 - 2 * h;
+    rows.forEach(function (r, i) {
+      var yy = y + i * (h + 2);
+      cx.fillStyle = 'rgba(20,24,34,.92)'; cx.fillRect(x, yy, w, h);
+      cx.strokeStyle = r[2] ? '#fbbf24' : '#64748b'; cx.lineWidth = r[2] ? 2 : 1; cx.strokeRect(x, yy, w, h);
+      cx.textAlign = 'left'; cx.fillStyle = '#9ca3af'; cx.fillText(r[0], x + 6, yy + h / 2 + 0.5);
+      cx.textAlign = 'right'; cx.fillStyle = r[3] ? '#fbbf24' : '#e5e7eb'; cx.font = (r[3] ? 'bold ' : '') + '12px "Segoe UI",system-ui,sans-serif';
+      cx.fillText(r[1] + (r[2] && r[3] ? '|' : '') + (i ? '\u00b0' : ' м'), x + w - 6, yy + h / 2 + 0.5);
+      cx.font = '12px "Segoe UI",system-ui,sans-serif';
+    });
+    cx.restore();
   }
   /** Стена-образец: полоса толщины со светло-синей заливкой, линия клика, размер и угол. */
   function drawPreview(cx, kk) {
@@ -904,7 +920,8 @@
     cx.setLineDash(d ? [7, 4] : [2, 3]); cx.lineWidth = 1; cx.strokeStyle = '#2563eb';
     cx.beginPath(); cx.moveTo(start[0] * kk, start[1] * kk); cx.lineTo(end[0] * kk, end[1] * kk); cx.stroke(); cx.setLineDash([]);
     var len = dist(start, end);
-    drawTempDim(cx, kk, start, end, typed ? typed + '|' : fmtM(len) + ' м', !!typed);
+    drawTempDim(cx, kk, start, end, fmtM(len) + ' м', false);
+    drawDynInput(cx, kk, end, len);
     // угол к горизонтали (против часовой, как в Revit)
     if (len / ppm() > 0.15) {
       var an = Math.atan2(end[1] - start[1], end[0] - start[0]), deg = ((-an * 180 / Math.PI) % 360 + 360) % 360;
@@ -1197,7 +1214,7 @@
       G.cv.style.cursor = opAt(raw) >= 0 ? 'grab' : hoverO ? 'copy' : 'default';
       G.draw(); return;
     }
-    hover = snap(raw, start, e.altKey, !!(start && e.shiftKey)); lastRaw = e.altKey ? null : raw; lastShift = !!(start && e.shiftKey);
+    hover = snap(raw, start, e.altKey, !!(start && (orthoOn !== e.shiftKey))); lastRaw = e.altKey ? null : raw; lastShift = !!(start && e.shiftKey);
     hoverW = (tool === 'wall' && !start) ? wallAt(raw) : -1;
     G.cv.style.cursor = start ? 'crosshair' : (endpointAt(raw) ? 'grab' : wallAt(raw) >= 0 ? 'pointer' : 'crosshair');
     G.draw();
@@ -1285,31 +1302,36 @@
       var wi = wallAt(raw);
       sel = -1; selO = -1;
       var sn0 = snap(raw, null, e.altKey);
-      start = sn0.p; chainStart = sn0.p.slice(); chainPts = [sn0.p.slice()]; chainT = []; chainN = 0; chainAxEnd = null; chainFirst = null; hover = sn0; typed = ''; updateHint(); G.draw(); return;
+      start = sn0.p; chainStart = sn0.p.slice(); chainPts = [sn0.p.slice()]; chainT = []; chainN = 0; chainAxEnd = null; chainFirst = null; hover = sn0; typed = ''; typedA = ''; fieldA = false; updateHint(); G.draw(); return;
     }
-    var sn = snap(raw, start, e.altKey, e.shiftKey), end = sn.p;
-    if (typed) end = typedEnd();
-    if (commitSeg(start, end)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); if (!chainOn) endChain(); }
+    var sn = snap(raw, start, e.altKey, !!(orthoOn !== e.shiftKey)), end = sn.p;
+    if (typed || typedA !== '') end = typedEnd();
+    if (commitSeg(start, end)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; typedA = ''; fieldA = false; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); if (!chainOn) endChain(); }
     updateHint(); G.refreshWallsUi(); G.draw();
   });
 
   G.cv.addEventListener('dblclick', function (e) {
     if (G.mode !== 'wall') return;
-    start = null; typed = ''; updateHint(); G.draw();
+    start = null; typed = ''; typedA = ''; fieldA = false; updateHint(); G.draw();
   });
 
   G.cv.addEventListener('contextmenu', function (e) {
     if (G.mode !== 'wall') return;
     e.preventDefault();
-    if (start) { start = null; typed = ''; updateHint(); G.draw(); return; }
+    if (start) { start = null; typed = ''; typedA = ''; fieldA = false; updateHint(); G.draw(); return; }
     var wi = wallAt(ev(e));
     if (wi >= 0) { sel = wi; toggleSel(); }
   }, true);
 
+  /** Конец отрезка с учётом набранных длины и угла (угол против часовой от горизонтали, как в AutoCAD). */
   function typedEnd() {
-    var tl = parseLen(typed), vx = hover.p[0] - start[0], vy = hover.p[1] - start[1], vl = Math.hypot(vx, vy) || 1;
-    if (!(tl > 0)) return hover.p;
-    return [start[0] + vx / vl * tl * ppm(), start[1] + vy / vl * tl * ppm()];
+    var vx = hover.p[0] - start[0], vy = hover.p[1] - start[1], vl = Math.hypot(vx, vy) || 1, ux = vx / vl, uy = vy / vl;
+    var an = parseFloat(String(typedA).replace(',', '.'));
+    if (typedA !== '' && isFinite(an)) { ux = Math.cos(an * Math.PI / 180); uy = -Math.sin(an * Math.PI / 180); }
+    var tl = typed ? parseLen(typed) : 0;
+    if (!(tl > 0)) tl = vl / ppm();
+    if (!typed && typedA === '') return hover.p;
+    return [Math.round((start[0] + ux * tl * ppm()) * 10) / 10, Math.round((start[1] + uy * tl * ppm()) * 10) / 10];
   }
 
   function reportSel() {
@@ -1439,18 +1461,23 @@
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var used = true;
-    if (start && /^[0-9.,]$/.test(e.key)) typed += e.key;
-    else if (start && typed && /^(м|см|мм|m|cm|mm)$/i.test(e.key)) typed += e.key;
-    else if (start && typed && e.key === 'Backspace') typed = typed.slice(0, -1);
+    if (start && fieldA && /^[0-9.,-]$/.test(e.key)) typedA += e.key;
+    else if (start && !fieldA && /^[0-9.,]$/.test(e.key)) typed += e.key;
+    else if (start && !fieldA && typed && /^(м|см|мм|m|cm|mm)$/i.test(e.key)) typed += e.key;
+    else if (start && fieldA && typedA && e.key === 'Backspace') typedA = typedA.slice(0, -1);
+    else if (start && !fieldA && typed && e.key === 'Backspace') typed = typed.slice(0, -1);
+    else if (start && e.key === 'Tab') fieldA = !fieldA;
+    else if (e.key === 'F8') { orthoOn = !orthoOn; G.refreshWallsUi(); }
+    else if (e.key === 'F3') { objOn = !objOn; G.refreshWallsUi(); }
     else if (e.key === 'Enter' && !start && selO >= 0) editOp();
     else if (e.key === 'Enter' && !start && sel >= 0 && !typed) wallProps();
     else if (e.key === 'Enter') {
-      if (start && typed && hover) {
+      if (start && (typed || typedA !== '') && hover) {
         var end = typedEnd();
-        if (commitSeg(start, end)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); if (!chainOn) endChain(); G.refreshWallsUi(); }
-      } else { start = null; typed = ''; }
+        if (commitSeg(start, end)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; typedA = ''; fieldA = false; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); if (!chainOn) endChain(); G.refreshWallsUi(); }
+      } else { start = null; typed = ''; typedA = ''; fieldA = false; }
     } else if (e.key === 'Escape') {
-      if (typed) typed = ''; else if (start) start = null; else { G.setMode('select'); e.stopImmediatePropagation(); return; }
+      if (typed || typedA !== '') { typed = ''; typedA = ''; fieldA = false; } else if (start) start = null; else { G.setMode('select'); e.stopImmediatePropagation(); return; }
     } else if (!start && e.code === 'KeyW') G.wallsTool('wall');
     else if (!start && e.code === 'KeyO') G.wallsTool('win');
     else if (!start && e.code === 'KeyD') G.wallsTool('door');
@@ -1846,7 +1873,7 @@
   G.wallsKind = function (kd) { kind = kd === 'int' ? 'int' : 'ext'; tool = 'wall'; if (G.mode !== 'wall') G.setMode('wall'); updateHint(); G.refreshWallsUi(); };
   G.wallsTool = function (t) {
     tool = t === 'win' || t === 'door' || t === 'move' || t === 'size' ? t : 'wall';
-    start = null; typed = ''; hoverO = null; sel = -1; selO = -1;
+    start = null; typed = ''; typedA = ''; fieldA = false; hoverO = null; sel = -1; selO = -1;
     if (G.mode !== 'wall') G.setMode('wall');
     updateHint(); G.refreshWallsUi(); G.draw();
   };
@@ -1933,7 +1960,7 @@
     setTimeout(function () { try { G.wallsRectPrompt(); } catch (e) { } }, 120);
   };
 
-  G.wallsOnMode = function (m) { if (m !== 'wall') { start = null; hover = null; typed = ''; drag = null; sel = -1; selO = -1; hoverO = null; odrag = null; ohandle = null; mdrag = null; hoverW = -1; tool = 'wall'; } else updateHint(); };
+  G.wallsOnMode = function (m) { if (m !== 'wall') { start = null; hover = null; typed = ''; typedA = ''; fieldA = false; drag = null; sel = -1; selO = -1; hoverO = null; odrag = null; ohandle = null; mdrag = null; hoverW = -1; tool = 'wall'; } else updateHint(); };
   G.wallsDraw = wallsDraw;
   G.wallsCount = function () { return (F().walls || []).length; };
   G.wallsStats = function () {
@@ -2085,6 +2112,10 @@
   G.wallsOffGet = function () { return locOffM; };
   G.wallsChain = function (v) { chainOn = !!v; if (!chainOn && start) endChain(); G.draw(); };
   G.wallsChainGet = function () { return chainOn; };
+  G.wallsOrthoGet = function () { return orthoOn; };
+  G.wallsOrthoToggle = function () { orthoOn = !orthoOn; G.draw(); };
+  G.wallsObjGet = function () { return objOn; };
+  G.wallsObjToggle = function () { objOn = !objOn; G.draw(); };
   G.wallsKindSet = function (kd) { kind = kd === 'int' ? 'int' : 'ext'; updateHint(); };
   G.wallsDrawingState = function () { return { start: start, hover: hover, typed: typed, kind: kind, tool: tool }; };
   G.wallsClearHover = function () { hover = null; hoverW = -1; hoverO = null; guides = []; };
@@ -2098,7 +2129,7 @@
     askWallLen: askWallLen, wallIndexById: wallIndexById, GRID_M: GRID_M, SIZE: SIZE,
     setLegacySel: function (si, oi) { sel = si; selO = oi; },
     toggleKind: function (id) { var sw = wallById(id); if (sw) sw.k = sw.k === 'int' ? 'ext' : 'int'; },
-    getKind: function () { return kind; }, getTool: function () { return tool; }, setTool: function (t) { tool = t; start = null; typed = ''; hoverO = null; sel = -1; selO = -1; hover = null; },
+    getKind: function () { return kind; }, getTool: function () { return tool; }, setTool: function (t) { tool = t; start = null; typed = ''; typedA = ''; fieldA = false; hoverO = null; sel = -1; selO = -1; hover = null; },
     isDrawing: function () { return !!start; }, updateHint: updateHint, looseEnds: looseEnds, bboxOf: bboxOf
   };
 
