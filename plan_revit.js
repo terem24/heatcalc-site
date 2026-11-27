@@ -274,59 +274,48 @@
   // ── интерфейс: лента, параметры, строка состояния, свойства ─────────
   var css = document.createElement('style');
   css.textContent = [
-    '.rv{font:12px "Segoe UI",system-ui,sans-serif;color:#1b1b1b;background:#f3f4f6;border:1px solid #c9ccd1;border-radius:3px;margin:0 0 6px;position:relative;z-index:6;user-select:none}',
+    '.rv{font:12px "Segoe UI",system-ui,sans-serif;color:var(--text-main,#e5e7eb);background:var(--surface,#1f2229);border:1px solid var(--border,#3a3f4a);border-radius:6px;margin:0 0 6px;position:relative;z-index:6;user-select:none}',
     '.rv *{box-sizing:border-box}',
-    '.rv .tabs{display:flex;align-items:flex-end;background:#e4e6ea;border-bottom:1px solid #c9ccd1;height:26px;padding-left:6px}',
-    '.rv .tab{padding:4px 12px;font-size:12px;color:#444;border:1px solid transparent;border-bottom:0;border-radius:3px 3px 0 0}',
-    '.rv .tab.on{background:#fff;border-color:#c9ccd1;color:#111;font-weight:600;position:relative;top:1px}',
-    '.rv .tab.ctx{background:#fff3c4;border-color:#d9b94a;color:#4a3b00;font-weight:600;margin-left:6px;position:relative;top:1px}',
-    '.rv .rib{display:flex;flex-wrap:wrap;align-items:stretch;background:#fff;padding:3px 4px 0;min-height:86px}',
-    '.rv .pn{display:flex;flex-direction:column;border-right:1px solid #d4d7dc;padding:0 7px 0;min-width:48px}',
-    '.rv .pn:last-child{border-right:0}',
-    '.rv .pb{display:flex;gap:2px;flex:1;align-items:flex-start;padding-top:3px}',
-    '.rv .pt{font-size:11px;color:#555;text-align:center;border-top:1px solid #e6e8ec;margin-top:2px;padding:2px 0 3px;white-space:nowrap}',
-    '.rv button.lg{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:3px;width:56px;min-height:60px;padding:4px 2px;border:1px solid transparent;background:transparent;border-radius:3px;cursor:pointer;color:#1b1b1b;font:11px "Segoe UI",system-ui,sans-serif;line-height:1.1}',
-    '.rv button.sm{display:flex;align-items:center;gap:5px;height:19px;padding:0 5px;border:1px solid transparent;background:transparent;border-radius:3px;cursor:pointer;color:#1b1b1b;font:11px "Segoe UI",system-ui,sans-serif;white-space:nowrap;text-align:left}',
-    '.rv button:hover{background:#dcebfb;border-color:#a9cdf2}',
-    '.rv button.on{background:#bcd9f7;border-color:#5b9bd5}',
-    '.rv button:disabled{opacity:.4;cursor:default;background:transparent;border-color:transparent}',
-    '.rv svg{width:30px;height:30px;flex:none}',
-    '.rv button.sm svg{width:16px;height:16px}',
-    '.rv .grid3{display:grid;grid-auto-flow:column;grid-template-rows:repeat(3,19px);gap:1px 4px;padding-top:3px}',
-    '.rv .opt{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;background:#f7f8fa;border-top:1px solid #d4d7dc;padding:4px 10px;min-height:28px;font-size:12px}',
+    '.rv .rib{display:flex;flex-wrap:wrap;align-items:center;gap:2px;padding:3px 6px}',
+    '.rv .sp{width:1px;height:22px;background:var(--border,#3a3f4a);margin:0 5px;flex:none}',
+    '.rv button.ib{display:flex;align-items:center;justify-content:center;width:30px;height:28px;padding:0;border:1px solid transparent;background:transparent;border-radius:4px;cursor:pointer;color:inherit;flex:none}',
+    '.rv button.ib:hover{background:rgba(120,160,230,.18);border-color:rgba(120,160,230,.45)}',
+    '.rv button.ib.on{background:rgba(59,130,246,.35);border-color:#3b82f6}',
+    '.rv button.ib:disabled{opacity:.3;cursor:default;background:transparent;border-color:transparent}',
+    '.rv svg{width:20px;height:20px;flex:none}',
+    '.rv .ctx{font-weight:600;color:#fbbf24;margin:0 6px 0 2px;white-space:nowrap}',
+    '.rv .opt{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;border-top:1px solid var(--border,#3a3f4a);padding:3px 8px;min-height:26px;font-size:12px}',
     '.rv .opt label{display:flex;align-items:center;gap:5px;white-space:nowrap}',
-    '.rv .opt select,.rv .opt input[type=text]{height:22px;border:1px solid #9aa0a8;border-radius:2px;background:#fff;color:#111;font:12px "Segoe UI",system-ui,sans-serif;padding:0 4px}',
-    '.rv .opt input[type=text]{width:64px;text-align:right}',
-    '.rv .opt .sep{width:1px;height:18px;background:#cfd2d7}',
-    '.rv .opt .st{color:#555}',
-    '.rvs{display:flex;justify-content:space-between;gap:12px;font:12px "Segoe UI",system-ui,sans-serif;background:#f3f4f6;border:1px solid #c9ccd1;border-top:0;color:#222;padding:4px 10px;margin:6px 0 0;border-radius:3px;position:relative;z-index:6}',
+    '.rv .opt select,.rv .opt input[type=text]{height:22px;border:1px solid var(--border,#4a505c);border-radius:3px;background:var(--bg,#14161b);color:inherit;font:12px "Segoe UI",system-ui,sans-serif;padding:0 4px}',
+    '.rv .opt input[type=text]{width:56px;text-align:right}',
+    '.rv .opt .st{opacity:.6}',
+    '.rvs{display:flex;justify-content:space-between;gap:12px;font:11px "Segoe UI",system-ui,sans-serif;background:var(--surface,#1f2229);border:1px solid var(--border,#3a3f4a);color:var(--text-sec,#aab);padding:2px 10px;margin:4px 0 0;border-radius:6px;position:relative;z-index:6}',
     '.rvs .p{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
-    '.rvs .c{color:#555;font-variant-numeric:tabular-nums;white-space:nowrap}',
-    '.rvp{position:absolute;right:16px;top:150px;width:236px;background:#fff;border:1px solid #9aa0a8;box-shadow:0 2px 8px rgba(0,0,0,.25);font:12px "Segoe UI",system-ui,sans-serif;color:#111;z-index:7;border-radius:2px;user-select:none}',
-    '.rvp .h{background:#e4e6ea;border-bottom:1px solid #c9ccd1;padding:4px 8px;font-weight:600;display:flex;justify-content:space-between;cursor:default}',
-    '.rvp .h b{font-weight:600}',
-    '.rvp .r{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3px 8px;border-bottom:1px solid #eceef1;min-height:25px}',
-    '.rvp .r span{color:#444}',
-    '.rvp select,.rvp input{width:112px;height:21px;border:1px solid #b5bac1;border-radius:2px;font:12px "Segoe UI",system-ui,sans-serif;padding:0 4px;background:#fff;color:#111}',
-    '.rvp .g{background:#eef0f3;padding:2px 8px;font-weight:600;font-size:11px;color:#333;border-bottom:1px solid #dde0e5}',
-    '.rvm{position:fixed;z-index:99999;background:#fff;border:1px solid #8c9097;box-shadow:2px 3px 10px rgba(0,0,0,.3);font:12px "Segoe UI",system-ui,sans-serif;min-width:210px;padding:2px 0;color:#111}',
-    '.rvm div{padding:5px 26px 5px 14px;cursor:default;display:flex;justify-content:space-between;gap:20px}',
-    '.rvm div:hover{background:#cfe3fa}',
-    '.rvm i{font-style:normal;color:#777}',
-    '.rvm hr{border:0;border-top:1px solid #dcdfe3;margin:2px 0}'
+    '.rvs .c{white-space:nowrap;font-variant-numeric:tabular-nums}',
+    '.rvp{position:absolute;right:14px;bottom:44px;width:220px;background:var(--surface,#1f2229);border:1px solid var(--border,#4a505c);box-shadow:0 4px 14px rgba(0,0,0,.4);font:12px "Segoe UI",system-ui,sans-serif;color:var(--text-main,#e5e7eb);z-index:7;border-radius:6px;user-select:none;opacity:.96}',
+    '.rvp .h{border-bottom:1px solid var(--border,#3a3f4a);padding:3px 8px;font-weight:600;display:flex;justify-content:space-between}',
+    '.rvp .r{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 8px;min-height:24px}',
+    '.rvp .r span{opacity:.7}',
+    '.rvp select,.rvp input{width:104px;height:21px;border:1px solid var(--border,#4a505c);border-radius:3px;font:12px "Segoe UI",system-ui,sans-serif;padding:0 4px;background:var(--bg,#14161b);color:inherit}',
+    '.rvp .g{padding:2px 8px;font-weight:600;font-size:11px;opacity:.8}',
+    '.rvm{position:fixed;z-index:99999;background:var(--surface,#1f2229);color:var(--text-main,#e5e7eb);border:1px solid var(--border,#4a505c);box-shadow:2px 3px 12px rgba(0,0,0,.5);font:12px "Segoe UI",system-ui,sans-serif;min-width:210px;padding:2px 0;border-radius:6px}',
+    '.rvm div{padding:5px 22px 5px 14px;cursor:default;display:flex;justify-content:space-between;gap:20px}',
+    '.rvm div:hover{background:rgba(59,130,246,.3)}',
+    '.rvm i{font-style:normal;opacity:.6}',
+    '.rvm hr{border:0;border-top:1px solid var(--border,#3a3f4a);margin:2px 0}'
   ].join('\n');
   document.head.appendChild(css);
 
-  var S = 'fill="none" stroke="#243b5e" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
-  var A = '#2f7fd8', FILLB = '#cfe0f7';
+  var S = 'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"';
+  var A = '#2f7fd8', FILLB = 'rgba(96,165,250,.45)';
   var ICONS = {
-    select: '<path d="M7 3.5v21l5.5-5.2 3.7 8.2 3.2-1.4-3.7-8H23z" fill="#fff" stroke="#243b5e" stroke-width="1.6" stroke-linejoin="round"/>',
-    wall: '<path d="M4 22L22 6" ' + S + ' stroke-width="5" stroke="' + FILLB + '"/><path d="M4 22L22 6" ' + S + '/><rect x="2" y="20" width="4" height="4" fill="#fff" stroke="#243b5e" stroke-width="1.4"/><rect x="20" y="4" width="4" height="4" fill="#fff" stroke="#243b5e" stroke-width="1.4"/>',
-    rect: '<rect x="5" y="7" width="20" height="16" ' + S + ' fill="' + FILLB + '" fill-opacity=".5"/><rect x="3.5" y="5.5" width="3" height="3" fill="#fff" stroke="#243b5e"/><rect x="23.5" y="21.5" width="3" height="3" fill="#fff" stroke="#243b5e"/>',
+    select: '<path d="M7 3.5v21l5.5-5.2 3.7 8.2 3.2-1.4-3.7-8H23z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>',
+    wall: '<path d="M4 22L22 6" ' + S + ' stroke-width="5" stroke="' + FILLB + '"/><path d="M4 22L22 6" ' + S + '/><rect x="2" y="20" width="4" height="4" fill="none" stroke="currentColor" stroke-width="1.4"/><rect x="20" y="4" width="4" height="4" fill="none" stroke="currentColor" stroke-width="1.4"/>',
+    rect: '<rect x="5" y="7" width="20" height="16" ' + S + ' fill="' + FILLB + '" fill-opacity=".5"/><rect x="3.5" y="5.5" width="3" height="3" fill="none" stroke="currentColor"/><rect x="23.5" y="21.5" width="3" height="3" fill="none" stroke="currentColor"/>',
     win: '<path d="M3 15h5M22 15h5" ' + S + ' stroke-width="4" stroke="' + FILLB + '"/><path d="M3 12h5v6H3zM22 12h5v6h-5z" ' + S + '/><path d="M8 13.5h14M8 16.5h14" stroke="' + A + '" stroke-width="2" fill="none"/>',
     door: '<path d="M3 21h6M21 21h6" ' + S + ' stroke-width="4" stroke="' + FILLB + '"/><path d="M3 18.5h6v5H3zM21 18.5h6v5h-6z" ' + S + '/><path d="M9 21V7M9 7A14 14 0 0 1 21 21" ' + S + ' stroke="#d9822b"/>',
     move: '<path d="M15 3v24M3 15h24M15 3l-3.5 3.8M15 3l3.5 3.8M15 27l-3.5-3.8M15 27l3.5-3.8M3 15l3.8-3.5M3 15l3.8 3.5M27 15l-3.8-3.5M27 15l-3.8 3.5" ' + S + '/>',
-    copy: '<rect x="4" y="4" width="14" height="14" ' + S + ' fill="#fff"/><rect x="11" y="11" width="14" height="14" ' + S + ' fill="' + FILLB + '"/>',
+    copy: '<rect x="4" y="4" width="14" height="14" ' + S + ' fill="none"/><rect x="11" y="11" width="14" height="14" ' + S + ' fill="' + FILLB + '"/>',
     rotate: '<path d="M23 11A9 9 0 1 0 24 17" ' + S + '/><path d="M24 4v7h-7" ' + S + '/>',
     mirror: '<path d="M15 3v24" stroke="#d9822b" stroke-width="1.6" stroke-dasharray="3 2.5"/><path d="M12 7L4 22h8zM18 7l8 15h-8z" ' + S + ' fill="' + FILLB + '"/>',
     mirrorDraw: '<path d="M15 3v24" stroke="#d9822b" stroke-width="1.6" stroke-dasharray="3 2.5"/><path d="M12 8L5 21h7zM18 8l7 13h-7z" ' + S + ' fill="' + FILLB + '"/><circle cx="15" cy="15" r="2.2" fill="#d9822b"/>',
@@ -338,31 +327,25 @@
     measure: '<path d="M3 20L20 3l7 7L10 27z" ' + S + ' fill="' + FILLB + '"/><path d="M8.5 15l3 3M11.5 12l2 2M14.5 9l3 3" ' + S + '/>',
     fit: '<path d="M4 11V4h7M19 4h7v7M26 19v7h-7M11 26H4v-7" ' + S + '/><rect x="9" y="9" width="12" height="12" ' + S + ' fill="' + FILLB + '" fill-opacity=".6"/>',
     under: '<rect x="4" y="5" width="22" height="20" ' + S + '/><path d="M4 15h22M15 5v20" ' + S + ' stroke-dasharray="2 2"/>',
-    snap: '<rect x="8" y="8" width="14" height="14" ' + S + ' fill="#fff"/><path d="M5 15h20M15 5v20" stroke="' + A + '" stroke-width="1.4"/>',
+    snap: '<rect x="8" y="8" width="14" height="14" ' + S + ' fill="none"/><path d="M5 15h20M15 5v20" stroke="' + A + '" stroke-width="1.4"/>',
     size: '<path d="M4 20h22M4 16v8M26 16v8" ' + S + '/><path d="M8 12h14" ' + S + ' stroke="' + A + '"/>',
     house: '<path d="M4 14L15 5l11 9v11H4z" ' + S + ' fill="' + FILLB + '"/><path d="M12 25v-8h6v8" ' + S + '/>'
   };
   function ic(n) { return '<svg viewBox="0 0 30 30">' + (ICONS[n] || '') + '</svg>'; }
-  function big(t, ico, label, tip) { return '<button class="lg" data-t="' + t + '" title="' + tip + '">' + ic(ico) + '<span>' + label + '</span></button>'; }
-  function small(t, ico, label, tip) { return '<button class="sm" data-t="' + t + '" title="' + tip + '">' + ic(ico) + '<span>' + label + '</span></button>'; }
-
+  function ib(t, ico, tip) { return '<button class="ib" data-t="' + t + '" title="' + tip + '">' + ic(ico) + '</button>'; }
+  var SP = '<i class="sp"></i>';
   var ui = document.createElement('div'); ui.className = 'rv'; ui.style.display = 'none';
   ui.innerHTML =
-    '<div class="tabs"><div class="tab">Архитектура</div><div class="tab ctx" id="rv_ctx">Изменить | Размещение стен</div></div>' +
-    '<div class="rib">' +
-    '<div class="pn"><div class="pb">' + big('select', 'select', 'Изменить', 'Режим выбора и правки (Esc)') + '</div><div class="pt">Выбор</div></div>' +
-    '<div class="pn"><div class="pb">' + big('kind-ext', 'wall', 'Наружная', 'Рисовать наружные стены (тип)') + big('kind-int', 'wall', 'Внутренняя', 'Рисовать перегородки (тип)') + '</div><div class="pt">Тип стены</div></div>' +
-    '<div class="pn"><div class="pb">' + big('wall', 'wall', 'Стена', 'Стена по точкам (WA)') + big('rect', 'rect', 'Прямоугольник', 'Прямоугольник из четырёх стен (RC)') + big('win', 'win', 'Окно', 'Поставить окно (WN)') + big('door', 'door', 'Дверь', 'Поставить дверь (DR)') + '</div><div class="pt">Рисование</div></div>' +
-    '<div class="pn"><div class="grid3">' +
-    small('move', 'move', 'Переместить', 'Переместить (MV)') + small('copy', 'copy', 'Копировать', 'Копировать (CO)') + small('rotate', 'rotate', 'Повернуть', 'Повернуть (RO)') +
-    small('mirror', 'mirror', 'Зеркало: ось', 'Отразить относительно стены (MM)') + small('mirrorDraw', 'mirrorDraw', 'Зеркало: ось по точкам', 'Отразить, нарисовав ось (DM)') + small('offset', 'offset', 'Подобие', 'Подобие: параллельная стена (OF)') +
-    small('align', 'align', 'Выровнять', 'Выровнять стену по грани другой (AL)') + small('trim', 'trim', 'Подрезать до угла', 'Подрезать или удлинить до угла (TR)') + small('split', 'split', 'Разделить', 'Разделить стену в точке (SL)') +
-    small('delete', 'del', 'Удалить', 'Удалить выбранное (DE, Delete)') +
-    '</div><div class="pt">Изменить</div></div>' +
-    '<div class="pn"><div class="pb">' + big('measure', 'measure', 'Рулетка', 'Измерить расстояние между двумя точками (DI)') + big('size', 'size', 'Размеры комнаты', 'Размеры комнаты или длина стены вводом') + big('house', 'house', 'Размеры дома', 'Ширина и глубина дома по осям наружных стен') + '</div><div class="pt">Измерить</div></div>' +
-    '<div class="pn"><div class="pb">' + big('fit', 'fit', 'Показать всё', 'Вернуть масштаб (ZE). Колесо — масштаб, средняя кнопка — панорама') + big('under', 'under', 'План / разметка', 'Только план, только разметка, оба (U)') + big('snap', 'snap', 'Прилипание', 'Прилипание к граням на плане (S)') + '</div><div class="pt">Вид</div></div>' +
-    '</div>' +
-    '<div class="opt" id="rv_opt"></div>';
+    '<div class="rib"><span class="ctx" id="rv_ctx">Изменить</span>' +
+    ib('select', 'select', 'Изменить: выбор и правка (Esc)') + SP +
+    ib('kind-ext', 'wall', 'Наружная стена') + ib('kind-int', 'wall', 'Внутренняя стена (перегородка)') + SP +
+    ib('wall', 'wall', 'Стена по точкам (WA)') + ib('rect', 'rect', 'Прямоугольник из четырёх стен (RC)') + ib('win', 'win', 'Окно (WN)') + ib('door', 'door', 'Дверь (DR)') + SP +
+    ib('move', 'move', 'Переместить (MV)') + ib('copy', 'copy', 'Копировать (CO)') + ib('rotate', 'rotate', 'Повернуть (RO)') +
+    ib('mirror', 'mirror', 'Зеркало: ось — стена (MM)') + ib('mirrorDraw', 'mirrorDraw', 'Зеркало: ось по двум точкам (DM)') + ib('offset', 'offset', 'Подобие: параллельная стена (OF)') +
+    ib('align', 'align', 'Выровнять по грани другой стены (AL)') + ib('trim', 'trim', 'Подрезать или удлинить до угла (TR)') + ib('split', 'split', 'Разделить стену (SL)') + ib('delete', 'del', 'Удалить выбранное (DE, Delete)') + SP +
+    ib('measure', 'measure', 'Рулетка (DI)') + ib('size', 'size', 'Размеры комнаты') + ib('house', 'house', 'Размеры дома') + SP +
+    ib('fit', 'fit', 'Показать всё (ZE). Колесо - масштаб, средняя кнопка - панорама') + ib('under', 'under', 'План / разметка (U)') + ib('snap', 'snap', 'Прилипание к граням на плане (S)') +
+    '</div><div class="opt" id="rv_opt"></div>';
   var bar = document.createElement('div'); bar.className = 'rvs'; bar.style.display = 'none';
   bar.innerHTML = '<div class="p" id="rv_prompt"></div><div class="c" id="rv_coord"></div>';
   var props = document.createElement('div'); props.className = 'rvp'; props.style.display = 'none';
@@ -424,7 +407,7 @@
         if (n === 'kind-ext' || n === 'kind-int') tools[i].classList.toggle('on', rv.tool === 'wall' && W.getKind() === (n === 'kind-int' ? 'int' : 'ext'));
       }
       var draw = rv.tool === 'wall' || rv.tool === 'rect' || rv.tool === 'win' || rv.tool === 'door';
-      ui.querySelector('#rv_ctx').textContent = draw ? 'Изменить | Размещение ' + (rv.tool === 'win' ? 'окон' : rv.tool === 'door' ? 'дверей' : 'стен') : (rv.sel.length || rv.selO.length ? 'Изменить | Стены' : 'Изменить');
+      ui.querySelector('#rv_ctx').textContent = draw ? 'Размещение: ' + (rv.tool === 'win' ? 'окна' : rv.tool === 'door' ? 'двери' : 'стены') : (rv.sel.length || rv.selO.length ? 'Изменить: стены' : 'Изменить');
       optBox.innerHTML = optionsHtml();
     }
     var pr = promptText();
@@ -433,7 +416,7 @@
     syncProps();
   }
   function optionsHtml() {
-    var h = '<b class="st">' + toolName[rv.tool] + '</b><span class="sep"></span>', loc = G.wallsLocGet(), off = G.wallsOffGet();
+    var h = '', loc = G.wallsLocGet(), off = G.wallsOffGet();
     function chk(id, label, v) { return '<label><input type="checkbox" data-o="' + id + '"' + (v ? ' checked' : '') + '>' + label + '</label>'; }
     if (rv.tool === 'wall' || rv.tool === 'rect') {
       h += '<label>Линия привязки:<select data-o="loc"><option value="c"' + (loc === 'c' ? ' selected' : '') + '>Ось стены</option><option value="o"' + (loc === 'o' ? ' selected' : '') + '>Чистовая грань: наружная</option><option value="i"' + (loc === 'i' ? ' selected' : '') + '>Чистовая грань: внутренняя</option></select></label>';
@@ -485,7 +468,7 @@
   // палитра свойств
   var propSig = '';
   function syncProps() {
-    var show = G.mode === 'wall' && (rv.tool === 'select' || rv.phase === 'pick');
+    var show = G.mode === 'wall' && (rv.tool === 'select' || rv.phase === 'pick') && (rv.sel.length || rv.selO.length);
     if (!show) { props.style.display = 'none'; propSig = ''; return; }
     var ws = selWalls(), os = rv.selO.map(function (id) { return W.ops().filter(function (o) { return o.id === id; })[0]; }).filter(Boolean);
     var key = ws.map(function (w) { return w.id + w.k + Math.round(dist(w.a, w.b)); }).join(',') + '|' + os.map(function (o) { return o.id + o.k + o.w + o.h + o.sill; }).join(',') + '|' + (G.wallsCount ? G.wallsCount() : 0);
