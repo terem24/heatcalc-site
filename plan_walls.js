@@ -82,6 +82,13 @@
   var odrag = null;       // перетаскивание проёма вдоль стены
   var mdrag = null;       // перетаскивание всей стены поперёк себя: { i, raw0, base, moved }
   var hoverW = -1;        // стена под курсором у инструментов «Двигать» и «Размер»
+  var chainOn = true;     // «Цепочка» как в Revit: следующий клик продолжает от конца прошлой стены
+  var locMode = 'c';      // линия привязки: 'c' ось, 'o' наружная грань, 'i' внутренняя грань (клик идёт по грани, ось сдвигается на полтолщины)
+  var locOffM = 0;        // «Смещение» из панели параметров, м: вправо по ходу рисования
+  var locFlip = false;    // Пробел во время рисования меняет сторону
+  var guides = [];        // пунктирные линии продолжения от узлов, которые показывает привязка
+  var chainAxEnd = null;  // ось-конец последней стены цепочки (для пересчёта угла при линии привязки не по оси)
+  var chainFirst = null;  // ось-начало первой стены цепочки
   var ohandle = null;     // растягивание выбранного проёма за конец: { end: 'a' | 'b', moved }
   // последние размеры, м: [ширина, высота, подоконник] - следующий проём такой же
   var SIZE = { win: [1.5, 1.4, 0.8], door: [0.9, 2.1, 0] };
@@ -232,25 +239,49 @@
    * Привязка точки: к узлу стены, к телу стены, к осям уже поставленных узлов,
    * к ортогонали от начала отрезка, затем к сетке 50 мм.
    */
-  function snap(p, from, free) {
+  function snap(p, from, free, ortho) {
     var r = SNAP_PX / k(), w = walls(), i, best = null, bd = r;
-    for (i = 0; i < w.length; i++) {
-      [w[i].a, w[i].b].forEach(function (e) {
-        var d = dist(p, e);
-        if (d < bd) { bd = d; best = e; }
-      });
+    guides = [];
+    if (!ortho) {
+      for (i = 0; i < w.length; i++) {
+        [w[i].a, w[i].b].forEach(function (e) {
+          var d = dist(p, e);
+          if (d < bd) { bd = d; best = e; }
+        });
+      }
+      if (best) return { p: [best[0], best[1]], t: 'end' };
+      if (!free) {
+        // середина стены
+        var bm = null; bd = r;
+        for (i = 0; i < w.length; i++) {
+          var mp = [(w[i].a[0] + w[i].b[0]) / 2, (w[i].a[1] + w[i].b[1]) / 2], dm = dist(p, mp);
+          if (dm < bd && dist(w[i].a, w[i].b) > 4 * r) { bd = dm; bm = mp; }
+        }
+        if (bm) return { p: bm, t: 'mid' };
+        // перпендикуляр из начала отрезка к стене
+        if (from) {
+          var bpp = null; bd = r * 1.3;
+          for (i = 0; i < w.length; i++) {
+            var pr0 = projOn(from, w[i].a, w[i].b);
+            if (pr0.t <= 0.001 || pr0.t >= 0.999 || pr0.d < 2) continue;
+            var dp = dist(p, pr0.q);
+            if (dp < bd) { bd = dp; bpp = pr0.q; }
+          }
+          if (bpp) return { p: [bpp[0], bpp[1]], t: 'perp' };
+        }
+      }
     }
-    if (best) return { p: [best[0], best[1]], t: 'end' };
     var x = p[0], y = p[1], locked = null, imgX = false, imgY = false;
-    var is = free ? null : snapImage(p, kind);
-    // ортогональ от начала отрезка: по оси, к которой направление ближе чем на 6°
+    var is = (free || ortho) ? null : snapImage(p, kind);
+    // ортогональ от начала отрезка: по оси, к которой направление ближе чем на 6° (с Shift - всегда, как в Revit)
     if (from && !free) {
       var ang = Math.atan2(y - from[1], x - from[0]) * 180 / Math.PI;
       var m = ((ang % 90) + 90) % 90;
-      if (m < 6 || m > 84) {
+      if (ortho || m < 6 || m > 84) {
         if (Math.abs(x - from[0]) > Math.abs(y - from[1])) { y = from[1]; locked = 'h'; } else { x = from[0]; locked = 'v'; }
       }
     }
+    if (ortho) { var gg = GRID_M * ppm(); return { p: locked === 'h' ? [Math.round(x / gg) * gg, y] : [x, Math.round(y / gg) * gg], t: 'ortho' }; }
     if (is) {
       if (is.x !== null && locked !== 'v') { x = is.x; imgX = true; }
       if (is.y !== null && locked !== 'h') { y = is.y; imgY = true; }
@@ -279,15 +310,15 @@
     }
     // оси узлов: ровно напротив уже стоящего угла
     if (!free) {
-      var ax = null, ay = null, dxm = r, dym = r;
+      var ax = null, ay = null, dxm = r, dym = r, axN = null, ayN = null;
       for (i = 0; i < w.length; i++) {
         [w[i].a, w[i].b].forEach(function (e) {
-          if (Math.abs(e[0] - x) < dxm) { dxm = Math.abs(e[0] - x); ax = e[0]; }
-          if (Math.abs(e[1] - y) < dym) { dym = Math.abs(e[1] - y); ay = e[1]; }
+          if (Math.abs(e[0] - x) < dxm) { dxm = Math.abs(e[0] - x); ax = e[0]; axN = e; }
+          if (Math.abs(e[1] - y) < dym) { dym = Math.abs(e[1] - y); ay = e[1]; ayN = e; }
         });
       }
-      if (ax !== null && locked !== 'v' && !imgX) x = ax;
-      if (ay !== null && locked !== 'h' && !imgY) y = ay;
+      if (ax !== null && locked !== 'v' && !imgX) { x = ax; guides.push([axN, [ax, y]]); }
+      if (ay !== null && locked !== 'h' && !imgY) { y = ay; guides.push([ayN, [x, ay]]); }
     }
     var g = GRID_M * ppm();
     if (!imgX && !(from && !free && (x === from[0]))) x = Math.round(x / g) * g;
@@ -394,7 +425,7 @@
     return true;
   }
 
-  function sampleT(a, b) { if (kind === 'ext' && refMode === 'outer' && imgSnapOn && dist(a, b) > 0.8 * ppm()) { var t = measureT([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]); if (t) chainT.push(t); } }
+  function sampleT(a, b) { if (locMode === 'c' && kind === 'ext' && refMode === 'outer' && imgSnapOn && dist(a, b) > 0.8 * ppm()) { var t = measureT([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]); if (t) chainT.push(t); } }
   function median(a) { if (!a.length) return 0; a = a.slice().sort(function (p, q) { return p - q; }); return a[Math.floor(a.length / 2)]; }
   function hasImg() { var f = F(); return !!(f.img && !f.blank); }
   function hintWall(s) { if (G.hint) G.hint(s); }
@@ -419,19 +450,59 @@
     }
   }
 
+  // ── линия привязки и цепочка (как в Revit) ─────────────────────────
+  var lastShift = false;
+  /** Сдвиг оси от кликнутой линии, пкс: вправо по ходу рисования - для наружной грани (по часовой наружная сторона слева), влево - для внутренней. */
+  function locD() { return (locMode === 'c' ? 0 : (locMode === 'o' ? 1 : -1) * (locFlip ? -1 : 1) * thickPx({ k: kind }) / 2) + locOffM * ppm(); }
+  function offSeg(P, Q, d) {
+    var l = dist(P, Q) || 1, ux = (Q[0] - P[0]) / l, uy = (Q[1] - P[1]) / l;
+    return [[P[0] - uy * d, P[1] + ux * d], [Q[0] - uy * d, Q[1] + ux * d]];
+  }
+  function lineInter(a1, a2, b1, b2) {
+    var rx = a2[0] - a1[0], ry = a2[1] - a1[1], sx = b2[0] - b1[0], sy = b2[1] - b1[1], den = rx * sy - ry * sx;
+    if (Math.abs(den) < 1e-6) return null;
+    var t = ((b1[0] - a1[0]) * sy - (b1[1] - a1[1]) * sx) / den;
+    return [a1[0] + rx * t, a1[1] + ry * t];
+  }
+  /** Поставить стену из клика P в клик Q с учётом линии привязки; в узле цепочки оси сходятся углом. */
+  function commitSeg(P, Q) {
+    var d = locD();
+    if (!d) { chainAxEnd = null; return addWall(P, Q, kind); }
+    var cs2 = offSeg(P, Q, d), A = cs2[0], B = cs2[1];
+    if (chainAxEnd && chainPts.length >= 2) {
+      var P0 = chainPts[chainPts.length - 2], pv = offSeg(P0, P, d), V = lineInter(pv[0], pv[1], A, B);
+      if (V && dist(V, P) < 6 * Math.abs(d) + 1) { moveNode(chainAxEnd, V); A = V; }
+    }
+    var ok = addWall(A, B, kind);
+    if (ok) { if (!chainFirst) chainFirst = A.slice(); chainAxEnd = B.slice(); }
+    return ok;
+  }
+  /** Контур замкнулся: первый и последний углы сходятся по пересечению осей. */
+  function fixLoopCorner() {
+    var n = chainPts.length, d = locD();
+    if (n < 4 || !chainAxEnd || !chainFirst || !d) return;
+    var pl = offSeg(chainPts[n - 2], chainPts[n - 1], d), pf = offSeg(chainPts[0], chainPts[1], d), V = lineInter(pl[0], pl[1], pf[0], pf[1]);
+    if (!V || dist(V, chainPts[0]) > 6 * Math.abs(d) + 1) return;
+    var e0 = chainAxEnd.slice(), f0 = chainFirst.slice();
+    moveNode(e0, V); moveNode(f0, V);
+  }
+  /** Без «Цепочки» каждая стена отдельная: после клика рисование заканчивается. */
+  function endChain() { start = null; chainStart = null; hover = null; typed = ''; chainPts = []; chainAxEnd = null; chainFirst = null; }
+
   function fm2(x) { return String(Math.round(x * 100) / 100).replace('.', ','); }
   /** Вернулись в начало цепочки - контур замкнут: линия-предпросмотр гаснет, стену дальше не тянем. */
   function closeIfLoop() {
     if (start && chainStart && chainN >= 3 && dist(start, chainStart) < 3) {
       var tMed = median(chainT), tm = chainT.length >= 2 && Math.abs(tMed - extT()) > 0.02 ? Math.round(tMed * 100) / 100 : 0;
-      var shifted = kind === 'ext' && refMode === 'outer' && shiftContourInward(chainPts.slice(0, -1), 1, tm);
-      start = null; chainStart = null; hover = null; typed = ''; chainPts = [];
+      var shifted = locMode === 'c' && kind === 'ext' && refMode === 'outer' && shiftContourInward(chainPts.slice(0, -1), 1, tm);
+      if (locMode !== 'c') fixLoopCorner();
+      start = null; chainStart = null; hover = null; typed = ''; chainPts = []; chainAxEnd = null; chainFirst = null;
       hintWall('<span class=ok>Контур замкнут.</span> ' + (shifted ? 'Линия шла по внешнему краю стены - контур сдвинут внутрь на ' + fm2(extT() * 500) + ' см (половина толщины ' + fm2(extT() * 100) + ' см' + (tm ? ', снята с плана' : '') + '), комнаты сойдутся с планом. ' : '') +
         'Можно ставить окна и двери или нажать «Комнаты из стен».');
     }
   }
   /** Закончить стену (кнопка, правая кнопка мыши, Enter, двойной клик). В полноэкранном режиме Esc это не делает: его забирает браузер. */
-  G.wallsFinish = function () { start = null; chainStart = null; typed = ''; hover = null; updateHint(); G.refreshWallsUi(); G.draw(); };
+  G.wallsFinish = function () { start = null; chainStart = null; chainAxEnd = null; chainFirst = null; typed = ''; hover = null; updateHint(); G.refreshWallsUi(); G.draw(); };
   G.wallsDrawing = function () { return !!start; };
   G.__wallsDbg = function () { return { start: start, chainStart: chainStart, chainN: chainN }; };
   // браузер выходит из полного экрана по Esc сам и не даёт этого перехватить - тянущуюся стену при этом снимаем
@@ -661,7 +732,7 @@
         cx.lineTo((A[0] - nx * h) * kk, (A[1] - ny * h) * kk);
         cx.closePath();
         if (overImg && !quiet) { cx.lineWidth = 4; cx.strokeStyle = 'rgba(0,0,0,.55)'; cx.stroke(); }   // тёмная обводка: разметка видна на любом фоне
-        cx.fillStyle = overImg ? FILL_IMG[kk2] : COL[kk2][dark];
+        cx.fillStyle = overImg ? FILL_IMG[kk2] : ((G.rvWallFill && G.rvWallFill(cx, kk2, dark)) || COL[kk2][dark]);
         cx.globalAlpha = overImg ? 1 : 0.92; cx.fill(); cx.globalAlpha = 1;
         cx.lineWidth = i === sel ? 3 : (overImg ? (quiet ? 1 : 2) : 1);
         cx.strokeStyle = i === sel ? '#ffffff' : (overImg ? EDGE_IMG[kk2] : (dark ? '#1f2937' : '#0b1220'));
@@ -723,22 +794,9 @@
     // окна и двери: поверх стен
     ops().forEach(function (o, i) { drawOpening(cx, kk, o, i === selO, dark, false); });
     if (G.mode === 'wall' && tool !== 'wall' && hoverO && !odrag) drawOpening(cx, kk, { wid: hoverO.wid, o: hoverO.o, k: tool, w: SIZE[tool][0], h: SIZE[tool][1], sill: SIZE[tool][2] }, false, dark, true);
-    // нарисованный, но ещё не зафиксированный отрезок
-    if (G.mode === 'wall' && start && hover) {
-      var end = hover.p;
-      if (typed) {
-        var tl = parseLen(typed);
-        var vx = hover.p[0] - start[0], vy = hover.p[1] - start[1], vl = Math.hypot(vx, vy) || 1;
-        if (tl > 0) end = [start[0] + vx / vl * tl * ppm(), start[1] + vy / vl * tl * ppm()];
-      }
-      cx.setLineDash([6, 4]); cx.lineWidth = Math.max(2, (kind === 'int' ? intT() : extT()) * ppm() * kk);
-      cx.strokeStyle = 'rgba(230,230,230,.6)'; cx.lineCap = 'butt';
-      cx.beginPath(); cx.moveTo(start[0] * kk, start[1] * kk); cx.lineTo(end[0] * kk, end[1] * kk); cx.stroke();
-      cx.setLineDash([]);
-      var lbl = typed ? typed : fmtM(dist(start, end)) + ' м';
-      cx.font = 'bold 12px system-ui'; cx.fillStyle = '#e6e6e6';
-      cx.fillText(lbl, (start[0] + end[0]) / 2 * kk, (start[1] + end[1]) / 2 * kk - 14);
-    }
+    // нарисованный, но ещё не зафиксированный отрезок: стена в толщину, размер и угол на лету, как в Revit
+    if (G.mode === 'wall' && tool === 'wall' && start && hover) drawPreview(cx, kk);
+    drawGuides(cx, kk);
     if (G.mode === 'wall' && hover && lastRaw && imgSnapOn && tool === 'wall' && !drag) {
       // грани стен на подложке рядом с курсором: показывают, куда прилипнет клик
       var ed = imageEdges(lastRaw, 14 / kk), ln = 0.5 * ppm();
@@ -749,10 +807,115 @@
         cx.stroke(); cx.restore();
       }
     }
-    if (G.mode === 'wall' && hover) {
-      cx.beginPath(); cx.arc(hover.p[0] * kk, hover.p[1] * kk, hover.t === 'grid' ? 3.5 : 6, 0, 7);
-      cx.strokeStyle = hover.t === 'end' ? '#22c55e' : hover.t === 'img' ? '#38bdf8' : hover.t === 'edge' ? '#7dd3fc' : hover.t === 'body' ? '#f59e0b' : '#e6e6e6';
-      cx.lineWidth = 2; cx.stroke();
+    if (G.mode === 'wall' && hover && (tool === 'wall' || tool === 'win' || tool === 'door') && !(G.rvSnapOwner && G.rvSnapOwner())) drawGlyph(cx, kk, hover);
+    cx.restore();
+  }
+
+  // ── размер на лету, привязки и подсказки (оформление Revit) ───────────
+  var TIPS = { end: 'Конечная точка', mid: 'Середина', perp: 'Перпендикуляр', body: 'Ближайшая', int: 'Пересечение', img: 'Грань на плане', edge: 'Грань на плане', ortho: 'Ортогонально', grid: '' };
+  var DIMC = '#1d4ed8';
+  /** Временный размер: выносные линии, размерная со стрелками и белая табличка с числом. editing - табличка в режиме ввода. */
+  function drawTempDim(cx, kk, P, Q, text, editing, offPx, flip) {
+    var a = [P[0] * kk, P[1] * kk], b = [Q[0] * kk, Q[1] * kk], l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (l < 8) return null;
+    var ux = (b[0] - a[0]) / l, uy = (b[1] - a[1]) / l, nx = -uy, ny = ux;
+    if (ny > 0 || (ny === 0 && nx > 0)) { nx = -nx; ny = -ny; }
+    if (flip) { nx = -nx; ny = -ny; }
+    var off = offPx == null ? 30 : offPx;
+    var a2 = [a[0] + nx * off, a[1] + ny * off], b2 = [b[0] + nx * off, b[1] + ny * off];
+    cx.save();
+    cx.lineWidth = 1; cx.strokeStyle = DIMC; cx.fillStyle = DIMC; cx.setLineDash([]);
+    cx.beginPath();
+    cx.moveTo(a[0] + nx * 4, a[1] + ny * 4); cx.lineTo(a2[0] + nx * 6, a2[1] + ny * 6);
+    cx.moveTo(b[0] + nx * 4, b[1] + ny * 4); cx.lineTo(b2[0] + nx * 6, b2[1] + ny * 6);
+    cx.moveTo(a2[0], a2[1]); cx.lineTo(b2[0], b2[1]); cx.stroke();
+    [[a2, 1], [b2, -1]].forEach(function (q) {
+      var p = q[0], d = q[1], hx = p[0] + ux * 9 * d, hy = p[1] + uy * 9 * d;
+      cx.beginPath(); cx.moveTo(p[0], p[1]); cx.lineTo(hx + nx * 3, hy + ny * 3); cx.lineTo(hx - nx * 3, hy - ny * 3); cx.closePath(); cx.fill();
+    });
+    cx.font = 'bold 12px "Segoe UI",system-ui,sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    var mx = (a2[0] + b2[0]) / 2, my = (a2[1] + b2[1]) / 2, tw = Math.max(34, cx.measureText(text).width + 14), th = 19;
+    cx.fillStyle = editing ? '#fffbe6' : '#ffffff'; cx.strokeStyle = DIMC; cx.lineWidth = editing ? 2 : 1;
+    cx.beginPath(); cx.rect(mx - tw / 2, my - th / 2, tw, th); cx.fill(); cx.stroke();
+    cx.fillStyle = DIMC; cx.fillText(text, mx, my + 0.5);
+    cx.restore();
+    return { x: mx, y: my, w: tw, h: th };
+  }
+  /** Глиф привязки по типу (квадрат, треугольник, крест, угол, песочные часы) и жёлтая подсказка рядом. */
+  function drawGlyph(cx, kk, h, noTip) {
+    var x = h.p[0] * kk, y = h.p[1] * kk, t = h.t, S = 7;
+    cx.save(); cx.lineJoin = 'miter'; cx.setLineDash([]);
+    function path() {
+      cx.beginPath();
+      if (t === 'end') cx.rect(x - S, y - S, 2 * S, 2 * S);
+      else if (t === 'mid') { cx.moveTo(x, y - S); cx.lineTo(x + S, y + S * 0.8); cx.lineTo(x - S, y + S * 0.8); cx.closePath(); }
+      else if (t === 'int') { cx.moveTo(x - S, y - S); cx.lineTo(x + S, y + S); cx.moveTo(x + S, y - S); cx.lineTo(x - S, y + S); }
+      else if (t === 'perp') { cx.moveTo(x - S, y - S); cx.lineTo(x - S, y + S); cx.lineTo(x + S, y + S); cx.moveTo(x - S, y + S - 7); cx.lineTo(x - S + 7, y + S - 7); cx.lineTo(x - S + 7, y + S); }
+      else if (t === 'body') { cx.moveTo(x - S, y - S); cx.lineTo(x + S, y - S); cx.lineTo(x - S, y + S); cx.lineTo(x + S, y + S); cx.closePath(); }
+      else if (t === 'img' || t === 'edge') { cx.rect(x - 5, y - 5, 10, 10); cx.moveTo(x - 9, y); cx.lineTo(x + 9, y); cx.moveTo(x, y - 9); cx.lineTo(x, y + 9); }
+      else if (t === 'ortho') { cx.moveTo(x - 6, y); cx.lineTo(x + 6, y); cx.moveTo(x, y - 6); cx.lineTo(x, y + 6); }
+      else { cx.moveTo(x - 4, y); cx.lineTo(x + 4, y); cx.moveTo(x, y - 4); cx.lineTo(x, y + 4); }
+    }
+    path(); cx.lineWidth = 4; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.stroke();
+    path(); cx.lineWidth = 1.8; cx.strokeStyle = t === 'end' ? '#e11d48' : '#7c3aed'; cx.stroke();
+    var tip = h.tip || TIPS[t];
+    if (tip && !noTip) {
+      cx.font = '12px "Segoe UI",system-ui,sans-serif'; cx.textAlign = 'left'; cx.textBaseline = 'middle';
+      var tw = cx.measureText(tip).width + 12, tx = x + 16, ty = y + 18;
+      if (tx + tw > G.cv.width - 4) tx = x - 16 - tw;
+      cx.fillStyle = '#ffffe1'; cx.strokeStyle = '#8a8a8a'; cx.lineWidth = 1;
+      cx.beginPath(); cx.rect(tx, ty - 10, tw, 20); cx.fill(); cx.stroke();
+      cx.fillStyle = '#111'; cx.fillText(tip, tx + 6, ty + 0.5);
+    }
+    cx.restore();
+  }
+  /** Пунктир продолжения от узлов, с которыми совпала привязка по оси. */
+  function drawGuides(cx, kk) {
+    if (!guides.length || G.mode !== 'wall' || !hover) return;
+    cx.save(); cx.setLineDash([5, 4]); cx.lineWidth = 1; cx.strokeStyle = '#0d9488';
+    guides.forEach(function (g) {
+      cx.beginPath(); cx.moveTo(g[0][0] * kk, g[0][1] * kk); cx.lineTo(hover.p[0] * kk, hover.p[1] * kk); cx.stroke();
+    });
+    cx.restore();
+  }
+  /** Конечная точка предпросмотра: набранная длина или привязанный курсор. */
+  function previewEnd() {
+    var end = hover.p;
+    if (typed) {
+      var tl = parseLen(typed), vx = hover.p[0] - start[0], vy = hover.p[1] - start[1], vl = Math.hypot(vx, vy) || 1;
+      if (tl > 0) end = [start[0] + vx / vl * tl * ppm(), start[1] + vy / vl * tl * ppm()];
+    }
+    return end;
+  }
+  /** Стена-образец: полоса толщины со светло-синей заливкой, линия клика, размер и угол. */
+  function drawPreview(cx, kk) {
+    var end = previewEnd(), d = locD(), seg = d ? offSeg(start, end, d) : [start, end];
+    var l = dist(seg[0], seg[1]);
+    cx.save();
+    if (l > 0.5) {
+      var ux = (seg[1][0] - seg[0][0]) / l, uy = (seg[1][1] - seg[0][1]) / l, h = thickPx({ k: kind }) / 2;
+      cx.beginPath();
+      cx.moveTo((seg[0][0] - uy * h) * kk, (seg[0][1] + ux * h) * kk); cx.lineTo((seg[1][0] - uy * h) * kk, (seg[1][1] + ux * h) * kk);
+      cx.lineTo((seg[1][0] + uy * h) * kk, (seg[1][1] - ux * h) * kk); cx.lineTo((seg[0][0] + uy * h) * kk, (seg[0][1] - ux * h) * kk); cx.closePath();
+      cx.fillStyle = 'rgba(56,132,255,.22)'; cx.fill(); cx.lineWidth = 1.5; cx.strokeStyle = '#2563eb'; cx.stroke();
+    }
+    cx.setLineDash(d ? [7, 4] : [2, 3]); cx.lineWidth = 1; cx.strokeStyle = '#2563eb';
+    cx.beginPath(); cx.moveTo(start[0] * kk, start[1] * kk); cx.lineTo(end[0] * kk, end[1] * kk); cx.stroke(); cx.setLineDash([]);
+    var len = dist(start, end);
+    drawTempDim(cx, kk, start, end, typed ? typed + '|' : fmtM(len) + ' м', !!typed);
+    // угол к горизонтали (против часовой, как в Revit)
+    if (len / ppm() > 0.15) {
+      var an = Math.atan2(end[1] - start[1], end[0] - start[0]), deg = ((-an * 180 / Math.PI) % 360 + 360) % 360;
+      if (deg > 0.5 && deg < 359.5) {
+        var sx = start[0] * kk, sy = start[1] * kk, R = 34;
+        cx.setLineDash([]); cx.lineWidth = 1; cx.strokeStyle = DIMC;
+        cx.beginPath(); cx.moveTo(sx, sy); cx.lineTo(sx + R + 10, sy); cx.stroke();
+        cx.beginPath(); cx.arc(sx, sy, R, 0, an, an < 0); cx.stroke();
+        var am = an / 2;
+        cx.font = '11px "Segoe UI",system-ui,sans-serif'; cx.textAlign = 'left'; cx.textBaseline = 'middle';
+        var at = (Math.round(deg * 10) / 10).toString().replace('.', ',') + '°', aw = cx.measureText(at).width + 8, ax2 = sx + Math.cos(am) * (R + 8), ay2 = sy + Math.sin(am) * (R + 8);
+        cx.fillStyle = '#fff'; cx.fillRect(ax2, ay2 - 8, aw, 16); cx.fillStyle = DIMC; cx.fillText(at, ax2 + 4, ay2 + 0.5);
+      }
     }
     cx.restore();
   }
@@ -1032,7 +1195,7 @@
       G.cv.style.cursor = opAt(raw) >= 0 ? 'grab' : hoverO ? 'copy' : 'default';
       G.draw(); return;
     }
-    hover = snap(raw, start, e.altKey); lastRaw = e.altKey ? null : raw;
+    hover = snap(raw, start, e.altKey, !!(start && e.shiftKey)); lastRaw = e.altKey ? null : raw; lastShift = !!(start && e.shiftKey);
     hoverW = (tool === 'wall' && !start) ? wallAt(raw) : -1;
     G.cv.style.cursor = start ? 'crosshair' : (endpointAt(raw) ? 'grab' : wallAt(raw) >= 0 ? 'pointer' : 'crosshair');
     G.draw();
@@ -1120,11 +1283,11 @@
       var wi = wallAt(raw);
       sel = -1; selO = -1;
       var sn0 = snap(raw, null, e.altKey);
-      start = sn0.p; chainStart = sn0.p.slice(); chainPts = [sn0.p.slice()]; chainT = []; chainN = 0; hover = sn0; typed = ''; updateHint(); G.draw(); return;
+      start = sn0.p; chainStart = sn0.p.slice(); chainPts = [sn0.p.slice()]; chainT = []; chainN = 0; chainAxEnd = null; chainFirst = null; hover = sn0; typed = ''; updateHint(); G.draw(); return;
     }
-    var sn = snap(raw, start, e.altKey), end = sn.p;
+    var sn = snap(raw, start, e.altKey, e.shiftKey), end = sn.p;
     if (typed) end = typedEnd();
-    if (addWall(start, end, kind)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); }
+    if (commitSeg(start, end)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); if (!chainOn) endChain(); }
     updateHint(); G.refreshWallsUi(); G.draw();
   });
 
@@ -1250,7 +1413,7 @@
     else if (e.key === 'Enter') {
       if (start && typed && hover) {
         var end = typedEnd();
-        if (addWall(start, end, kind)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); G.refreshWallsUi(); }
+        if (commitSeg(start, end)) { sampleT(start, end); chainPts.push(end.slice()); start = end; typed = ''; sel = -1; chainN++; afterWallEdit(); closeIfLoop(); if (!chainOn) endChain(); G.refreshWallsUi(); }
       } else { start = null; typed = ''; }
     } else if (e.key === 'Escape') {
       if (typed) typed = ''; else if (start) start = null; else { G.setMode('select'); e.stopImmediatePropagation(); return; }
@@ -1262,6 +1425,7 @@
       if (sel >= 0) toggleSel(); else { kind = kind === 'ext' ? 'int' : 'ext'; G.refreshWallsUi(); }
     } else if (e.key === 'Delete' || e.key === 'Del') deleteSel();
     else if (e.code === 'KeyU' || e.key === 'г' || e.key === 'Г') G.wallsViewCycle();
+    else if (e.code === 'Space' && start) locFlip = !locFlip;   // Пробел: сторона линии привязки, как в Revit
     else used = false;
     if (used) { e.preventDefault(); e.stopImmediatePropagation(); updateHint(); G.draw(); }
   }, true);
@@ -1879,6 +2043,30 @@
     G.cur = was;
     if (any) setTimeout(function () { if (G.renderZones) G.renderZones(); G.draw(); }, 0);
   })();
+
+  // ── интерфейс для ленты и инструментов правки (plan_revit.js) ───────
+  G.wallsLoc = function (v) { locMode = v === 'o' || v === 'i' ? v : 'c'; locFlip = false; updateHint(); G.draw(); };
+  G.wallsLocGet = function () { return locMode; };
+  G.wallsOff = function (m) { locOffM = isFinite(m) ? m : 0; G.draw(); };
+  G.wallsOffGet = function () { return locOffM; };
+  G.wallsChain = function (v) { chainOn = !!v; if (!chainOn && start) endChain(); G.draw(); };
+  G.wallsChainGet = function () { return chainOn; };
+  G.wallsKindSet = function (kd) { kind = kd === 'int' ? 'int' : 'ext'; updateHint(); };
+  G.wallsDrawingState = function () { return { start: start, hover: hover, typed: typed, kind: kind, tool: tool }; };
+  G.wallsClearHover = function () { hover = null; hoverW = -1; hoverO = null; guides = []; };
+  G.WI = {
+    walls: walls, ops: ops, ppm: ppm, k: k, dist: dist, projOn: projOn, snap: snap, addWall: addWall, splitAt: splitAt,
+    nextId: nextId, nextOid: nextOid, afterWallEdit: afterWallEdit, thickPx: thickPx, wallAt: wallAt, opAt: opAt, opGeom: opGeom, opPlace: opPlace,
+    wallById: wallById, wlen: wlen, moveNode: moveNode, moveWallBy: moveWallBy, lineOf: lineOf, clampOps: clampOps, pruneOps: pruneOps, ptEq: ptEq, r1: r1,
+    fmtM: fmtM, fm2: fm2, parseLen: parseLen, hintWall: hintWall, intT: intT, extT: extT, endpointAt: endpointAt,
+    drawTempDim: drawTempDim, drawGlyph: drawGlyph, locD: locD, offSeg: offSeg, lineInter: lineInter, DIMC: DIMC,
+    editOp: function (i) { var ob = ops()[i]; if (ob) { selO = i; editOp(); } },
+    askWallLen: askWallLen, wallIndexById: wallIndexById, GRID_M: GRID_M, SIZE: SIZE,
+    setLegacySel: function (si, oi) { sel = si; selO = oi; },
+    toggleKind: function (id) { var sw = wallById(id); if (sw) sw.k = sw.k === 'int' ? 'ext' : 'int'; },
+    getKind: function () { return kind; }, getTool: function () { return tool; }, setTool: function (t) { tool = t; start = null; typed = ''; hoverO = null; sel = -1; selO = -1; hover = null; },
+    isDrawing: function () { return !!start; }, updateHint: updateHint, looseEnds: looseEnds, bboxOf: bboxOf
+  };
 
   // draw() рисует всё остальное — стены поверх
   var baseDraw = G.draw;
