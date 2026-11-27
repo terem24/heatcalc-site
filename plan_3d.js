@@ -53,7 +53,7 @@
       '.p3d-panel button{border:0;background:transparent;color:#1e293b;border-radius:8px;padding:5px 8px;cursor:pointer;font:600 12px system-ui,sans-serif}' +
       '.p3d-panel label{display:flex;align-items:center;gap:6px}' +
       '.p3d-panel input[type=range]{width:100%}' +
-      '.p3d-tbl{padding:14px 16px 40px;color:#d8d8d8;font:13px system-ui,sans-serif;overflow:auto;height:100%;box-sizing:border-box}' +
+      '.p3d-tbl{padding:14px 16px 40px;background:#141414;color:#d8d8d8;font:13px system-ui,sans-serif;overflow:auto;height:100%;box-sizing:border-box}' +
       '.p3d-tbl h3{margin:0 0 10px;font:700 15px system-ui,sans-serif;display:flex;align-items:center;gap:12px}' +
       '.p3d-tbl h4{margin:18px 0 6px;font:700 11px system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8d8d8d}' +
       '.p3d-tbl table{border-collapse:collapse;width:100%;max-width:980px}' +
