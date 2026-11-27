@@ -211,7 +211,7 @@
   // steps: до какого шага включительно рисовать трубы (1..4)
   async function build(steps) {
     steps = steps || 4;
-    var bi = A.boilerIndex(), di = A.nodeIndex('dhw', A.DHW_DIR, 'dhw.json?v=3'), hi = A.nodeIndex('hydro', A.HYDRO_DIR, 'hydro.json?v=6');
+    var bi = A.boilerIndex(), di = A.nodeIndex('dhw', A.DHW_DIR, 'dhw.json?v=3'), hi = A.nodeIndex('hydro', A.HYDRO_DIR, 'hydro.json?v=7');
     var PB = DATA.PB;
     var PH = DATA.PH;
     var bf = boilerFrames();
@@ -1685,7 +1685,7 @@
   }
   // вид собирается по составу сметы один раз на сигнатуру (стиль + кадры + бойлер + материал труб + мощности групп)
   function entry(app, kk) {
-    app.boilerIndex(); app.nodeIndex('hydro', app.HYDRO_DIR, 'hydro.json?v=6'); app.nodeIndex('dhw', app.DHW_DIR, 'dhw.json?v=3');
+    app.boilerIndex(); app.nodeIndex('hydro', app.HYDRO_DIR, 'hydro.json?v=7'); app.nodeIndex('dhw', app.DHW_DIR, 'dhw.json?v=3');
     var caps = capture(app);
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
