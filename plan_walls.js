@@ -1325,6 +1325,20 @@
     reportSel(); G.refreshWallsUi(); G.draw();
   }
 
+  /**
+   * Предупреждение, если наружная стена из этого материала хуже нормы СП 50.13330 для города.
+   * R и норму считает калькулятор (окно-родитель); нет города или калькулятора - молчим.
+   */
+  function wallNormNote(mat, t, k) {
+    if (k === 'int' || !mat) return '';
+    try {
+      var A = window.parent && window.parent !== window && window.parent.app;
+      if (!A || !A.planWallR || !A.wallSp50Req) return '';
+      var R = A.planWallR({ mat: mat, t: t }), q = A.wallSp50Req();
+      if (!R || !q || R >= q.rreq) return '';
+      return 'R ' + R.toFixed(2).replace('.', ',') + ' - ниже нормы СП 50 для г. ' + q.city + ' (' + String(q.rreq).replace('.', ',') + '), нужен утеплитель (задаётся в параметрах объекта)';
+    } catch (e) { return ''; }
+  }
   /** Толщина и материал выбранной стены: «40 газобетон», «51 кирпич», «10» (материал не меняется). */
   function wallProps() {
     var s = walls()[sel];
@@ -1341,7 +1355,12 @@
       title: 'Толщина и материал стены',
       sub: 'Толщина в сантиметрах и материал словом: 40 газобетон, 51 кирпич. Только число - материал не меняется.',
       chips: chips, def: Math.round(wallT(s) * 100) + (s.mat ? ' ' + s.mat.toLowerCase() : ''),
-      live: function (v) { var z = parse(v); return z ? Math.round(z.t * 100) + ' см' + (z.mat ? ', ' + z.mat : '') : (v ? 'Не понял' : ''); }
+      live: function (v) {
+        var z = parse(v);
+        if (!z) return v ? 'Не понял' : '';
+        var m = z.mat || s.mat, w = wallNormNote(m, z.t, s.k);
+        return Math.round(z.t * 100) + ' см' + (z.mat ? ', ' + z.mat : '') + (w ? '. ' + w : '');
+      }
     }, function (v) {
       var z = parse(v);
       if (!z) return;
