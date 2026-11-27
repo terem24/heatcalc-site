@@ -33,6 +33,19 @@
     tmp: null, meas: null, sd: null, dimBoxes: [], ctx: null, ang: 0, seqBuf: '', seqTimer: 0
   };
   var inSet = false;
+  // готовые типоразмеры проёмов: [название, вид, ширина, высота, подоконник], м
+  var PRESETS = {
+    win: [['Окно 1,5 x 1,4', 'win', 1.5, 1.4, 0.8], ['Окно 1,2 x 1,4', 'win', 1.2, 1.4, 0.8], ['Окно 0,9 x 1,2', 'win', 0.9, 1.2, 0.9],
+      ['Панорамное 3,0 x 2,2 (от пола)', 'win', 3, 2.2, 0], ['Панорамное 4,0 x 2,4 (от пола)', 'win', 4, 2.4, 0], ['Витраж 5,0 x 2,6 (от пола)', 'win', 5, 2.6, 0]],
+    door: [['Дверь 0,9 x 2,1', 'door', 0.9, 2.1, 0], ['Дверь 1,0 x 2,1', 'door', 1, 2.1, 0], ['Балконная дверь 0,8 x 2,2', 'door', 0.8, 2.2, 0],
+      ['Гаражные ворота 2,5 x 2,2', 'gate', 2.5, 2.2, 0], ['Гаражные ворота 3,0 x 2,2', 'gate', 3, 2.2, 0], ['Гаражные ворота 4,0 x 2,4', 'gate', 4, 2.4, 0]]
+  };
+  var preset = { win: 0, door: 0 };
+  function applyPreset(t) {
+    var L = PRESETS[t], pr = L && L[preset[t]];
+    if (pr) G.wallsOpenPreset(pr[1], pr[2], pr[3], pr[4]);
+  }
+  function isGate() { return rv.tool === 'door' && PRESETS.door[preset.door][1] === 'gate'; }
   function own() { return G.mode === 'wall' && !!MINE[rv.tool]; }
   G.rvSnapOwner = own;
   var toolName = {
@@ -341,6 +354,7 @@
     under: '<rect x="4" y="5" width="22" height="20" ' + S + '/><path d="M4 15h22M15 5v20" ' + S + ' stroke-dasharray="2 2"/>',
     snap: '<rect x="8" y="8" width="14" height="14" ' + S + ' fill="none"/><path d="M5 15h20M15 5v20" stroke="' + A + '" stroke-width="1.4"/>',
     size: '<path d="M4 20h22M4 16v8M26 16v8" ' + S + '/><path d="M8 12h14" ' + S + ' stroke="' + A + '"/>',
+    gate: '<rect x="4" y="6" width="22" height="19" ' + S + '/><path d="M4 11.5h22M4 16h22M4 20.5h22" ' + S + '/>',
     steps: '<rect x="4" y="5" width="7" height="20" ' + S + '/><path d="M15 9h11M15 15h11M15 21h11" ' + S + '/>',
     side: '<rect x="4" y="5" width="22" height="20" ' + S + '/><path d="M19 5v20" ' + S + '/>',
     full: '<path d="M4 11V4h7M19 4h7v7M26 19v7h-7M11 26H4v-7" ' + S + '/>',
@@ -354,7 +368,7 @@
     '<div class="rib"><span class="ctx" id="rv_ctx">Изменить</span>' +
     ib('select', 'select', 'Изменить: выбор и правка (Esc)') + SP +
     ib('kind-ext', 'wall', 'Наружная стена') + ib('kind-int', 'wall', 'Внутренняя стена (перегородка)') + SP +
-    ib('wall', 'wall', 'Стена по точкам (WA)') + ib('rect', 'rect', 'Прямоугольник из четырёх стен (RC)') + ib('win', 'win', 'Окно (WN)') + ib('door', 'door', 'Дверь (DR)') + SP +
+    ib('wall', 'wall', 'Стена по точкам (WA)') + ib('rect', 'rect', 'Прямоугольник из четырёх стен (RC)') + ib('win', 'win', 'Окно (WN). Размер и панорамное окно - в панели ниже') + ib('door', 'door', 'Дверь (DR)') + ib('gate', 'gate', 'Гаражные ворота') + SP +
     ib('move', 'move', 'Переместить (MV)') + ib('copy', 'copy', 'Копировать (CO)') + ib('rotate', 'rotate', 'Повернуть (RO)') +
     ib('mirror', 'mirror', 'Зеркало: ось — стена (MM)') + ib('mirrorDraw', 'mirrorDraw', 'Зеркало: ось по двум точкам (DM)') + ib('offset', 'offset', 'Подобие: параллельная стена (OF)') +
     ib('align', 'align', 'Выровнять по грани другой стены (AL)') + ib('trim', 'trim', 'Подрезать или удлинить до угла (TR)') + ib('split', 'split', 'Разделить стену (SL)') + ib('delete', 'del', 'Удалить выбранное (DE, Delete)') + SP +
@@ -382,6 +396,7 @@
     if (!b || b.disabled) return;
     var t = b.getAttribute('data-t');
     if (t === 'kind-ext' || t === 'kind-int') { W.setTool('wall'); setTool('wall'); G.wallsKindSet(t === 'kind-int' ? 'int' : 'ext'); sig = ''; G.draw(); return; }
+    if (t === 'gate') { preset.door = 3; setTool('door'); return; }
     if (t === 'delete') { if (!deleteSel()) W.hintWall('Сначала выберите, что удалить.'); return; }
     if (t === 'fit') { resetView(); G.draw(); return; }
     if (t === 'under') { G.wallsViewCycle(); G.draw(); return; }
@@ -409,6 +424,7 @@
     else if (id === 'omode') rv.opt.onum = t.value === 'num';
     else if (id === 'odist') { var d = parseFloat(String(t.value).replace(',', '.')); if (d > 0) rv.opt.odist = d; }
     else if (id === 'aface') rv.opt.afaces = t.value === 'face';
+    else if (id === 'preset') { preset[rv.tool] = parseInt(t.value, 10) || 0; applyPreset(rv.tool); }
     if (id !== 'off' && id !== 'odist') { sig = ''; G.draw(); }
   }
 
@@ -431,13 +447,15 @@
     drawModeSync(on);
     if (!on) return;
     var t = G.WI.getTool && rv.tool;
-    var key = [rv.tool, rv.phase, W.getKind(), G.wallsLocGet(), G.wallsChainGet(), G.wallsSnapGet(), rv.sel.length, rv.selO.length, rv.opt.onum, rv.opt.afaces, rv.opt.mcopy, rv.opt.rcopy, rv.opt.ocopy, rv.opt.multi, G.wallsViewGet(), G.wallsObjGet(), G.wallsOrthoGet()].join('|');
+    var key = [rv.tool, rv.phase, W.getKind(), G.wallsLocGet(), G.wallsChainGet(), G.wallsSnapGet(), rv.sel.length, rv.selO.length, rv.opt.onum, rv.opt.afaces, rv.opt.mcopy, rv.opt.rcopy, rv.opt.ocopy, rv.opt.multi, G.wallsViewGet(), G.wallsObjGet(), G.wallsOrthoGet(), preset.win, preset.door].join('|');
     if (key !== sig) {
       sig = key;
       var tools = ui.querySelectorAll('button[data-t]');
       for (var i = 0; i < tools.length; i++) {
         var n = tools[i].getAttribute('data-t'), act = n === rv.tool || (n === 'kind-ext' && rv.tool === 'wall' && W.getKind() === 'ext') || (n === 'kind-int' && rv.tool === 'wall' && W.getKind() === 'int') || (n === 'snap' && G.wallsSnapGet());
         if (n === 'wall' && rv.tool === 'wall') act = true;
+        if (n === 'gate') act = isGate();
+        if (n === 'door') act = rv.tool === 'door' && !isGate();
         tools[i].classList.toggle('on', !!act);
         if (n === 'delete') tools[i].disabled = !(rv.sel.length || rv.selO.length);
         if (n === 'kind-ext' || n === 'kind-int') tools[i].classList.toggle('on', rv.tool === 'wall' && W.getKind() === (n === 'kind-int' ? 'int' : 'ext'));
@@ -464,7 +482,9 @@
       h += '<label>Смещение:<input type="text" data-o="off" value="' + (Math.round(off * 1000) / 10 || 0).toString().replace('.', ',') + '"> см</label>';
       h += '<span class="st">Пробел — другая сторона, Shift — ортогонально</span>';
     } else if (rv.tool === 'win' || rv.tool === 'door') {
-      h += '<span class="st">Щёлкните по стене. Enter или двойной щелчок по проёму — размеры</span>';
+      var pl = PRESETS[rv.tool], po = '';
+      pl.forEach(function (q, i) { po += '<option value="' + i + '"' + (i === preset[rv.tool] ? ' selected' : '') + '>' + q[0] + '</option>'; });
+      h += '<label>Типоразмер:<select data-o="preset" style="min-width:230px">' + po + '</select></label><span class="st">Щёлкните по стене. Enter - свой размер, края проёма можно тянуть</span>';
     } else if (rv.tool === 'select') {
       var n = rv.sel.length + rv.selO.length;
       h += n ? '<span>Выбрано: ' + rv.sel.length + ' ст.' + (rv.selO.length ? ', ' + rv.selO.length + ' пр.' : '') + '</span>' : '<span class="st">Ничего не выбрано</span>';
@@ -567,7 +587,7 @@
     inSet = true;
     try {
       if (G.mode !== 'wall') G.setMode('wall');
-      if (t === 'wall' || t === 'win' || t === 'door') { W.setTool(t); }
+      if (t === 'wall' || t === 'win' || t === 'door') { W.setTool(t); if (t !== 'wall') applyPreset(t); }
       else { W.setTool('wall'); G.wallsFinish(); }
     } finally { inSet = false; }
     G.wallsClearHover();

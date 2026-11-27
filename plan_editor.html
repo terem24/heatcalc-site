@@ -8247,7 +8247,7 @@ function wzAfterLoad() {
     cur = fi;
     if (!F().pxPerM) return;
     autoRooms();
-    if (wzWantRad()) autoRads();
+    if (wzWantRad() && !(F().walls || []).length) autoRads();   // стены нарисованы вручную - радиаторы на своём шаге, не раньше
     if (!F().coll) ufhAutoColl(F());
   });
   cur = was;
@@ -8397,7 +8397,7 @@ function wzRender(box) {
     wzAuto[cur] = 1;
     setTimeout(function () {
       autoRooms();
-      if (wzWantRad() && !(F().rads || []).length) autoRads();
+      if (wzWantRad() && !(F().rads || []).length && !(F().walls || []).length) autoRads();
       var n = F().zones.filter(function (z) { return z.type !== 'cold' && !isTpCopy(F(), z); }).length;
       var r = (F().rads || []).length;
       hint(n ? '<span class=ok>Найдено комнат: ' + n + (r ? ', радиаторов под окнами: ' + r : '') + '.</span>'
@@ -10617,10 +10617,10 @@ renderTabs(); draw(); renderZones();
 // мастер открыли с уже загруженным планом — тоже сразу на весь экран
 if (UFH && F().img && fsPref() !== '0') setTimeout(fsAuto, 0);
 </script>
-<script src="plan_walls.js?v=2.21"></script>
-<script src="plan_revit.js?v=1.2"></script>
+<script src="plan_walls.js?v=2.22"></script>
+<script src="plan_revit.js?v=1.3"></script>
 <script src="plan_trace.js?v=1.6"></script>
-<script src="plan_3d.js?v=1.21"></script>
+<script src="plan_3d.js?v=1.22"></script>
 <script src="plan_layout.js?v=1.3"></script>
 <script src="plan_theme.js?v=1.4"></script>
 </body>

@@ -95,7 +95,9 @@
   var chainFirst = null;  // ось-начало первой стены цепочки
   var ohandle = null;     // растягивание выбранного проёма за конец: { end: 'a' | 'b', moved }
   // последние размеры, м: [ширина, высота, подоконник] - следующий проём такой же
-  var SIZE = { win: [1.5, 1.4, 0.8], door: [0.9, 2.1, 0] };
+  var SIZE = { win: [1.5, 1.4, 0.8], door: [0.9, 2.1, 0], gate: [2.5, 2.2, 0] };
+  var gateMode = false;   // инструмент «Дверь» ставит гаражные ворота
+  function curKind() { return tool === 'door' && gateMode ? 'gate' : tool; }
 
   function F() { return G.F(); }
   function ppm() { return F().pxPerM || 100; }
@@ -442,7 +444,7 @@
     if (tool === 'move') { hintWall('Двигать: потяните стену мышью поперёк - примыкающие стены растянутся, площади пересчитаются.'); return; }
     if (tool === 'size') { hintWall('Размер: клик по стене - длина, клик по комнате - ширина и глубина (с пересчётом площади).'); return; }
     if (tool !== 'wall') {
-      var nm = tool === 'win' ? 'окно' : 'дверь', z = SIZE[tool];
+      var nm = tool === 'win' ? 'окно' : (gateMode ? 'ворота' : 'дверь'), z = SIZE[curKind()];
       hintWall('Клик по стене - поставить ' + nm + ' (' + fm2(z[0]) + ' x ' + fm2(z[1]) + ' м). Проём можно тянуть вдоль стены; ' +
         'Shift+клик - выбрать, Enter - размеры, Delete - убрать.');
       return;
@@ -799,7 +801,7 @@
     });
     // окна и двери: поверх стен
     ops().forEach(function (o, i) { drawOpening(cx, kk, o, i === selO, dark, false); });
-    if (G.mode === 'wall' && tool !== 'wall' && hoverO && !odrag) drawOpening(cx, kk, { wid: hoverO.wid, o: hoverO.o, k: tool, w: SIZE[tool][0], h: SIZE[tool][1], sill: SIZE[tool][2] }, false, dark, true);
+    if (G.mode === 'wall' && tool !== 'wall' && hoverO && !odrag) drawOpening(cx, kk, { wid: hoverO.wid, o: hoverO.o, k: curKind(), w: SIZE[curKind()][0], h: SIZE[curKind()][1], sill: SIZE[curKind()][2] }, false, dark, true);
     // нарисованный, но ещё не зафиксированный отрезок: стена в толщину, размер и угол на лету, как в Revit
     if (G.mode === 'wall' && tool === 'wall' && start && hover) drawPreview(cx, kk);
     drawGuides(cx, kk);
@@ -953,6 +955,12 @@
       cx.lineWidth = 2.5; cx.strokeStyle = isSel ? '#ffffff' : '#0284c7'; cx.stroke();
       var m1 = P(-hw, 0), m2 = P(hw, 0);
       cx.beginPath(); cx.moveTo(m1[0], m1[1]); cx.lineTo(m2[0], m2[1]); cx.lineWidth = 2.5; cx.stroke();
+    } else if (o.k === 'gate') {
+      cx.fillStyle = 'rgba(148,163,184,0.38)'; cx.fill();
+      cx.lineWidth = 2.5; cx.strokeStyle = isSel ? '#ffffff' : '#64748b'; cx.stroke();
+      cx.setLineDash([6, 4]); cx.lineWidth = 1.5; cx.beginPath();
+      [-0.5, 0, 0.5].forEach(function (f2) { var a2 = P(-hw, ht * f2 * 1.2), b2 = P(hw, ht * f2 * 1.2); cx.moveTo(a2[0], a2[1]); cx.lineTo(b2[0], b2[1]); });
+      cx.stroke(); cx.setLineDash([]);
     } else {
       cx.fillStyle = 'rgba(245,158,11,0.24)'; cx.fill();
       cx.lineWidth = 2.5; cx.strokeStyle = isSel ? '#ffffff' : '#d97706'; cx.stroke();
@@ -1156,7 +1164,7 @@
   function opPlace(p, wpx) {
     var wi = wallAt(p), w = walls();
     if (wi < 0) return null;
-    var s = w[wi], pr = projOn(p, s.a, s.b), len = wlen(s), wm = (wpx || SIZE[tool][0] * ppm()) / ppm();
+    var s = w[wi], pr = projOn(p, s.a, s.b), len = wlen(s), wm = (wpx || SIZE[curKind()][0] * ppm()) / ppm();
     if (len < wm + 0.1) return null;
     var o = Math.round(pr.t * len / GRID_M) * GRID_M;
     o = Math.max(wm / 2 + 0.05, Math.min(len - wm / 2 - 0.05, o));
@@ -1291,8 +1299,8 @@
       var pl = opPlace(raw);
       if (pl) {
         G.pushUndo('walls');
-        var z = SIZE[tool];
-        ops().push({ id: nextOid(), wid: pl.wid, o: pl.o, k: tool, w: z[0], h: z[1], sill: z[2] });
+        var z = SIZE[curKind()];
+        ops().push({ id: nextOid(), wid: pl.wid, o: pl.o, k: curKind(), w: z[0], h: z[1], sill: z[2] });
         selO = ops().length - 1; afterWallEdit(); reportOp(); G.refreshWallsUi();
       }
       G.draw(); return;
@@ -1418,7 +1426,7 @@
     var o = ops()[selO];
     if (!o) return;
     var sw = wallById(o.wid);
-    hintWall((o.k === 'win' ? 'Окно ' : (sw && sw.k === 'ext' ? 'Наружная дверь ' : 'Дверь ')) +
+    hintWall((o.k === 'win' ? 'Окно ' : o.k === 'gate' ? 'Ворота ' : (sw && sw.k === 'ext' ? 'Наружная дверь ' : 'Дверь ')) +
       fm2(o.w) + ' x ' + fm2(o.h) + ' м' + (o.k === 'win' ? ', подоконник ' + fm2(o.sill) + ' м' : '') + '. Тяните за белые квадраты на концах - растянуть, за середину - сдвинуть. Enter - размеры, Delete - убрать.');
   }
   function deleteOp() {
@@ -1437,10 +1445,10 @@
     var o = ops()[selO];
     if (!o) return;
     var def = Math.round(o.w * 100) + 'x' + Math.round(o.h * 100) + (o.k === 'win' ? '/' + Math.round(o.sill * 100) : '');
-    var chips = (o.k === 'win' ? ['90x120/90', '120x140/80', '150x140/80', '180x140/80', '210x220/0'] : ['80x200', '90x210', '100x210', '120x210', '150x210']).map(function (v) { return { v: v }; });
+    var chips = (o.k === 'win' ? ['90x120/90', '120x140/80', '150x140/80', '180x140/80', '210x220/0', '300x220/0', '400x240/0'] : o.k === 'gate' ? ['250x220', '300x220', '350x230', '400x240', '500x250'] : ['80x200', '90x210', '100x210', '120x210', '150x210']).map(function (v) { return { v: v }; });
     G.askText({
-      title: o.k === 'win' ? 'Размеры окна' : 'Размеры двери',
-      sub: 'Ширина x высота' + (o.k === 'win' ? ' / подоконник' : '') + ', в сантиметрах: ' + (o.k === 'win' ? '150x140/80' : '90x210') + '. Метры тоже можно: 1,5м x 1,4м.',
+      title: o.k === 'win' ? 'Размеры окна' : o.k === 'gate' ? 'Размеры ворот' : 'Размеры двери',
+      sub: 'Ширина x высота' + (o.k === 'win' ? ' / подоконник' : '') + ', в сантиметрах: ' + (o.k === 'win' ? '150x140/80' : o.k === 'gate' ? '300x220' : '90x210') + '. Метры тоже можно: 1,5м x 1,4м.',
       chips: chips, def: def,
       live: function (v) { var z = parseOpSize(v); return z ? fm2(z[0]) + ' x ' + fm2(z[1]) + ' м' : (v ? 'Не понял размер' : ''); }
     }, function (v) {
@@ -1873,6 +1881,7 @@
   G.wallsKind = function (kd) { kind = kd === 'int' ? 'int' : 'ext'; tool = 'wall'; if (G.mode !== 'wall') G.setMode('wall'); updateHint(); G.refreshWallsUi(); };
   G.wallsTool = function (t) {
     tool = t === 'win' || t === 'door' || t === 'move' || t === 'size' ? t : 'wall';
+    gateMode = false;
     start = null; typed = ''; typedA = ''; fieldA = false; hoverO = null; sel = -1; selO = -1;
     if (G.mode !== 'wall') G.setMode('wall');
     updateHint(); G.refreshWallsUi(); G.draw();
@@ -1966,12 +1975,13 @@
   G.wallsStats = function () {
     var e = 0, i = 0;
     (F().walls || []).forEach(function (s) { if (s.k === 'int') i += dist(s.a, s.b); else e += dist(s.a, s.b); });
-    var nw = 0, nd = 0, nde = 0;
+    var nw = 0, nd = 0, nde = 0, ng = 0;
     (F().openings || []).forEach(function (o) {
       var s = wallById(o.wid);
+      if (o.k === 'gate') ng++;
       if (o.k === 'win') nw++; else { nd++; if (s && s.k === 'ext') nde++; }
     });
-    return { ext: e / ppm(), int: i / ppm(), n: (F().walls || []).length, wins: nw, doors: nd, doorsExt: nde };
+    return { ext: e / ppm(), int: i / ppm(), n: (F().walls || []).length, wins: nw, doors: nd, doorsExt: nde, gates: ng };
   };
 
   // Пустой лист хранится без картинки, если она не влезла в хранилище: после загрузки рисуем его заново
@@ -2107,6 +2117,12 @@
 
   // ── интерфейс для ленты и инструментов правки (plan_revit.js) ───────
   G.wallsLoc = function (v) { locMode = v === 'o' || v === 'i' ? v : 'c'; locFlip = false; updateHint(); G.draw(); };
+  /** Готовый размер проёма из панели параметров: окно, панорамное окно, дверь, гаражные ворота. */
+  G.wallsOpenPreset = function (k, w, h, sill) {
+    if (k === 'gate') { tool = 'door'; gateMode = true; SIZE.gate = [w, h, sill || 0]; }
+    else { gateMode = false; SIZE[k] = [w, h, sill || 0]; }
+    hoverO = null; updateHint(); G.draw();
+  };
   G.wallsLocGet = function () { return locMode; };
   G.wallsOff = function (m) { locOffM = isFinite(m) ? m : 0; G.draw(); };
   G.wallsOffGet = function () { return locOffM; };
@@ -2129,7 +2145,7 @@
     askWallLen: askWallLen, wallIndexById: wallIndexById, GRID_M: GRID_M, SIZE: SIZE,
     setLegacySel: function (si, oi) { sel = si; selO = oi; },
     toggleKind: function (id) { var sw = wallById(id); if (sw) sw.k = sw.k === 'int' ? 'ext' : 'int'; },
-    getKind: function () { return kind; }, getTool: function () { return tool; }, setTool: function (t) { tool = t; start = null; typed = ''; typedA = ''; fieldA = false; hoverO = null; sel = -1; selO = -1; hover = null; },
+    getKind: function () { return kind; }, getTool: function () { return tool; }, setTool: function (t) { tool = t; gateMode = false; start = null; typed = ''; typedA = ''; fieldA = false; hoverO = null; sel = -1; selO = -1; hover = null; },
     isDrawing: function () { return !!start; }, updateHint: updateHint, looseEnds: looseEnds, bboxOf: bboxOf
   };
 

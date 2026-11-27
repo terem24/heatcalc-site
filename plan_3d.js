@@ -166,7 +166,7 @@
         var wmap = {}; (f.walls || []).forEach(function (w) { wmap[w.id] = w; });
         h += '<h4>Окна и двери</h4><table><tr><th>Тип</th><th>Стена</th><th>Ширина, м</th><th>Высота, м</th><th>Подоконник, м</th></tr>';
         ops.forEach(function (o) {
-          var w = wmap[o.wid], kind = o.k === 'win' ? 'Окно' : ((w && w.k === 'ext') ? 'Наружная дверь' : 'Дверь');
+          var w = wmap[o.wid], kind = o.k === 'win' ? 'Окно' : o.k === 'gate' ? 'Ворота' : ((w && w.k === 'ext') ? 'Наружная дверь' : 'Дверь');
           h += '<tr><td>' + kind + '</td><td>' + (w ? (w.k === 'ext' ? 'наружная' : 'внутренняя') : '-') + '</td><td>' + fmt(o.w, 2) + '</td><td>' + fmt(o.h, 2) + '</td><td>' + (o.k === 'win' ? fmt(o.sill || 0, 2) : '-') + '</td></tr>';
         });
         h += '</table>';
