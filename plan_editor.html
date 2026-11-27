@@ -876,7 +876,7 @@
 </div>
 
 <script src="water_hydro.js?v=1.7"></script>
-<script src="project_plans.js?v=1.49"></script>
+<script src="project_plans.js?v=1.50"></script>
 <script>
 'use strict';
 // Доступ к проектированию. Своей авторизации у страницы нет, поэтому отметку
@@ -5236,6 +5236,13 @@ function draw() {
     cx.strokeStyle = 'rgba(155,44,44,.8)'; cx.lineCap = 'square';
     cx.stroke();
   });
+  // Подводки: каждой петле своя пара линий (красная подача, синяя обратка) от коллектора до начала петли, общие участки идут пучком
+  var leadPr = [];
+  try {
+    var allLp = [];
+    Object.keys(loops).forEach(function (zk) { (loops[zk] || []).forEach(function (L) { if (L && L.sup && L.lead && L.lead.length >= 2) allLp.push(L); }); });
+    if (allLp.length && f.coll && window.projectPlans && projectPlans.leadPairs) leadPr = projectPlans.leadPairs(f, allLp, f.pxPerM || 100) || [];
+  } catch (e) { leadPr = []; }
   // Пучок подводок — тёмная полоса, как на листе «Тёплый пол»
   (loops.bundle || []).forEach(function (sg) {
     cx.beginPath();
@@ -5243,6 +5250,16 @@ function draw() {
     cx.lineWidth = Math.max(1.5, sg.n * 2 * 0.02 * (f.pxPerM || 100) * k);
     cx.strokeStyle = 'rgba(77,63,102,.85)'; cx.lineCap = 'square';
     cx.stroke();
+  });
+  leadPr.forEach(function (pr) {
+    [[pr.sup, '#ff5a4d'], [pr.ret, '#5b86ff']].forEach(function (q) {
+      var P = q[0];
+      if (!P || P.length < 2) return;
+      cx.beginPath(); cx.moveTo(P[0][0] * k, P[0][1] * k);
+      for (var j = 1; j < P.length; j++) cx.lineTo(P[j][0] * k, P[j][1] * k);
+      cx.lineWidth = Math.max(1.4, Math.min(2.6, 0.026 * (f.pxPerM || 100) * k)); cx.strokeStyle = q[1];
+      cx.lineJoin = 'round'; cx.lineCap = 'round'; cx.stroke();
+    });
   });
   f.zones.forEach(function (z, i) {
     var col = TYPES[z.type][1];
@@ -5258,7 +5275,7 @@ function draw() {
       cx.save(); cx.setLineDash([9, 5]); cx.lineWidth = 3.5; cx.strokeStyle = '#f59e0b'; cx.stroke(); cx.restore();
     }
     if (lp) {
-      var lw = Math.max(1, Math.min(2.4, 0.022 * (f.pxPerM || 100) * k));
+      var lw = Math.max(1.8, Math.min(3.4, 0.032 * (f.pxPerM || 100) * k));   // толще и ярче: на тёмном плане пастельные тонкие линии терялись
       cx.lineJoin = 'round'; cx.lineCap = 'round';
       // Цвета и скругления — как на листах: подача #ff8080, обратка #8080ff,
       // радиус гиба в полшага укладки (труба гнётся, а не ломается).
@@ -5266,7 +5283,7 @@ function draw() {
       lp.forEach(function (L) {
         if (!L.sup || !L.ret) return;
         // перемычка подача → обратка (у змейки между концами шаг укладки): без неё трубы обрываются
-        [[L.sup, '#ff8080'], [L.ret, '#8080ff'], [[L.sup[L.sup.length - 1], L.ret[0]], '#8080ff']].forEach(function (pair) {
+        [[L.sup, '#ff5a4d'], [L.ret, '#5b86ff'], [[L.sup[L.sup.length - 1], L.ret[0]], '#5b86ff']].forEach(function (pair) {
           var P = pair[0];
           cx.beginPath();
           cx.moveTo(P[0][0] * k, P[0][1] * k);
@@ -10620,7 +10637,7 @@ if (UFH && F().img && fsPref() !== '0') setTimeout(fsAuto, 0);
 <script src="plan_walls.js?v=2.23"></script>
 <script src="plan_revit.js?v=1.3"></script>
 <script src="plan_trace.js?v=1.6"></script>
-<script src="plan_3d.js?v=1.23"></script>
+<script src="plan_3d.js?v=1.24"></script>
 <script src="plan_layout.js?v=1.3"></script>
 <script src="plan_theme.js?v=1.4"></script>
 </body>

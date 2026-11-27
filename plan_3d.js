@@ -744,11 +744,23 @@
       if (ly.radColl) { var rc = new T.Mesh(new T.BoxGeometry(0.5, 0.35, 0.12), matOf(T, 0xdc2626)); rc.position.set(ly.radColl.x / pm, elev + 1.0, ly.radColl.y / pm); gl.rad.add(rc); }
       // тёплый пол: подача красная, обратка синяя, трубы 16 мм в стяжке
       (ly.loops || []).forEach(function (Lp) {
-        var a1 = tube(T, Lp.sup, pm, 0.008, 0xff6b6b, elev + 0.03), a2 = tube(T, Lp.ret, pm, 0.008, 0x6b8cff, elev + 0.03);
-        var a3 = Lp.sup.length && Lp.ret.length ? tube(T, [Lp.sup[Lp.sup.length - 1], Lp.ret[0]], pm, 0.008, 0x6b8cff, elev + 0.03) : null;
+        var a1 = tube(T, Lp.sup, pm, 0.012, 0xff2a1f, elev + 0.04), a2 = tube(T, Lp.ret, pm, 0.012, 0x1f5bff, elev + 0.04);
+        var a3 = Lp.sup.length && Lp.ret.length ? tube(T, [Lp.sup[Lp.sup.length - 1], Lp.ret[0]], pm, 0.012, 0x1f5bff, elev + 0.04) : null;
         [a1, a2, a3].forEach(function (t) { if (t) gl.tp.add(t); });
       });
-      (ly.bundle || []).forEach(function (sg) { var t = tube(T, [sg.a, sg.b], pm, 0.009 * Math.sqrt(sg.n || 1), 0x7c6aa8, elev + 0.05); if (t) gl.tp.add(t); });
+      // подводки: у каждой петли пара труб (подача красная, обратка синяя) от коллектора до петли, по тем же путям, что на плане
+      var leadDone = false;
+      try {
+        var allL = (ly.loops || []).filter(function (L) { return L && L.sup && L.lead && L.lead.length >= 2; });
+        var fp = G.DATA.floors[fl.i];
+        if (allL.length && fp.coll && G.projectPlans && G.projectPlans.leadPairs) {
+          G.projectPlans.leadPairs(fp, allL, pm).forEach(function (pr) {
+            [[pr.sup, 0xff2a1f], [pr.ret, 0x1f5bff]].forEach(function (q) { var t = tube(T, q[0], pm, 0.009, q[1], elev + 0.05); if (t) gl.tp.add(t); });
+            leadDone = true;
+          });
+        }
+      } catch (e) { console.warn('[plan_3d] подводки:', e); }
+      if (!leadDone) (ly.bundle || []).forEach(function (sg) { var t = tube(T, [sg.a, sg.b], pm, 0.012 * Math.sqrt(sg.n || 1), 0x8b5cf6, elev + 0.06); if (t) gl.tp.add(t); });
       if (ly.coll) { var cb = new T.Mesh(new T.BoxGeometry(0.5, 0.35, 0.12), matOf(T, 0xea580c)); cb.position.set(ly.coll.x / pm, elev + 1.0, ly.coll.y / pm); gl.tp.add(cb); }
       // вода (В1) и канализация: отводы Ø50/110, лежак Ø110, напорная Ø32
       (ly.wl || []).forEach(function (l) { var t = tube(T, l.pts, pm, 0.009, 0x38bdf8, elev + 0.2); if (t) gl.water.add(t); });
@@ -854,6 +866,35 @@
     fitCam(); S.cam.lookAt(S.ctl.target); S.ctl.update();
   }
 
+  /**
+   * Только инженерка: стены, окна, двери, пол и мебель - прозрачные призраки (виден контур), трубы и приборы на месте.
+   * У каждой фигуры свой клон материала: общие материалы (рама, металл) делят слои, и менять их сразу нельзя.
+   */
+  var GHOST_LAYERS = ['walls', 'floor', 'furn'];
+  function engToggle(force) {
+    if (!S) return;
+    var on2 = typeof force === 'boolean' ? force : !S.eng;
+    S.eng = on2;
+    GHOST_LAYERS.forEach(function (name) {
+      (S.lg[name] || []).forEach(function (grp) {
+        grp.traverse(function (o) {
+          if (!o.material) return;
+          if (on2) {
+            if (!o.userData.origMat) { o.userData.origMat = o.material; o.material = o.material.clone(); }
+            var m = o.material; m.transparent = true; m.depthWrite = false;
+            m.opacity = o.isLineSegments ? 0.22 : 0.07;
+            o.castShadow = false; o.receiveShadow = false;
+          } else if (o.userData.origMat) {
+            o.material.dispose(); o.material = o.userData.origMat; delete o.userData.origMat;
+            o.castShadow = !o.isLineSegments;
+          }
+        });
+      });
+    });
+    var b = document.getElementById('p3d_engbtn');
+    if (b) b.classList.toggle('on', on2);
+  }
+
   var CUT_H = 1.5;   // отметка разреза по умолчанию: стены ниже подоконников и вся обстановка на виду
   function cutToggle(force) {
     if (!S) return;
@@ -872,7 +913,7 @@
 
   function uiPanel() {
     panel = document.createElement('div'); panel.className = 'p3d-panel';
-    var h = '<div class="p3d-segrow"><button type="button" data-v="iso" class="on">Изометрия</button><button type="button" data-v="top">Сверху</button><button type="button" data-v="cut" id="p3d_cutbtn">Разрез</button></div>' +
+    var h = '<div class="p3d-segrow"><button type="button" data-v="iso" class="on">Изометрия</button><button type="button" data-v="top">Сверху</button><button type="button" data-v="cut" id="p3d_cutbtn">Разрез</button><button type="button" data-v="eng" id="p3d_engbtn" title="Стены, окна, двери, пол и мебель становятся прозрачными: видна только инженерка, её можно крутить">Инженерка</button></div>' +
       '<button type="button" data-more="1" class="p3d-link">Слои и срез ▸</button><div class="p3d-more" style="display:none;flex-direction:column;gap:7px">' +
       '<label title="Срез по высоте: убирает всё выше выбранной отметки">Срез <input type="range" id="p3d_cut" min="0.3" max="' + (S.totalH + 0.5).toFixed(2) + '" step="0.1" value="' + (S.totalH + 0.5).toFixed(2) + '"></label>';
     h += '<div style="margin-top:4px;font-weight:700;font-size:11px;letter-spacing:.06em;opacity:.7">ЭТАЖИ</div>';
@@ -889,9 +930,10 @@
         var mo = panel.querySelector('.p3d-more'), open = mo.style.display === 'none';
         mo.style.display = open ? 'flex' : 'none'; b.textContent = 'Слои и срез ' + (open ? '▾' : '▸');
       } else if (b.getAttribute('data-v') === 'cut') cutToggle();
+      else if (b.getAttribute('data-v') === 'eng') engToggle();
       else {
         view(b.getAttribute('data-v'));
-        [].forEach.call(panel.querySelectorAll('.p3d-segrow button[data-v]'), function (x) { if (x.id !== 'p3d_cutbtn') x.classList.toggle('on', x === b); });
+        [].forEach.call(panel.querySelectorAll('.p3d-segrow button[data-v]'), function (x) { if (x.id !== 'p3d_cutbtn' && x.id !== 'p3d_engbtn') x.classList.toggle('on', x === b); });
       }
     };
     panel.oninput = function (e) {

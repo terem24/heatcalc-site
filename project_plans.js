@@ -6006,7 +6006,7 @@
   // длины и расходы петель там должны совпадать с листом укладки.
   window.projectPlans = { sheets: sheets, waterSheets: waterSheets, wetZoneSheets: wetZoneSheets, axonoSheets: axonoSheets, iso3dSheets: iso3dSheets,
     boilerRoom: boilerRoom,
-    floorLoops: floorLoops, loopRows: loopRows, num1: num1, ufhView: ufhView, waterView: waterView, fixGlyph: fixGlyph, routePipes: routePipes, wvFixtures: wvFixtures, radRoutes: radRoutes,
+    floorLoops: floorLoops, loopRows: loopRows, leadPairs: leadPairs, num1: num1, ufhView: ufhView, waterView: waterView, fixGlyph: fixGlyph, routePipes: routePipes, wvFixtures: wvFixtures, radRoutes: radRoutes,
     radCollector: radCollector, boilerZone: boilerZone, wallSpot: wallSpot,
     snapCollector: snapCollector, collAngle: collAngle, angFromNormal: angFromNormal, roomAround: roomAround,
     radConnSide: radConnSide, radSideOfModel: radSideOfModel,
