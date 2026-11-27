@@ -266,7 +266,7 @@
     <script src="water_hydro.js?v=1.7" defer></script>
     <script src="assembly_check.js?v=1.12" defer></script>
     <script src="probe.js?v=1.0" defer></script>
-    <script src="app.min.js?v=16.94" defer></script>
+    <script src="app.min.js?v=16.95" defer></script>
     <!-- Общий вид котельной по смете (кадры спереди, трубы по смете, подписи): видит только владелец, см. app.renderRoomView -->
     <script src="boiler_room_list.js?v=1.0" defer></script>
     <script src="room_fit.js?v=1.0" defer></script>
@@ -966,6 +966,9 @@
                 <button type="button" id="btn_ufhplan_paste" onclick="app.pastePlanThenOpen()"
                     title="Вставить план из буфера обмена: сделайте снимок нужного листа (Win+Shift+S) или скопируйте картинку, затем нажмите здесь или Ctrl+V"
                     style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-sec); cursor: pointer; flex-shrink: 0; display: none;">Вставить из буфера</button>
+                <button type="button" id="btn_ufhplan_blank" onclick="app.openBlankPlan()"
+                    title="Плана нет: нарисуйте дом на пустом листе, вводя длины стен цифрами. Комнаты, тёплый пол и радиаторы считаются так же, как по загруженному плану"
+                    style="font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-sec); cursor: pointer; flex-shrink: 0; display: none;">Нарисовать без плана</button>
                 </span>
             </div>
             <!-- Второй шаг после плана: подсказка, пока человек не нажмёт или не закроет
