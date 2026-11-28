@@ -1382,6 +1382,10 @@
     // змеевика и линий загрузки нет. Двухконтурный котёл рядом с ним ГВС не греет.
     var hasEl = !!cfg.elWh && !cfg.indirect;
     var twoCirc = !!(cfg.gas && cfg.gas.circuits === 2 && !hasLoad && !hasEl);
+    // Потребителя нет — труб обвязки нет и в смете (app.boilerHasConsumer): рисуем только
+    // котёл, краны и фильтр на его патрубках, без стояков, гребёнки и размеров труб.
+    // Двухконтурный котёл несёт санитарные линии ГВС/ХВС, их оставляем как были.
+    var noPipes = !!cfg.noPipes && !twoCirc && !hasLoad && !cfg.snow;
 
     // ── отводы коллектора и раскладка их полосы ────────────────────────────
     // Отводов столько, сколько насосных групп в спецификации (cfg.radGroups /
@@ -1816,9 +1820,11 @@
         o.push(checkValve(xs, ys + 4, 'down'));
         ys += 6.5;
       }
-      o.push(vpipe(xs, ys, mY.supply, COL.supply, others(mY.supply)));
-      o.push(diaV(xs, stemDiaY, dia));
-      o.push(arrowSym(xs, stemArrowDown, 'down'));
+      if (!noPipes) {
+        o.push(vpipe(xs, ys, mY.supply, COL.supply, others(mY.supply)));
+        o.push(diaV(xs, stemDiaY, dia));
+        o.push(arrowSym(xs, stemArrowDown, 'down'));
+      }
       o.push('</g>');
 
       // обратка: кран + фильтр + кран. Обратный клапан каскада стоит на
@@ -1835,9 +1841,11 @@
       o.push(ln(xRet, bBot + 16.67, xRet, bBot + 18.74, { c: COL.ret, w: LW.pipe }));
       o.push(ballValve(xRet, bBot + 21.24, true));
       o.push(leaderValve(xRet, bBot + 21.24, mainThread));
-      o.push(vpipe(xRet, bBot + 23.74, mY.ret, COL.ret, others(mY.ret)));
-      o.push(diaV(xRet, stemDiaY, dia));
-      o.push(arrowSym(xRet, stemArrowUp, 'up'));
+      if (!noPipes) {
+        o.push(vpipe(xRet, bBot + 23.74, mY.ret, COL.ret, others(mY.ret)));
+        o.push(diaV(xRet, stemDiaY, dia));
+        o.push(arrowSym(xRet, stemArrowUp, 'up'));
+      }
       o.push('</g>');
 
       // двухконтурный газовый: ГВС и ХВС из котла. В эталоне ТМ-2 эти стояки
@@ -2061,7 +2069,9 @@
     // магистрали (коллектор групп прикручен прямо к ней) — гребёнку при
     // необходимости удлиняем, чтобы тройник узла не оказался за её торцом.
     var loadNodeX = (hasLoad && cfg.loadPump && !cfg.hydro) ? Math.max(tapsEnd + 6, 231) : null;
-    if (!cfg.hydro) {
+    if (noPipes) {
+      mRight = 229;
+    } else if (!cfg.hydro) {
       mRight = taps.length ? tapsEnd + 14.7 : 229;
       if (loadNodeX !== null) mRight = Math.max(mRight, loadNodeX + 26);
       o.push('<g data-hyd-part="msup" data-hyd-dir="fwd">');
@@ -2136,6 +2146,7 @@
     // торцов у них нет
     var colByKey = { supply: COL.supply, ret: COL.ret, dhw: COL.dhw, cold: COL.cold, loadS: COL.loadS, loadR: COL.loadR };
     Object.keys(mY).forEach(function (k) {
+      if (noPipes) return;
       if (k === 'loadS' || k === 'loadR') return;
       o.push(tick(mLeft, mY[k], false, colByKey[k]));
     });
