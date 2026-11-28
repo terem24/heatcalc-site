@@ -211,7 +211,7 @@
   // steps: до какого шага включительно рисовать трубы (1..4)
   async function build(steps) {
     steps = steps || 4;
-    var bi = A.boilerIndex(), di = A.nodeIndex('dhw', A.DHW_DIR, 'dhw.json?v=3'), hi = A.nodeIndex('hydro', A.HYDRO_DIR, 'hydro.json?v=7');
+    var bi = A.boilerIndex(), di = A.nodeIndex('dhw', A.DHW_DIR, 'dhw.json?v=3'), hi = A.nodeIndex('hydro', A.HYDRO_DIR, 'hydro.json?v=8');
     var PB = DATA.PB;
     var PH = DATA.PH;
     var bf = boilerFrames();
@@ -323,11 +323,11 @@
           nhCons.forEach(function (cn, k) {                  // у каждой пары: обратка слева, подача справа — как выходы групп коллектора
             var nn = mixN(cn);
             if (nn) {                                        // узел подмеса целиком: подача — нижний порт клапана, возврат — угольник слева (шаг 72 мм)
-              var sx0 = xcur + 0.06 * PXM, pp = PB['ufhmix:' + nn], zmin = Math.min(pp[0].pos_m[2], pp[1].pos_m[2]);       // подача — угольник слева, возврат — нижний порт справа
+              var sfM = mixSfx(cn), sx0 = xcur + 0.06 * PXM, pp = PB['ufhmix:' + nn + sfM], zmin = Math.min(pp[0].pos_m[2], pp[1].pos_m[2]);       // подача — угольник слева, возврат — нижний порт справа
               var pU = posOf('u' + k);
               var offU = [sx0 / PXM - pp[0].pos_m[0] + pU[0], YP - pp[0].pos_m[1], ZLOW - zmin + pU[1]];
-              var fsx = mixPumpFam() === 'pprofi130' && DATA.UI[nn + '_r'] ? '_r' : '';        // кадр узла с насосом ROMMER
-              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn), pf: mixPumpFam(), fr: DATA.UI[String(nn) + fsx], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + fsx + '.webp?v=3' });
+              var fsx = sfM || (mixPumpFam() === 'pprofi130' && DATA.UI[nn + '_r'] ? '_r' : '');        // кадр узла с насосом ROMMER (у узла ROMMER — свой кадр «_rm»)
+              layers.push({ kind: 'ufhmix', fid: 'u' + k, key: String(nn) + sfM, pf: mixPumpFam(), fr: DATA.UI[String(nn) + fsx], off: offU, src: UFHMIX_DIR + 'ufhmix_' + nn + fsx + '.webp?v=3' });
               cn.sup = add(pp[0].pos_m, offU); cn.ret = add(pp[1].pos_m, offU); cn.noIcon = true; cn.N = nn;
               nhR.push({ rx: proj(cn.ret)[0], sx: proj(cn.sup)[0], y: yTop, ys: proj(cn.sup)[1], yr: proj(cn.ret)[1], d1: -pp[0].pos_m[1] });
               xcur = sx0 + (0.2985 + 0.05 * nn + 0.12) * PXM;
@@ -479,12 +479,14 @@
   // модель models3d/room/ufhmix_<N>.glb). N — число выходов гребёнки этого узла из сметы (app._ufhMans); нет кадра или другой артикул — прежний значок
   var UFHMIX_DIR = 'img/ufhmix_node_front/';
   function mixN(cn) {
-    if (!cn || cn.kind !== 'floor' || !/^SDG-0120-001000$/i.test(cn.sku || '') || !DATA || !DATA.UI) return 0;
+    if (!cn || cn.kind !== 'floor' || !/^(SDG-0120-001000|RDG-0120-008100)$/i.test(cn.sku || '') || !DATA || !DATA.UI) return 0;
     var m = (A._ufhMans || [])[cn.fi];
     if (!m) return 0;
-    var n = Math.min(13, Math.max(2, m.loops | 0));
-    return DATA.UI[String(n)] && DATA.PB['ufhmix:' + n] ? n : 0;
+    var n = Math.min(13, Math.max(2, m.loops | 0)), sf = mixSfx(cn);
+    return DATA.UI[String(n) + sf] && DATA.PB['ufhmix:' + n + sf] ? n : 0;
   }
+  // ROMMER RDG-0120-008100: гребёнка RMS-1210 с насосно-смесительным узлом ROMMER — кадры, порты и модели с суффиксом «_rm»
+  function mixSfx(cn) { return cn && /^RDG-0120-008100$/i.test(cn.sku || '') ? '_rm' : ''; }
   function mixW(n) { return (0.2985 + 0.05 * n + 0.12) * PXM; }     // от порта возврата до правого края гребёнки с воздухоотводчиком и зазором, px
   function groupKw() {
     var eq = (A.currentEquipmentList || []).filter(function (e) { return !e.isOpt && /групп\S*\s+насосн|насосн\S*\s+групп/i.test(e.name) && !/(коллектор|гидрострелк|для\s+бойлера)/i.test(e.name); });
@@ -922,7 +924,7 @@
     if (DATA || loading) return;
     loading = true;
     var j = function (u) { return fetch(u).then(function (r) { return r.ok ? r.json() : null; }); };
-    Promise.all([j('img/room_ports.json?v=8'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=3'), j('img/dhw_node_front/dhw.json?v=5'), j('img/ufhmix_node_front/ufhmix.json?v=3').catch(function () { return null; })])
+    Promise.all([j('img/room_ports.json?v=9'), j('img/boiler_node_front/boiler.json?v=2'), j('img/hydro_node_front/hydro.json?v=4'), j('img/dhw_node_front/dhw.json?v=5'), j('img/ufhmix_node_front/ufhmix.json?v=4').catch(function () { return null; })])
       .then(function (r) { if (r[0] && r[1] && r[2] && r[3]) { DATA = { PB: r[0].PB, PH: r[0].PH, BI: r[1], HI: r[2], DI: r[3], UI: r[4] || {} }; app.render(); } loading = false; })
       .catch(function () { loading = false; });
   }
@@ -1316,7 +1318,7 @@
     });
     // коллектор и насосные группы: вид строится только для коллекторов SDG-0016/0018, RDG-0017/1017 с группами DN25 своего бренда
     // узел подмеса SDG-0120-001000 на коллекторе тёплого пола есть на виде отдельным слоем (кадры ufhmix) — не «нет модели»
-    var hyd = eq.filter(function (it) { return /^2\.4/.test(String(it.group || '')) && /^(SDG-00(16|18)|RDG-(0017|1017)|МУ|MU|SDG-0120|RDG-0120|SDG-0038|SVM-0025)/i.test(sk(it)) && !(/^SDG-0120-001000$/i.test(sk(it)) && DATA && DATA.UI && Object.keys(DATA.UI).length); });
+    var hyd = eq.filter(function (it) { return /^2\.4/.test(String(it.group || '')) && /^(SDG-00(16|18)|RDG-(0017|1017)|МУ|MU|SDG-0120|RDG-0120|SDG-0038|SVM-0025)/i.test(sk(it)) && !(/^(SDG-0120-001000|RDG-0120-008100)$/i.test(sk(it)) && DATA && DATA.UI && Object.keys(DATA.UI).length); });
     var hk = null;
     try { hk = app.hydroFrameKey(); } catch (e) { hk = null; }
     var hpick = hk && DATA && DATA.HI ? pickHydro(DATA.HI, hk.key) : null;
@@ -1689,7 +1691,7 @@
   }
   // вид собирается по составу сметы один раз на сигнатуру (стиль + кадры + бойлер + материал труб + мощности групп)
   function entry(app, kk) {
-    app.boilerIndex(); app.nodeIndex('hydro', app.HYDRO_DIR, 'hydro.json?v=7'); app.nodeIndex('dhw', app.DHW_DIR, 'dhw.json?v=3');
+    app.boilerIndex(); app.nodeIndex('hydro', app.HYDRO_DIR, 'hydro.json?v=8'); app.nodeIndex('dhw', app.DHW_DIR, 'dhw.json?v=3');
     var caps = capture(app);
     var bc = caps.filter(function (c) { return c.kind === 'boiler'; })[0];
     if (!bc) return false;                 // false — вид для этой сметы не собирается (нет котла с обвязкой); null — ещё собирается
