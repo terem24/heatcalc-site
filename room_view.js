@@ -1390,7 +1390,11 @@
     if (FULL) renderFull();
     A.render();
   }
-  try { new MutationObserver(function () { if (A) { if (window.Room3D && window.Room3D.wallRefresh) window.Room3D.wallRefresh(); A.render(); } }).observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) { }
+  // Перерисовка вида при смене тёмной темы. Реагируем ТОЛЬКО на смену светлая/тёмная: любая другая правка класса <body> (тема бренда ROMMER
+  // переставляет класс при каждой отрисовке сметы) раньше вызывала A.render(), та снова меняла класс — бесконечный цикл, страница зависала
+  // намертво при переключении на ROMMER (28.11.2026, причина найдена профилем: MutationObserver -> render -> syncBrandTheme -> MutationObserver)
+  var lastDark = isDark();
+  try { new MutationObserver(function () { if (!A) return; var d = isDark(); if (d === lastDark) return; lastDark = d; if (window.Room3D && window.Room3D.wallRefresh) window.Room3D.wallRefresh(); A.render(); }).observe(document.body, { attributes: true, attributeFilter: ['class'] }); } catch (e) { }
   function toggleDims() {
     if (!A) return;
     A.state.roomViewDims = !A.state.roomViewDims; A.saveState();
