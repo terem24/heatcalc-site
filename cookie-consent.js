@@ -184,6 +184,29 @@
                     padding: 16px;
                 }
             }
+
+            /* Окно по центру с затемнением: пока не ответят, калькулятор не нажимается */
+            .hc-cookie-overlay {
+                position: fixed; inset: 0; z-index: 49999999;
+                background: rgba(8, 12, 22, 0.55);
+                backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+                opacity: 0; transition: opacity 0.3s ease;
+            }
+            .hc-cookie-overlay.show { opacity: 1; }
+            .hc-cookie-banner, .hc-cookie-banner.show {
+                top: 50%; left: 50%; right: auto; bottom: auto;
+                width: calc(100% - 32px); max-width: 440px;
+                padding: 24px;
+            }
+            .hc-cookie-banner { transform: translate(-50%, -46%) scale(0.96); }
+            .hc-cookie-banner.show { transform: translate(-50%, -50%) scale(1); }
+            .hc-cookie-banner .hc-cookie-buttons { flex-direction: column; align-items: stretch; gap: 8px; }
+            .hc-cookie-banner .hc-cookie-btn-accept { padding: 14px 16px; font-size: 15px; }
+            .hc-cookie-banner .hc-cookie-btn-decline {
+                background: none; box-shadow: none; padding: 6px 8px; font-size: 12px; font-weight: 500;
+                color: #9CA3AF; text-decoration: underline; text-underline-offset: 3px;
+            }
+            .hc-cookie-banner .hc-cookie-btn-decline:hover { background: none; color: #D1D5DB; }
         `;
         document.head.appendChild(style);
 
@@ -192,21 +215,25 @@
         banner.className = 'hc-cookie-banner';
         banner.innerHTML = `
             <div class="hc-cookie-title">
-                <span>🍪</span> Использование файлов Cookie & Аналитика
+                <span>🍪</span> Помогите сделать калькулятор лучше
             </div>
             <div class="hc-cookie-text">
-                Используем cookie и Яндекс.Метрику. Подробнее в <a href="/privacy-policy.html" target="_blank">Политике конфиденциальности</a>.
+                Мы смотрим, какие разделы нужны, и убираем то, что мешает. Данные анонимные. <a href="/privacy-policy.html" target="_blank">Подробнее</a>
             </div>
             <div class="hc-cookie-buttons">
                 <button class="hc-cookie-btn hc-cookie-btn-accept" id="hc-cookie-accept">Принять</button>
-                <button class="hc-cookie-btn hc-cookie-btn-decline" id="hc-cookie-decline">Отклонить</button>
+                <button class="hc-cookie-btn hc-cookie-btn-decline" id="hc-cookie-decline">Только необходимые</button>
             </div>
         `;
+        var overlay = document.createElement('div');
+        overlay.className = 'hc-cookie-overlay';
+        document.body.appendChild(overlay);
         document.body.appendChild(banner);
 
         // Trigger slide-in animation
         setTimeout(function() {
             banner.classList.add('show');
+            overlay.classList.add('show');
         }, 1000);
 
         // Следующие окна (обучение, плашка про сервер) ждут ответа на куки: показываем по очереди
@@ -218,7 +245,9 @@
         document.getElementById('hc-cookie-accept').addEventListener('click', function() {
             localStorage.setItem('cookieConsent', 'accepted');
             banner.classList.remove('show');
+            overlay.classList.remove('show');
             setTimeout(function() {
+                overlay.remove();
                 banner.remove();
             }, 400);
             window.initMetrika();
@@ -230,7 +259,9 @@
         document.getElementById('hc-cookie-decline').addEventListener('click', function() {
             localStorage.setItem('cookieConsent', 'declined');
             banner.classList.remove('show');
+            overlay.classList.remove('show');
             setTimeout(function() {
+                overlay.remove();
                 banner.remove();
             }, 400);
             reportConsent();

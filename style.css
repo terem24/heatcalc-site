@@ -3086,6 +3086,7 @@ body.html2pdf-printing .note-box .note-tip .tooltip-content b { color: inherit !
 
     .print-hide,
     .hc-cookie-banner,
+    .hc-cookie-overlay,
     .inv-table tr.works-detail,
     tr.works-detail,
     /* «Как подобрано / Как работает» — подсказка для монтажника или продавца во
@@ -4569,14 +4570,16 @@ body.admin-modal-open {
    из-за этого просто не нажать. Прячем так же, как его прячет модалка входа
    (body.auth-modal-open выше): решение по cookie никуда не денется, баннер
    вернётся, как только панель закроют. */
-body.admin-modal-open .hc-cookie-banner {
+body.admin-modal-open .hc-cookie-banner,
+body.admin-modal-open .hc-cookie-overlay {
     display: none !important;
 }
 
 /* То же и для окон поверх калькулятора: в «Профиле» баннер закрывал поля
    «Город» и «Регион» вместе с кнопками «Сохранить» и «Отмена», в окне тарифов —
    кнопку «Оформить подписку». Класс ставит app.syncModalOverlayClass. */
-body.modal-over-banner .hc-cookie-banner {
+body.modal-over-banner .hc-cookie-banner,
+body.modal-over-banner .hc-cookie-overlay {
     display: none !important;
 }
 
@@ -5212,7 +5215,8 @@ body.dark-mode input[type="date"] {
    перекрывает низ окна входа/регистрации — кнопка под ним не нажимается. Пока окно
    открыто, баннер скрываем; класс auth-modal-open снимается при закрытии, и баннер
    возвращается. */
-body.auth-modal-open .hc-cookie-banner {
+body.auth-modal-open .hc-cookie-banner,
+body.auth-modal-open .hc-cookie-overlay {
     display: none !important;
 }
 
