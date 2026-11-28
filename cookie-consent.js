@@ -209,6 +209,11 @@
             banner.classList.add('show');
         }, 1000);
 
+        // Следующие окна (обучение, плашка про сервер) ждут ответа на куки: показываем по очереди
+        function answered() {
+            try { window.dispatchEvent(new Event('hc:cookie-answered')); } catch (e) {}
+        }
+
         // Bind Accept Event
         document.getElementById('hc-cookie-accept').addEventListener('click', function() {
             localStorage.setItem('cookieConsent', 'accepted');
@@ -218,6 +223,7 @@
             }, 400);
             window.initMetrika();
             reportConsent();
+            answered();
         });
 
         // Bind Decline Event
@@ -228,6 +234,7 @@
                 banner.remove();
             }, 400);
             reportConsent();
+            answered();
         });
     });
 })();

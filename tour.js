@@ -1104,8 +1104,24 @@ const Tour = {
         this.next();
     },
 
+    // Очередь окон после входа: куки -> обучение -> плашка про сервер. Пока висит
+    // баннер cookie, обучение не показываем и ждём ответа (принять или отклонить).
+    cookiePending: function () {
+        try { return !!document.querySelector('.hc-cookie-banner'); } catch (e) { return false; }
+    },
+
     start: function () {
         if (!this.allowed()) return;
+        if (this.cookiePending()) {
+            if (!this._waitCookie) {
+                this._waitCookie = true;
+                window.addEventListener('hc:cookie-answered', () => {
+                    this._waitCookie = false;
+                    if (this.active()) this.start();
+                }, { once: true });
+            }
+            return;
+        }
         this.injectStyles();
         this.bindKeys();
         this.hookSave();
