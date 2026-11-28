@@ -1333,7 +1333,34 @@
     });
     return out;
   }
-  function gapHtml(app) {
+  // Только для админа (app.wmPreviewOn() — владелец): позиции раздела 2 сметы, которых нет на виде. Проверка идёт по составу сметы, а не по кадру:
+  // что нарисовано внутри кадра котла (фильтр, краны обвязки), отсюда не видно, поэтому в списке бывают и позиции, которые на самом деле в кадре.
+  // Трубы, фитинги, краны, воздухоотводчики, термометры (отдельных моделей нет) и то, что проверяет публичная плашка (котлы, коллекторы, группы,
+  // насосы, узлы подмеса, бойлеры), в список не входят.
+  var NOT_DEVICE = /^(SSS|SFT|SFA|SVB|SVC|SVS|RSS|SIM|SFC|SMF|RBV|RVA|RVC|RIC|RVS-0003|RVS-0008|ASKON)-/i;
+  var PUBLIC_CHECKED = /^(SDG-(0016|0018|0001|0002|0003|0007|0015|0038|0120)|RDG-(0017|1017|0015|100\d|1038|0120)|SPC-|RCP-|SVM-0025|МУ|MU|SWH-|RWH-)/i;
+  function adminGapList(app) {
+    var eq = (app.currentEquipmentList || []).filter(function (it) { return !it.isOpt && /^2\./.test(String(it.group || '')); }), out = [], seen = {};
+    var cb = boilerIds(), dk = null;
+    try { dk = dhwKeys(); } catch (e) { dk = null; }
+    eq.forEach(function (it) {
+      var s = String(it.displaySku || it.id || '');
+      if (NOT_DEVICE.test(s) || PUBLIC_CHECKED.test(s) || cb[s]) return;
+      if (/^STW-0015-/i.test(s) && dk && dk.exp) return;            // бак ГВС с кадром
+      var k = s + '|' + it.name; if (seen[k]) return; seen[k] = 1;
+      out.push({ kind: 'прочее', name: ((it.brand ? it.brand + ' ' : '') + String(it.name || s)).replace(/\s+/g, ' ').trim() + ' (' + s + ')' });
+    });
+    return out;
+  }
+  function adminGapHtml(app) {
+    var a = [];
+    try { if (app.wmPreviewOn && app.wmPreviewOn()) a = adminGapList(app); } catch (e) { a = []; }
+    if (!a.length) return '';
+    css();
+    return '<div class="rv-gap"><b>Только для админа: есть в смете (раздел 2), не показано на виде.</b> Проверка по составу сметы, часть позиций может быть внутри кадра котла: ' +
+      a.map(function (x) { return esc(x.name); }).join('; ') + '.</div>';
+  }
+  function pubGapHtml(app) {
     var g;
     try { g = gapList(app); } catch (e) { g = []; }
     if (!g.length) return '';
@@ -1342,6 +1369,7 @@
       g.map(function (x) { return x.kind === 'насос' ? esc(x.name) : esc(x.name) + ' (' + x.kind + ')'; }).join('; ') +
       '. Они есть в смете и в таблице, на схему не попали.</div>';
   }
+  function gapHtml(app) { return pubGapHtml(app) + adminGapHtml(app); }
 
 
   // ── габариты котельной: прозрачные поля кадров не считаются — берём по непрозрачным пикселям каждого слоя (оборудование, без труб)
@@ -1955,5 +1983,5 @@
   // перетаскивание коллектора мышью на 3D-виде (room_3d.js): включено, пока открыта панель «Положение коллектора»; сдвиг в метрах, проверка и запись — как у стрелок
   function moveOn() { return !!(FULL && MV.open); }
   function moveable(fid) { return movables().some(function (m) { return m.fid === fid; }); }
-  window.RoomView = { moveOn: moveOn, moveable: moveable, moveLayer: function (fid, dx, dz) { return movePos(dx, dz, fid); }, wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, _gapList: function (app, data) { var o = DATA; if (data) DATA = data; try { return gapList(app); } finally { DATA = o; } }, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
+  window.RoomView = { moveOn: moveOn, moveable: moveable, moveLayer: function (fid, dx, dz) { return movePos(dx, dz, fid); }, wallKind: wallKind, wallTile: wallTile, isDark: isDark, wallSet: wallSet, wallNames: WALL_NAMES, wallKinds: WALL_KINDS, toggleDims: toggleDims, html: html, _adminGaps: function (app) { return adminGapList(app); }, _gapList: function (app, data) { var o = DATA; if (data) DATA = data; try { return gapList(app); } finally { DATA = o; } }, openFull: openFull, closeFull: closeFull, pumpOptions: pumpOptions, pumpSwap: pumpSwap, pumpFams: pumpFams, tankAngle: tankAngle, tankRotate: tankRotate, tankSide: tankSide, tankRot: tankRot, tankSwap: tankSwap, _build: build };
 })();
